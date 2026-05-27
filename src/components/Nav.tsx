@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
 
 const subjects = [
   { href: '/fizika', label: 'Fizika' },
@@ -10,6 +11,7 @@ const subjects = [
 
 export default function Nav() {
   const path = usePathname();
+  const { user, loading, signOut } = useAuth();
 
   return (
     <nav style={{
@@ -53,6 +55,52 @@ export default function Nav() {
             );
           })}
         </div>
+
+        {/* Auth controls */}
+        {!loading && (
+          user ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginLeft: 'auto', flexShrink: 0 }}>
+              <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'rgba(255,255,255,0.45)' }}>
+                {user.email}
+              </span>
+              <button
+                onClick={signOut}
+                style={{
+                  background: 'rgba(255,255,255,0.08)',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  borderRadius: 'var(--r-sm)',
+                  color: 'rgba(255,255,255,0.7)',
+                  fontFamily: 'var(--font-sans)',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  padding: '4px 12px',
+                  cursor: 'pointer',
+                }}
+              >
+                Odjava
+              </button>
+            </div>
+          ) : (
+            <Link
+              href="/login"
+              style={{
+                background: 'rgba(255,255,255,0.08)',
+                border: '1px solid rgba(255,255,255,0.2)',
+                borderRadius: 'var(--r-sm)',
+                color: 'rgba(255,255,255,0.7)',
+                fontFamily: 'var(--font-sans)',
+                fontSize: '12px',
+                fontWeight: 500,
+                padding: '4px 12px',
+                textDecoration: 'none',
+                marginLeft: 'auto',
+                flexShrink: 0,
+              }}
+            >
+              Prijava
+            </Link>
+          )
+        )}
       </div>
     </nav>
   );

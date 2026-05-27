@@ -30,6 +30,16 @@ export function useEnotaOrder(storageKey = 'ucni-nacrt-enote-order') {
     try { setStore(JSON.parse(localStorage.getItem(storageKey) || '{}')); } catch { setStore({}); }
   }, [storageKey]);
 
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === storageKey && e.storageArea === localStorage) {
+        try { setStore(JSON.parse(e.newValue || '{}')); } catch { setStore({}); }
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [storageKey]);
+
   const resolve = useCallback((poglavjeKey: string, currIds: string[]): ResolvedEnotaItem[] => {
     const currSet = new Set(currIds);
     const stored = store[poglavjeKey] ?? currIds.map(id => ({ k: 'c' as const, id }));

@@ -1,6 +1,7 @@
 'use client';
 
 import { useClasses } from '@/hooks/useClasses';
+import { useAuth } from '@/hooks/useAuth';
 import ClassTabs from '@/components/ClassTabs';
 import CurriculumTree from '@/components/CurriculumTree';
 import { fizika } from '@/data/fizika';
@@ -13,6 +14,8 @@ function getRazredFilter(name: string): number | null {
 
 export default function FizikaClient() {
   const { classes, activeId, addClass, renameClass, removeClass, selectClass, reorderClasses, activeClass } = useClasses();
+  const { user, loading } = useAuth();
+  const isAnonymous = !loading && !user;
   const razredFilter = activeClass ? getRazredFilter(activeClass.name) : null;
   const classBar = (
     <ClassTabs
@@ -23,6 +26,7 @@ export default function FizikaClient() {
       onRename={renameClass}
       onDelete={removeClass}
       onReorder={reorderClasses}
+      isAnonymous={isAnonymous}
     />
   );
   return (
@@ -32,6 +36,7 @@ export default function FizikaClient() {
       classId={activeId ?? undefined}
       razredFilter={razredFilter}
       classBar={classBar}
+      isAnonymous={isAnonymous}
     />
   );
 }

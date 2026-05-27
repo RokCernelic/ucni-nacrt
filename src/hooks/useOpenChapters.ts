@@ -15,6 +15,16 @@ export function useOpenChapters(storageKey = 'ucni-nacrt-open-chapters') {
     }
   }, [storageKey]);
 
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === storageKey && e.storageArea === localStorage) {
+        try { setOpenChapters(new Set(JSON.parse(e.newValue || '[]'))); } catch { setOpenChapters(new Set()); }
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [storageKey]);
+
   const toggle = useCallback((id: string) => {
     setOpenChapters(prev => {
       const next = new Set(prev);

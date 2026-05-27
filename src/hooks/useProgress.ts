@@ -10,6 +10,16 @@ export function useProgress(storageKey = 'ucni-nacrt-progress') {
     try { setChecked(JSON.parse(localStorage.getItem(storageKey) || '{}')); } catch { setChecked({}); }
   }, [storageKey]);
 
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === storageKey && e.storageArea === localStorage) {
+        try { setChecked(JSON.parse(e.newValue || '{}')); } catch { setChecked({}); }
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [storageKey]);
+
   const toggle = useCallback((enoteId: string) => {
     setChecked(prev => {
       const next = { ...prev, [enoteId]: !prev[enoteId] };

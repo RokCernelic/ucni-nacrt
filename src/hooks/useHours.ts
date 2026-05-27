@@ -10,6 +10,16 @@ export function useHours(storageKey = 'ucni-nacrt-hours') {
     try { setHours(JSON.parse(localStorage.getItem(storageKey) || '{}')); } catch { setHours({}); }
   }, [storageKey]);
 
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === storageKey && e.storageArea === localStorage) {
+        try { setHours(JSON.parse(e.newValue || '{}')); } catch { setHours({}); }
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [storageKey]);
+
   const getHours = useCallback((key: string) => hours[key] ?? 1, [hours]);
 
   const change = useCallback((key: string, delta: number, gradeKeys: string[], gradeTarget: number) => {

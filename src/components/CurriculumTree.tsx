@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback, createContext, useContext, useRef, type ReactNode } from 'react';
+import Link from 'next/link';
 import type { Predmet, Standard } from '@/types/curriculum';
 import { useProgress } from '@/hooks/useProgress';
 import { useHours } from '@/hooks/useHours';
@@ -26,6 +27,15 @@ function CheckIcon() {
   return (
     <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
       <path d="M2 6L5 9L10 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function LockIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <rect x="2" y="6" width="10" height="7" rx="2" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M4.5 6V4.5a2.5 2.5 0 015 0V6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   );
 }
@@ -218,7 +228,7 @@ function CustomEnotaRow({ item, onToggle, onDragStart, onDragEnd }: {
 
 // ── Podpoglavje row ────────────────────────────────────────
 
-function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, onHourChange, remaining, number }: {
+function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, onHourChange, remaining, number, isAnonymous }: {
   podpoglavje: import('@/types/curriculum').Podpoglavje;
   predmetId: string;
   checked: boolean;
@@ -227,6 +237,7 @@ function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, 
   onHourChange: (delta: number) => void;
   remaining: number;
   number: string;
+  isAnonymous?: boolean;
 }) {
   const [openCilji, setOpenCilji] = useState(false);
   const [openStandardi, setOpenStandardi] = useState(false);
@@ -236,13 +247,23 @@ function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, 
   return (
     <div style={{ borderBottom: '1px solid var(--hairline)', background: checked ? '#f4fbf4' : 'var(--canvas)', transition: 'background 0.2s' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '11px 20px' }}>
-        <button
-          onClick={onToggle}
-          title={checked ? 'Označi kot neopravljeno' : 'Označi kot opravljeno'}
-          style={{ width: '20px', height: '20px', flexShrink: 0, alignSelf: 'flex-start', marginTop: '2px', border: `2px solid ${checked ? 'var(--green-ok)' : 'var(--hairline)'}`, borderRadius: '4px', background: checked ? 'var(--green-ok)' : 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', transition: 'all 0.15s' }}
-        >
-          {checked && <CheckIcon />}
-        </button>
+        {isAnonymous ? (
+          <Link
+            href="/login"
+            title="Prijavite se za beleženje napredka"
+            style={{ width: '20px', height: '20px', flexShrink: 0, alignSelf: 'flex-start', marginTop: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}
+          >
+            <LockIcon />
+          </Link>
+        ) : (
+          <button
+            onClick={onToggle}
+            title={checked ? 'Označi kot neopravljeno' : 'Označi kot opravljeno'}
+            style={{ width: '20px', height: '20px', flexShrink: 0, alignSelf: 'flex-start', marginTop: '2px', border: `2px solid ${checked ? 'var(--green-ok)' : 'var(--hairline)'}`, borderRadius: '4px', background: checked ? 'var(--green-ok)' : 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', transition: 'all 0.15s' }}
+          >
+            {checked && <CheckIcon />}
+          </button>
+        )}
 
         <div style={{ flex: 1 }}>
           <div style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: podpoglavje.izbirna ? 400 : 500, fontStyle: podpoglavje.izbirna ? 'italic' : 'normal', color: checked ? 'var(--green-ok)' : podpoglavje.izbirna ? 'var(--muted)' : 'var(--ink)', opacity: checked ? 0.7 : 1 }}>
@@ -311,7 +332,7 @@ function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, 
 
 // ── Poglavje row ──────────────────────────────────────────
 
-function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, onToggleOpen, getHours, onHourChange, remaining, resolve, addEnota, reorder, removeEnota, toggleCustom }: {
+function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, onToggleOpen, getHours, onHourChange, remaining, resolve, addEnota, reorder, removeEnota, toggleCustom, isAnonymous }: {
   poglavje: import('@/types/curriculum').Poglavje;
   index: number;
   predmetId: string;
@@ -327,6 +348,7 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
   reorder: (key: string, from: number, to: number, currIds: string[]) => void;
   removeEnota: (key: string, id: string) => void;
   toggleCustom: (key: string, id: string) => void;
+  isAnonymous?: boolean;
 }) {
   const [openOpis, setOpenOpis] = useState(false);
   const [isDraggingCustom, setIsDraggingCustom] = useState(false);
@@ -415,6 +437,7 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
                         onHourChange={delta => onHourChange(`${predmetId}:${item.id}`, delta)}
                         remaining={remaining}
                         number={`${index}.${currNumSnapshot}`}
+                        isAnonymous={isAnonymous}
                       />
                     ) : (
                       <CustomEnotaRow
@@ -475,11 +498,12 @@ function GradeDivider({ razred, target, used, doneHours, totalHours }: {
 
 // ── Main tree ─────────────────────────────────────────────
 
-export default function CurriculumTree({ predmet, classId, razredFilter = null, classBar }: {
+export default function CurriculumTree({ predmet, classId, razredFilter = null, classBar, isAnonymous = false }: {
   predmet: Predmet;
   classId?: string;
   razredFilter?: number | null;
   classBar?: ReactNode;
+  isAnonymous?: boolean;
 }) {
   const { checked, toggle } = useProgress(classId ? `ucni-nacrt-progress-${classId}` : undefined);
   const { getHours, change } = useHours(classId ? `ucni-nacrt-hours-${classId}` : undefined);
@@ -604,6 +628,7 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
                         reorder={reorder}
                         removeEnota={removeEnota}
                         toggleCustom={toggleCustom}
+                        isAnonymous={isAnonymous}
                       />
                     ))}
                   </div>
@@ -613,7 +638,11 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
           })()}
 
           <p style={{ marginTop: '20px', fontSize: '12px', color: 'var(--muted)', textAlign: 'center' }}>
-            Napredek in ure se shranjujejo samodejno v brskalnik.
+            {isAnonymous ? (
+              <>Napredek se shranjuje v oblak. <Link href="/login" style={{ color: 'var(--forest)', fontWeight: 500 }}>Prijavite se</Link> za shranjevanje.</>
+            ) : (
+              'Napredek in ure se shranjujejo samodejno v oblak.'
+            )}
           </p>
         </div>
       </div>

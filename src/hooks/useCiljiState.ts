@@ -35,6 +35,16 @@ export function useCiljiState() {
   const [store, setStore] = useState<Store>({});
   useEffect(() => { setStore(load()); }, []);
 
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === KEY && e.storageArea === localStorage) {
+        try { setStore(JSON.parse(e.newValue || '{}')); } catch { setStore({}); }
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
   const resolve = useCallback((enotaKey: string, curriculumCilji: { id: string; tip: 'O' | 'I'; text: string }[]): ResolvedItem[] => {
     const currMap = new Map(curriculumCilji.map(c => [c.id, c]));
     const stored = store[enotaKey] ?? curriculumCilji.map(c => ({ k: 'c' as const, id: c.id }));

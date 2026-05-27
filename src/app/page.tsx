@@ -1,4 +1,3 @@
-import Nav from '@/components/Nav';
 import SubjectCard from '@/components/SubjectCard';
 import { fizika } from '@/data/fizika';
 
@@ -26,8 +25,6 @@ const subjects = [
 export default function Home() {
   return (
     <>
-      <Nav />
-
       {/* Hero */}
       <div style={{ background: 'var(--forest)', padding: '72px 32px 64px' }}>
         <div style={{ maxWidth: '1100px', margin: '0 auto' }}>

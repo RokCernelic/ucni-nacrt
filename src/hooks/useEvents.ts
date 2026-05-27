@@ -23,6 +23,16 @@ export function useEvents() {
   const [events, setEvents] = useState<PlacedEvent[]>([]);
   useEffect(() => { setEvents(load()); }, []);
 
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY && e.storageArea === localStorage) {
+        try { setEvents(JSON.parse(e.newValue || '[]')); } catch { setEvents([]); }
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
   const addEvent = useCallback((type: EventType, enotaKey: string, slot: number) => {
     setEvents(prev => {
       const next = [...prev, { id: crypto.randomUUID(), type, enotaKey, slot, checked: false }];

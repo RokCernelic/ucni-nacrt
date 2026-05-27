@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import Link from 'next/link';
 import type { SchoolClass } from '@/hooks/useClasses';
 
 interface Props {
@@ -11,9 +12,10 @@ interface Props {
   onRename: (id: string, name: string) => void;
   onDelete: (id: string) => void;
   onReorder: (fromIndex: number, toIndex: number) => void;
+  isAnonymous?: boolean;
 }
 
-export default function ClassTabs({ classes, activeId, onSelect, onAdd, onRename, onDelete, onReorder }: Props) {
+export default function ClassTabs({ classes, activeId, onSelect, onAdd, onRename, onDelete, onReorder, isAnonymous = false }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [adding, setAdding] = useState(false);
@@ -123,7 +125,21 @@ export default function ClassTabs({ classes, activeId, onSelect, onAdd, onRename
         );
       })}
 
-      {adding ? (
+      {isAnonymous ? (
+        <Link
+          href="/login"
+          title="Prijavite se za ustvarjanje razredov"
+          style={{
+            background: 'rgba(255,255,255,0.07)', border: '1px dashed rgba(255,255,255,0.25)',
+            borderRadius: '6px', color: 'rgba(255,255,255,0.4)',
+            fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 400,
+            padding: '4px 10px', textDecoration: 'none',
+            display: 'flex', alignItems: 'center', lineHeight: 1, whiteSpace: 'nowrap',
+          }}
+        >
+          + Prijava za razrede
+        </Link>
+      ) : adding ? (
         <input
           ref={addRef}
           value={newName}

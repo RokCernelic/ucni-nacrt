@@ -25,6 +25,23 @@ export function useClasses() {
     setActiveId(initial);
   }, []);
 
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.storageArea !== localStorage) return;
+      if (e.key === CLASSES_KEY) {
+        try {
+          const loaded: SchoolClass[] = JSON.parse(e.newValue || '[]');
+          setClasses(loaded);
+        } catch { setClasses([]); }
+      }
+      if (e.key === ACTIVE_KEY) {
+        setActiveId(e.newValue ?? null);
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
   const addClass = useCallback((name: string) => {
     const id = crypto.randomUUID();
     setClasses(prev => {
