@@ -126,6 +126,30 @@ function NoviPojmiList({ noviPojmi }: { noviPojmi: string[] }) {
   );
 }
 
+// ── Legenda oznak ──────────────────────────────────────────
+
+function Legend() {
+  const items: { label: string; bg: string; color: string; desc: string }[] = [
+    { label: 'O', bg: 'var(--forest)', color: '#fff', desc: 'obvezni cilj' },
+    { label: 'I', bg: 'var(--wood)', color: '#fff', desc: 'izbirni cilj / standard' },
+    { label: 'M', bg: 'var(--forest)', color: '#fff', desc: 'minimalni standard' },
+    { label: 'S', bg: 'var(--cream)', color: 'var(--wood)', desc: 'skupni standard' },
+  ];
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', padding: '0 2px 8px', fontFamily: 'var(--font-sans)' }}>
+      <span style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted)', whiteSpace: 'nowrap' }}>
+        Legenda:
+      </span>
+      {items.map(it => (
+        <span key={it.label} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: '10px', fontWeight: 700, background: it.bg, color: it.color, borderRadius: '3px', padding: '2px 6px', lineHeight: 1 }}>{it.label}</span>
+          <span style={{ fontSize: '11px', color: 'var(--muted)' }}>{it.desc}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
 // ── Palette ────────────────────────────────────────────────
 
 function Palette({ onDragStart, onDragEnd }: { onDragStart: (t: PaletteType) => void; onDragEnd: () => void }) {
@@ -671,6 +695,7 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
                     onDragStart={setPaletteDrag}
                     onDragEnd={() => setPaletteDrag(null)}
                   />
+                  {gi === 0 && <Legend />}
                   <div style={{ marginTop: '6px', background: 'var(--canvas)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
                     {items.map(({ poglavje, index }) => (
                       <PoglavjeRow
