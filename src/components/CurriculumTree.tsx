@@ -93,7 +93,7 @@ function renderStandard(s: Standard): ReactNode {
   return nodes;
 }
 
-function StandardiList({ standardi, noviPojmi }: { standardi: Standard[]; noviPojmi?: string[] }) {
+function StandardiList({ standardi }: { standardi: Standard[] }) {
   return (
     <div style={{ padding: '14px 0 8px' }}>
       <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -106,19 +106,21 @@ function StandardiList({ standardi, noviPojmi }: { standardi: Standard[]; noviPo
           </li>
         ))}
       </ul>
-      {noviPojmi && noviPojmi.length > 0 && (
-        <div style={{ marginTop: '16px', padding: '10px 14px', background: 'var(--cream)', borderRadius: 'var(--r-sm)', borderLeft: '3px solid var(--wood-lt)' }}>
-          <p style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--wood)', marginBottom: '6px' }}>Novi pojmi</p>
-          <p style={{ fontSize: '13px', color: 'var(--body)', lineHeight: 1.6 }}>
-            {noviPojmi.map((p, i) => (
-              <span key={i}>
-                <span style={{ color: 'var(--ink)', fontWeight: 500 }}>{p}</span>
-                {i < noviPojmi.length - 1 && <span style={{ color: 'var(--muted)', margin: '0 6px' }}>◦</span>}
-              </span>
-            ))}
-          </p>
-        </div>
-      )}
+    </div>
+  );
+}
+
+function NoviPojmiList({ noviPojmi }: { noviPojmi: string[] }) {
+  return (
+    <div style={{ padding: '14px 0 8px' }}>
+      <p style={{ fontSize: '13px', color: 'var(--body)', lineHeight: 1.6, margin: 0 }}>
+        {noviPojmi.map((p, i) => (
+          <span key={i}>
+            <span style={{ color: 'var(--ink)', fontWeight: 500 }}>{p}</span>
+            {i < noviPojmi.length - 1 && <span style={{ color: 'var(--muted)', margin: '0 6px' }}>◦</span>}
+          </span>
+        ))}
+      </p>
     </div>
   );
 }
@@ -272,8 +274,10 @@ function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, 
 }) {
   const [openCilji, setOpenCilji] = useState(false);
   const [openStandardi, setOpenStandardi] = useState(false);
+  const [openPojmi, setOpenPojmi] = useState(false);
   const hasCilji = podpoglavje.cilji.length > 0;
   const hasStandardi = (podpoglavje.standardi?.length ?? 0) > 0;
+  const hasPojmi = (podpoglavje.noviPojmi?.length ?? 0) > 0;
 
   return (
     <div style={{ borderBottom: '1px solid var(--hairline)', background: checked ? '#f4fbf4' : 'var(--canvas)', transition: 'background 0.2s' }}>
@@ -305,8 +309,8 @@ function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, 
               </span>
             )}
           </div>
-          {(hasCilji || hasStandardi) && (
-            <div style={{ display: 'flex', gap: '12px', marginTop: '4px' }}>
+          {(hasCilji || hasStandardi || hasPojmi) && (
+            <div style={{ display: 'flex', gap: '12px', marginTop: '4px', flexWrap: 'wrap' }}>
               {hasCilji && (
                 <button
                   onClick={() => setOpenCilji(v => !v)}
@@ -323,6 +327,15 @@ function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, 
                 >
                   <ChevronIcon open={openStandardi} />
                   Standardi znanja
+                </button>
+              )}
+              {hasPojmi && (
+                <button
+                  onClick={() => setOpenPojmi(v => !v)}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '10px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: openPojmi ? 'var(--forest)' : 'var(--muted)', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                >
+                  <ChevronIcon open={openPojmi} />
+                  Novi pojmi
                 </button>
               )}
             </div>
@@ -354,7 +367,12 @@ function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, 
       )}
       {openStandardi && hasStandardi && (
         <div style={{ borderTop: '1px solid var(--hairline)', padding: '0 20px 20px 60px', background: '#fafaf8' }}>
-          <StandardiList standardi={podpoglavje.standardi} noviPojmi={podpoglavje.noviPojmi} />
+          <StandardiList standardi={podpoglavje.standardi} />
+        </div>
+      )}
+      {openPojmi && hasPojmi && (
+        <div style={{ borderTop: '1px solid var(--hairline)', padding: '0 20px 20px 60px', background: 'var(--cream)' }}>
+          <NoviPojmiList noviPojmi={podpoglavje.noviPojmi!} />
         </div>
       )}
     </div>
