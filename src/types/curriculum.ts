@@ -3,6 +3,8 @@ export interface Standard {
   text: string;
   /** (S) = skupen standard za vse predmete */
   shared?: boolean;
+  /** (M) = minimalni standard znanja (v uradnem UN krepko) */
+  minimalni?: boolean;
 }
 
 export interface Cilj {
