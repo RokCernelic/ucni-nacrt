@@ -73,16 +73,17 @@ function renderStandard(s: Standard): ReactNode {
   const hasInlineBold = s.text.includes('**');
 
   if (hasInlineBold) {
-    let mPlaced = false;
-    s.text.split('**').forEach((part, i) => {
+    const parts = s.text.split('**');
+    // zadnji krepki del (lihi indeksi so krepki) — M gre zanj
+    const lastBold = parts.length % 2 === 0 ? parts.length - 1 : parts.length - 2;
+    parts.forEach((part, i) => {
       if (i % 2 === 1) {
         nodes.push(<strong key={i} style={{ fontWeight: 600 }}>{part}</strong>);
-        if (s.minimalni && !mPlaced) { nodes.push(M_BADGE); mPlaced = true; }
+        if (s.minimalni && i === lastBold) nodes.push(M_BADGE);
       } else if (part) {
         nodes.push(<span key={i}>{part}</span>);
       }
     });
-    if (s.minimalni && !mPlaced) nodes.push(M_BADGE);
   } else {
     nodes.push(s.text);
     if (s.minimalni) nodes.push(M_BADGE);
