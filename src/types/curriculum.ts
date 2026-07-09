@@ -5,6 +5,8 @@ export interface Standard {
   shared?: boolean;
   /** (M) = minimalni standard znanja (v uradnem UN krepko) */
   minimalni?: boolean;
+  /** (I) = izbirni standard, ki izhaja iz izbirnih ciljev (v uradnem UN poševno) */
+  izbirni?: boolean;
 }
 
 export interface Cilj {

@@ -66,13 +66,16 @@ function StandardiList({ standardi, noviPojmi }: { standardi: Standard[]; noviPo
         {standardi.map((s) => (
           <li key={s.id} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
             <span style={{ marginTop: '3px', color: s.shared ? 'var(--wood)' : 'var(--muted)', fontSize: '13px', flexShrink: 0 }}>»</span>
-            <span style={{ fontSize: '13px', color: 'var(--body)', lineHeight: 1.55, fontWeight: s.minimalni ? 600 : 400 }}>
+            <span style={{ fontSize: '13px', color: 'var(--body)', lineHeight: 1.55, fontWeight: s.minimalni ? 600 : 400, fontStyle: s.izbirni ? 'italic' : 'normal' }}>
               {s.text}
               {s.minimalni && (
-                <span style={{ marginLeft: '6px', fontSize: '10px', background: 'var(--forest)', color: '#fff', borderRadius: '3px', padding: '1px 5px', fontWeight: 600 }}>M</span>
+                <span style={{ marginLeft: '6px', fontSize: '10px', background: 'var(--forest)', color: '#fff', borderRadius: '3px', padding: '1px 5px', fontWeight: 600, fontStyle: 'normal' }}>M</span>
+              )}
+              {s.izbirni && (
+                <span style={{ marginLeft: '6px', fontSize: '10px', background: 'var(--wood)', color: '#fff', borderRadius: '3px', padding: '1px 5px', fontWeight: 600, fontStyle: 'normal' }}>I</span>
               )}
               {s.shared && (
-                <span style={{ marginLeft: '6px', fontSize: '10px', background: 'var(--cream)', color: 'var(--wood)', borderRadius: '3px', padding: '1px 5px', fontWeight: 500 }}>S</span>
+                <span style={{ marginLeft: '6px', fontSize: '10px', background: 'var(--cream)', color: 'var(--wood)', borderRadius: '3px', padding: '1px 5px', fontWeight: 500, fontStyle: 'normal' }}>S</span>
               )}
             </span>
           </li>
