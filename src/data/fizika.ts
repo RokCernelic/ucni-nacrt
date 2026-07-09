@@ -27,9 +27,9 @@ export const fizika: Predmet = {
           ],
           standardi: [
             { id: 's1', text: 'uporablja pojme galaksija, zvezda, planet, osončje, satelit, komet …;', minimalni: true },
-            { id: 's2', text: 'navede lastnosti zvezd, po katerih se le-te ločijo od planetov in drugih objektov v vesolju;', minimalni: true },
+            { id: 's2', text: '**navede lastnosti zvezd, po katerih se le-te ločijo od planetov** in drugih objektov v vesolju;', minimalni: true },
             { id: 's3', text: 'uredi planete Osončja po njihovi oddaljenosti od Sonca;', minimalni: true },
-            { id: 's4', text: 'kvalitativno primerja enote za merjenje razdalj v astronomiji (svetlobno leto, astronomska enota) in jih izrazi v osnovni enoti (meter), uporabi potenčni zapis;', minimalni: true },
+            { id: 's4', text: '**kvalitativno primerja enote za merjenje razdalj v astronomiji (svetlobno leto, astronomska enota)** in jih izrazi v osnovni enoti (meter), uporabi potenčni zapis;', minimalni: true },
             { id: 's5', text: 'opiše lego in gibanje satelitov okoli planetov; planetov, kometov in asteroidov okoli zvezd; osončij okoli središča galaksij;' },
             { id: 's6', text: 's skico pojasni Lunine mene;', minimalni: true },
             { id: 's7', text: 's skico pojasni letne čase;', minimalni: true },

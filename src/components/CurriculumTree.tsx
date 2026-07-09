@@ -59,6 +59,19 @@ const PaletteDragCtx = createContext<PaletteType | null>(null);
 
 // ── Standardi list ─────────────────────────────────────────
 
+/**
+ * Izriše besedilo standarda z delno krepkim delom: **...** označuje
+ * minimalni del standarda. Preostanek besedila ostane navaden.
+ */
+function renderStandardText(text: string): ReactNode {
+  if (!text.includes('**')) return text;
+  return text.split('**').map((part, i) =>
+    i % 2 === 1
+      ? <strong key={i} style={{ fontWeight: 600 }}>{part}</strong>
+      : <span key={i}>{part}</span>
+  );
+}
+
 function StandardiList({ standardi, noviPojmi }: { standardi: Standard[]; noviPojmi?: string[] }) {
   return (
     <div style={{ padding: '14px 0 8px' }}>
@@ -66,8 +79,8 @@ function StandardiList({ standardi, noviPojmi }: { standardi: Standard[]; noviPo
         {standardi.map((s) => (
           <li key={s.id} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
             <span style={{ marginTop: '3px', color: s.shared ? 'var(--wood)' : 'var(--muted)', fontSize: '13px', flexShrink: 0 }}>»</span>
-            <span style={{ fontSize: '13px', color: 'var(--body)', lineHeight: 1.55, fontWeight: s.minimalni ? 600 : 400, fontStyle: s.izbirni ? 'italic' : 'normal' }}>
-              {s.text}
+            <span style={{ fontSize: '13px', color: 'var(--body)', lineHeight: 1.55, fontWeight: (s.minimalni && !s.text.includes('**')) ? 600 : 400, fontStyle: s.izbirni ? 'italic' : 'normal' }}>
+              {renderStandardText(s.text)}
               {s.minimalni && (
                 <span style={{ marginLeft: '6px', fontSize: '10px', background: 'var(--forest)', color: '#fff', borderRadius: '3px', padding: '1px 5px', fontWeight: 600, fontStyle: 'normal' }}>M</span>
               )}
