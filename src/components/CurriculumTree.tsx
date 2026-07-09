@@ -94,19 +94,36 @@ function renderStandard(s: Standard): ReactNode {
   return nodes;
 }
 
-function StandardiList({ standardi }: { standardi: Standard[] }) {
+// Filter standardov po oznakah: prazna množica = pokaži vse.
+export type StdFilter = Set<'M' | 'I' | 'S'>;
+
+function matchesFilter(s: Standard, filter: StdFilter): boolean {
+  if (filter.size === 0) return true;
+  return (filter.has('M') && !!s.minimalni)
+    || (filter.has('I') && !!s.izbirni)
+    || (filter.has('S') && !!s.shared);
+}
+
+function StandardiList({ standardi, filter }: { standardi: Standard[]; filter: StdFilter }) {
+  const visible = standardi.filter(s => matchesFilter(s, filter));
   return (
     <div style={{ padding: '14px 0 8px' }}>
-      <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-        {standardi.map((s) => (
-          <li key={s.id} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
-            <span style={{ marginTop: '3px', color: s.shared ? 'var(--wood)' : 'var(--muted)', fontSize: '13px', flexShrink: 0 }}>»</span>
-            <span style={{ fontSize: '13px', color: 'var(--body)', lineHeight: 1.55, fontWeight: (s.minimalni && !s.text.includes('**')) ? 600 : 400, fontStyle: s.izbirni ? 'italic' : 'normal' }}>
-              {renderStandard(s)}
-            </span>
-          </li>
-        ))}
-      </ul>
+      {visible.length === 0 ? (
+        <p style={{ fontSize: '12px', color: 'var(--muted)', fontStyle: 'italic', margin: 0 }}>
+          Ni standardov v izbranem filtru.
+        </p>
+      ) : (
+        <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          {visible.map((s) => (
+            <li key={s.id} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+              <span style={{ marginTop: '3px', color: s.shared ? 'var(--wood)' : 'var(--muted)', fontSize: '13px', flexShrink: 0 }}>»</span>
+              <span style={{ fontSize: '13px', color: 'var(--body)', lineHeight: 1.55, fontWeight: (s.minimalni && !s.text.includes('**')) ? 600 : 400, fontStyle: s.izbirni ? 'italic' : 'normal' }}>
+                {renderStandard(s)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
@@ -146,6 +163,44 @@ function Legend() {
           <span style={{ fontSize: '11px', color: 'var(--muted)' }}>{it.desc}</span>
         </span>
       ))}
+    </div>
+  );
+}
+
+// ── Filter standardov ──────────────────────────────────────
+
+function StandardFilter({ filter, onToggle }: { filter: StdFilter; onToggle: (key: 'M' | 'I' | 'S') => void }) {
+  const opts: { key: 'M' | 'I' | 'S'; bg: string; color: string; title: string }[] = [
+    { key: 'M', bg: 'var(--forest)', color: '#fff', title: 'Prikaži samo minimalne standarde' },
+    { key: 'I', bg: 'var(--wood)', color: '#fff', title: 'Prikaži samo izbirne standarde' },
+    { key: 'S', bg: 'var(--cream)', color: 'var(--wood)', title: 'Prikaži samo skupne standarde' },
+  ];
+  return (
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+      <span style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 500, letterSpacing: '0.04em', color: 'var(--muted)', whiteSpace: 'nowrap' }}>
+        Filter standardov:
+      </span>
+      {opts.map(o => {
+        const active = filter.has(o.key);
+        return (
+          <button
+            key={o.key}
+            onClick={() => onToggle(o.key)}
+            title={o.title}
+            style={{
+              fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 700,
+              width: '24px', height: '22px', borderRadius: '4px', cursor: 'pointer',
+              background: active ? o.bg : 'transparent',
+              color: active ? o.color : 'var(--muted)',
+              border: `1px solid ${active ? o.bg : 'var(--hairline)'}`,
+              lineHeight: 1, padding: 0,
+              transition: 'all 0.15s',
+            }}
+          >
+            {o.key}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -286,7 +341,7 @@ function CustomEnotaRow({ item, onToggle, onDragStart, onDragEnd }: {
 
 // ── Podpoglavje row ────────────────────────────────────────
 
-function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, onHourChange, remaining, number, isAnonymous }: {
+function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, onHourChange, remaining, number, isAnonymous, stdFilter }: {
   podpoglavje: import('@/types/curriculum').Podpoglavje;
   predmetId: string;
   checked: boolean;
@@ -296,6 +351,7 @@ function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, 
   remaining: number;
   number: string;
   isAnonymous?: boolean;
+  stdFilter: StdFilter;
 }) {
   const [openCilji, setOpenCilji] = useState(false);
   const [openStandardi, setOpenStandardi] = useState(false);
@@ -392,7 +448,7 @@ function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, 
       )}
       {openStandardi && hasStandardi && (
         <div style={{ borderTop: '1px solid var(--hairline)', padding: '0 20px 20px 60px', background: '#fafaf8' }}>
-          <StandardiList standardi={podpoglavje.standardi} />
+          <StandardiList standardi={podpoglavje.standardi} filter={stdFilter} />
         </div>
       )}
       {openPojmi && hasPojmi && (
@@ -406,7 +462,7 @@ function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, 
 
 // ── Poglavje row ──────────────────────────────────────────
 
-function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, onToggleOpen, getHours, onHourChange, remaining, resolve, addEnota, reorder, removeEnota, toggleCustom, isAnonymous }: {
+function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, onToggleOpen, getHours, onHourChange, remaining, resolve, addEnota, reorder, removeEnota, toggleCustom, isAnonymous, stdFilter }: {
   poglavje: import('@/types/curriculum').Poglavje;
   index: number;
   predmetId: string;
@@ -423,6 +479,7 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
   removeEnota: (key: string, id: string) => void;
   toggleCustom: (key: string, id: string) => void;
   isAnonymous?: boolean;
+  stdFilter: StdFilter;
 }) {
   const [openOpis, setOpenOpis] = useState(false);
   const [isDraggingCustom, setIsDraggingCustom] = useState(false);
@@ -512,6 +569,7 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
                         remaining={remaining}
                         number={`${index}.${currNumSnapshot}`}
                         isAnonymous={isAnonymous}
+                        stdFilter={stdFilter}
                       />
                     ) : (
                       <CustomEnotaRow
@@ -584,6 +642,14 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
   const { resolve, addEnota, reorder, removeEnota, toggleCustom, countCustom, countCheckedCustom } = useEnotaOrder(classId ? `ucni-nacrt-enote-order-${classId}` : undefined);
   const { openChapters, toggle: toggleChapter, expandAll, collapseAll } = useOpenChapters(classId ? `ucni-nacrt-open-chapters-${classId}` : undefined);
   const [paletteDrag, setPaletteDrag] = useState<PaletteType | null>(null);
+  const [stdFilter, setStdFilter] = useState<StdFilter>(new Set());
+  const toggleStdFilter = useCallback((key: 'M' | 'I' | 'S') => {
+    setStdFilter(prev => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  }, []);
 
   const filteredPoglavja = useMemo(() =>
     razredFilter != null ? predmet.poglavja.filter(p => p.razred === razredFilter) : predmet.poglavja,
@@ -658,15 +724,18 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
         </div>
 
         <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 32px 64px' }}>
-          <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', padding: '16px 0 8px' }}>
-            <button onClick={handleExpandAll}
-              style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 500, letterSpacing: '0.06em', color: 'var(--forest)', background: 'transparent', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', padding: '5px 12px', cursor: 'pointer' }}>
-              Razširi vse
-            </button>
-            <button onClick={collapseAll}
-              style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 500, letterSpacing: '0.06em', color: 'var(--muted)', background: 'transparent', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', padding: '5px 12px', cursor: 'pointer' }}>
-              Strni vse
-            </button>
+          <div style={{ display: 'flex', gap: '8px', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', padding: '16px 0 8px' }}>
+            <StandardFilter filter={stdFilter} onToggle={toggleStdFilter} />
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={handleExpandAll}
+                style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 500, letterSpacing: '0.06em', color: 'var(--forest)', background: 'transparent', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', padding: '5px 12px', cursor: 'pointer' }}>
+                Razširi vse
+              </button>
+              <button onClick={collapseAll}
+                style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 500, letterSpacing: '0.06em', color: 'var(--muted)', background: 'transparent', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', padding: '5px 12px', cursor: 'pointer' }}>
+                Strni vse
+              </button>
+            </div>
           </div>
 
           {(() => {
@@ -716,6 +785,7 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
                         removeEnota={removeEnota}
                         toggleCustom={toggleCustom}
                         isAnonymous={isAnonymous}
+                        stdFilter={stdFilter}
                       />
                     ))}
                   </div>
