@@ -59,17 +59,38 @@ const PaletteDragCtx = createContext<PaletteType | null>(null);
 
 // ── Standardi list ─────────────────────────────────────────
 
+const M_BADGE = <span key="m" style={{ marginLeft: '6px', fontSize: '10px', background: 'var(--forest)', color: '#fff', borderRadius: '3px', padding: '1px 5px', fontWeight: 600, fontStyle: 'normal' }}>M</span>;
+const I_BADGE = <span key="i" style={{ marginLeft: '6px', fontSize: '10px', background: 'var(--wood)', color: '#fff', borderRadius: '3px', padding: '1px 5px', fontWeight: 600, fontStyle: 'normal' }}>I</span>;
+const S_BADGE = <span key="s" style={{ marginLeft: '6px', fontSize: '10px', background: 'var(--cream)', color: 'var(--wood)', borderRadius: '3px', padding: '1px 5px', fontWeight: 500, fontStyle: 'normal' }}>S</span>;
+
 /**
- * Izriše besedilo standarda z delno krepkim delom: **...** označuje
- * minimalni del standarda. Preostanek besedila ostane navaden.
+ * Izriše standard z besedilom in oznakami. Znotraj besedila **...** označuje
+ * krepki (minimalni) del; ostalo ostane navadno. Oznaka M se postavi tik za
+ * konec krepkega dela; če krepkega dela ni, gre na konec. Oznaki I in S sledita.
  */
-function renderStandardText(text: string): ReactNode {
-  if (!text.includes('**')) return text;
-  return text.split('**').map((part, i) =>
-    i % 2 === 1
-      ? <strong key={i} style={{ fontWeight: 600 }}>{part}</strong>
-      : <span key={i}>{part}</span>
-  );
+function renderStandard(s: Standard): ReactNode {
+  const nodes: ReactNode[] = [];
+  const hasInlineBold = s.text.includes('**');
+
+  if (hasInlineBold) {
+    let mPlaced = false;
+    s.text.split('**').forEach((part, i) => {
+      if (i % 2 === 1) {
+        nodes.push(<strong key={i} style={{ fontWeight: 600 }}>{part}</strong>);
+        if (s.minimalni && !mPlaced) { nodes.push(M_BADGE); mPlaced = true; }
+      } else if (part) {
+        nodes.push(<span key={i}>{part}</span>);
+      }
+    });
+    if (s.minimalni && !mPlaced) nodes.push(M_BADGE);
+  } else {
+    nodes.push(s.text);
+    if (s.minimalni) nodes.push(M_BADGE);
+  }
+
+  if (s.izbirni) nodes.push(I_BADGE);
+  if (s.shared) nodes.push(S_BADGE);
+  return nodes;
 }
 
 function StandardiList({ standardi, noviPojmi }: { standardi: Standard[]; noviPojmi?: string[] }) {
@@ -80,16 +101,7 @@ function StandardiList({ standardi, noviPojmi }: { standardi: Standard[]; noviPo
           <li key={s.id} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
             <span style={{ marginTop: '3px', color: s.shared ? 'var(--wood)' : 'var(--muted)', fontSize: '13px', flexShrink: 0 }}>»</span>
             <span style={{ fontSize: '13px', color: 'var(--body)', lineHeight: 1.55, fontWeight: (s.minimalni && !s.text.includes('**')) ? 600 : 400, fontStyle: s.izbirni ? 'italic' : 'normal' }}>
-              {renderStandardText(s.text)}
-              {s.minimalni && (
-                <span style={{ marginLeft: '6px', fontSize: '10px', background: 'var(--forest)', color: '#fff', borderRadius: '3px', padding: '1px 5px', fontWeight: 600, fontStyle: 'normal' }}>M</span>
-              )}
-              {s.izbirni && (
-                <span style={{ marginLeft: '6px', fontSize: '10px', background: 'var(--wood)', color: '#fff', borderRadius: '3px', padding: '1px 5px', fontWeight: 600, fontStyle: 'normal' }}>I</span>
-              )}
-              {s.shared && (
-                <span style={{ marginLeft: '6px', fontSize: '10px', background: 'var(--cream)', color: 'var(--wood)', borderRadius: '3px', padding: '1px 5px', fontWeight: 500, fontStyle: 'normal' }}>S</span>
-              )}
+              {renderStandard(s)}
             </span>
           </li>
         ))}
