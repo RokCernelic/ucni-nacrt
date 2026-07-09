@@ -14,6 +14,7 @@ export const fizika: Predmet = {
       podpoglavja: [
         {
           id: 'vesolje-1',
+          privzeteUre: 10,
           naslov: 'Vesolje',
           cilji: [
             { id: 'c1', tip: 'O', text: 'pozna različna telesa v vesolju;' },
@@ -77,6 +78,7 @@ export const fizika: Predmet = {
       podpoglavja: [
         {
           id: 'odboj-lom',
+          privzeteUre: 2,
           naslov: 'Odboj in lom svetlobe',
           cilji: [
             { id: 'c1', tip: 'O', text: 's poskusi razišče in usvoji odboj in lom svetlobe;' },
@@ -86,6 +88,7 @@ export const fizika: Predmet = {
         },
         {
           id: 'preslikave',
+          privzeteUre: 4,
           naslov: 'Preslikave',
           cilji: [
             { id: 'c1', tip: 'O', text: 's poskusi razišče in usvoji nastanek navidezne/realne slike na ravnem zrcalu in pri preslikavi/opazovanju skozi zbiralno lečo;' },
@@ -110,6 +113,7 @@ export const fizika: Predmet = {
         },
         {
           id: 'opticne-naprave',
+          privzeteUre: 2,
           naslov: 'Optične naprave',
           cilji: [
             { id: 'c1', tip: 'O', text: 'spozna zgradbo in delovanje očesa ter razišče njegovo akomodacijo;' },
@@ -142,6 +146,7 @@ export const fizika: Predmet = {
       podpoglavja: [
         {
           id: 'merjenje-gostota-1',
+          privzeteUre: 1,
           naslov: 'Merjenje',
           cilji: [
             { id: 'c1', tip: 'O', text: 'v naravi in vsakdanjem življenju prepozna nekaj pojavov, s katerimi se ukvarja fizika;' },
@@ -160,6 +165,7 @@ export const fizika: Predmet = {
         },
         {
           id: 'fizikalne-kolicine-1',
+          privzeteUre: 2,
           naslov: 'Fizikalne količine in predpone',
           cilji: [
             { id: 'c1', tip: 'O', text: 'usvoji pojme fizikalna količina, oznaka količine in enota za količino;' },
@@ -177,6 +183,7 @@ export const fizika: Predmet = {
         },
         {
           id: 'gostota-1',
+          privzeteUre: 3,
           naslov: 'Gostota',
           cilji: [
             { id: 'c1', tip: 'O', text: 'usvoji pojem gostota.' },
@@ -197,6 +204,7 @@ export const fizika: Predmet = {
       podpoglavja: [
         {
           id: 'sile-1',
+          privzeteUre: 1,
           naslov: 'Opis sil',
           cilji: [
             { id: 'c1', tip: 'O', text: 'usvoji pojme: medsebojno delovanje teles, sila, opazovano telo, okolica;' },
@@ -219,6 +227,7 @@ export const fizika: Predmet = {
         },
         {
           id: 'sile-2',
+          privzeteUre: 1,
           naslov: 'Merjenje sil',
           cilji: [
             { id: 'c1', tip: 'O', text: 'usvaja, da enako velike sile povzročijo enake učinke in da lahko prožna telesa zato uporabimo za merjenje sil.' },
@@ -240,6 +249,7 @@ export const fizika: Predmet = {
         },
         {
           id: 'sile-3',
+          privzeteUre: 1,
           naslov: 'Načrtovanje sil',
           cilji: [
             { id: 'c1', tip: 'O', text: 'usvoji načrtovanje sil.' },
@@ -256,6 +266,7 @@ export const fizika: Predmet = {
         },
         {
           id: 'sile-sestevanje',
+          privzeteUre: 2,
           naslov: 'Seštevanje sil',
           cilji: [
             { id: 'c1', tip: 'O', text: 'usvoji načrtovanje sil.' },
@@ -270,6 +281,7 @@ export const fizika: Predmet = {
         },
         {
           id: 'sile-razstavljanje',
+          privzeteUre: 3,
           naslov: 'Razstavljanje sil',
           cilji: [
             { id: 'c1', tip: 'O', text: 'usvoji načrtovanje sil.' },
@@ -281,6 +293,7 @@ export const fizika: Predmet = {
         },
         {
           id: 'sile-zaviralne',
+          privzeteUre: 1,
           naslov: 'Zaviralne sile',
           cilji: [
             { id: 'c1', tip: 'O', text: 'spozna, da na vsa telesa, ki se gibljejo na Zemlji, delujeta sila upora in/ali sila trenja, ter razišče njuno delovanje.' },
@@ -294,6 +307,7 @@ export const fizika: Predmet = {
         },
         {
           id: 'sile-4',
+          privzeteUre: 3,
           naslov: 'Ravnovesje sil',
           cilji: [
             { id: 'c1', tip: 'O', text: 'usvoji prvi Newtonov zakon / zakon o ravnovesju sil;' },
@@ -307,6 +321,7 @@ export const fizika: Predmet = {
         },
         {
           id: 'sile-5',
+          privzeteUre: 3,
           naslov: 'Medsebojno delovanje teles',
           cilji: [
             { id: 'c1', tip: 'O', text: 'usvoji tretji Newtonov zakon / zakon o medsebojnem delovanju teles.' },
@@ -327,6 +342,7 @@ export const fizika: Predmet = {
       podpoglavja: [
         {
           id: 'tlak-1',
+          privzeteUre: 3,
           naslov: 'Tlak pod trdnimi telesi',
           cilji: [
             { id: 'c1', tip: 'O', text: 'usvoji tlak.' },
@@ -341,6 +357,7 @@ export const fizika: Predmet = {
         },
         {
           id: 'tlak-2',
+          privzeteUre: 3,
           naslov: 'Hidrostatični tlak v tekočinah',
           cilji: [
             { id: 'c1', tip: 'O', text: 's poskusi razišče tlak v mirujoči tekočini.' },
@@ -362,6 +379,7 @@ export const fizika: Predmet = {
         },
         {
           id: 'vzgon-1',
+          privzeteUre: 3,
           naslov: 'Vzgon',
           cilji: [
             { id: 'c1', tip: 'O', text: 's poskusi razišče vzgon in plavanje teles.' },
@@ -379,6 +397,7 @@ export const fizika: Predmet = {
         },
         {
           id: 'atmosferski-pojavi-1',
+          privzeteUre: 1,
           naslov: 'Atmosferski pojavi in vreme',
           cilji: [
             { id: 'c1', tip: 'O', text: 'usvoji fizikalne lastnosti zraka in razišče vremenska dogajanja;' },

@@ -560,32 +560,44 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
     return map;
   }, [filteredPoglavja, predmet.id]);
 
+  // Privzete ure na podpoglavje (ključ: `${predmet.id}:${pp.id}`)
+  const hourDefaults = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const p of predmet.poglavja)
+      for (const pp of p.podpoglavja)
+        m[`${predmet.id}:${pp.id}`] = pp.privzeteUre ?? 1;
+    return m;
+  }, [predmet]);
+
+  // getHours z upoštevanjem privzetih ur podpoglavja
+  const getHoursD = useCallback((key: string) => getHours(key, hourDefaults[key] ?? 1), [getHours, hourDefaults]);
+
   const gradeUsed = useMemo(() => {
     const r: Record<number, number> = {};
     for (const [rStr, data] of Object.entries(gradeData)) {
       const razred = Number(rStr);
-      r[razred] = data.podpoglavjeKeys.reduce((s, k) => s + getHours(k), 0) + countCustom(data.poglavjeKeys);
+      r[razred] = data.podpoglavjeKeys.reduce((s, k) => s + getHoursD(k), 0) + countCustom(data.poglavjeKeys);
     }
     return r;
-  }, [gradeData, getHours, countCustom]);
+  }, [gradeData, getHoursD, countCustom]);
 
   const gradeDoneHours = useMemo(() => {
     const r: Record<number, number> = {};
     for (const [rStr, data] of Object.entries(gradeData)) {
       const razred = Number(rStr);
-      r[razred] = data.podpoglavjeKeys.filter(k => checked[k]).reduce((s, k) => s + getHours(k), 0)
+      r[razred] = data.podpoglavjeKeys.filter(k => checked[k]).reduce((s, k) => s + getHoursD(k), 0)
         + countCheckedCustom(data.poglavjeKeys);
     }
     return r;
-  }, [gradeData, checked, getHours, countCheckedCustom]);
+  }, [gradeData, checked, getHoursD, countCheckedCustom]);
 
   const handleExpandAll = useCallback(() => expandAll(filteredPoglavja.map(p => p.id)), [expandAll, filteredPoglavja]);
 
   const handleHourChange = useCallback((unitKey: string, delta: number, razred: number) => {
     const data = gradeData[razred];
     if (!data) return;
-    change(unitKey, delta, data.podpoglavjeKeys, data.target - countCustom(data.poglavjeKeys));
-  }, [gradeData, change, countCustom]);
+    change(unitKey, delta, data.podpoglavjeKeys, data.target - countCustom(data.poglavjeKeys), hourDefaults);
+  }, [gradeData, change, countCustom, hourDefaults]);
 
   return (
     <PaletteDragCtx.Provider value={paletteDrag}>
@@ -651,7 +663,7 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
                         onToggle={toggle}
                         isOpen={openChapters.has(poglavje.id)}
                         onToggleOpen={() => toggleChapter(poglavje.id)}
-                        getHours={getHours}
+                        getHours={getHoursD}
                         onHourChange={(key, delta) => handleHourChange(key, delta, razred)}
                         remaining={remaining}
                         resolve={resolve}

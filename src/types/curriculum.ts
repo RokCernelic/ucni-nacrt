@@ -25,6 +25,8 @@ export interface UcnaEnota {
 export interface Podpoglavje {
   id: string;
   naslov: string;
+  /** privzeto število ur za podpoglavje (če ni nastavljeno, velja 1) */
+  privzeteUre?: number;
   izbirna?: boolean;
   cilji: Cilj[];
   standardi: Standard[];

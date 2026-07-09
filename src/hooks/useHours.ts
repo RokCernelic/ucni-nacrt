@@ -20,14 +20,14 @@ export function useHours(storageKey = 'ucni-nacrt-hours') {
     return () => window.removeEventListener('storage', onStorage);
   }, [storageKey]);
 
-  const getHours = useCallback((key: string) => hours[key] ?? 1, [hours]);
+  const getHours = useCallback((key: string, fallback = 1) => hours[key] ?? fallback, [hours]);
 
-  const change = useCallback((key: string, delta: number, gradeKeys: string[], gradeTarget: number) => {
+  const change = useCallback((key: string, delta: number, gradeKeys: string[], gradeTarget: number, defaults: Record<string, number> = {}) => {
     setHours(prev => {
-      const current = prev[key] ?? 1;
+      const current = prev[key] ?? defaults[key] ?? 1;
       const next = current + delta;
       if (next < 0) return prev;
-      const gradeSum = gradeKeys.reduce((s, k) => s + (prev[k] ?? 1), 0);
+      const gradeSum = gradeKeys.reduce((s, k) => s + (prev[k] ?? defaults[k] ?? 1), 0);
       const remaining = gradeTarget - gradeSum;
       if (delta > 0 && remaining <= 0) return prev;
       const updated = { ...prev, [key]: next };
