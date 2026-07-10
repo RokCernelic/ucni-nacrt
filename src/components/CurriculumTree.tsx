@@ -104,10 +104,13 @@ function matchesFilter(s: Standard, filter: StdFilter): boolean {
     || (filter.has('S') && !!s.shared);
 }
 
-function StandardiList({ standardi, filter }: { standardi: Standard[]; filter: StdFilter }) {
+function StandardiList({ standardi, filter, onToggleFilter }: { standardi: Standard[]; filter: StdFilter; onToggleFilter: (key: 'M' | 'I' | 'S') => void }) {
   const visible = standardi.filter(s => matchesFilter(s, filter));
   return (
     <div style={{ padding: '14px 0 8px' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
+        <StandardFilter filter={filter} onToggle={onToggleFilter} />
+      </div>
       {visible.length === 0 ? (
         <p style={{ fontSize: '12px', color: 'var(--muted)', fontStyle: 'italic', margin: 0 }}>
           Ni standardov v izbranem filtru.
@@ -177,8 +180,8 @@ function StandardFilter({ filter, onToggle }: { filter: StdFilter; onToggle: (ke
   ];
   return (
     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-      <span style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 500, letterSpacing: '0.04em', color: 'var(--muted)', whiteSpace: 'nowrap' }}>
-        Filter standardov:
+      <span style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--muted)', whiteSpace: 'nowrap' }}>
+        Filter:
       </span>
       {opts.map(o => {
         const active = filter.has(o.key);
@@ -341,7 +344,7 @@ function CustomEnotaRow({ item, onToggle, onDragStart, onDragEnd }: {
 
 // ── Podpoglavje row ────────────────────────────────────────
 
-function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, onHourChange, remaining, number, isAnonymous, stdFilter }: {
+function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, onHourChange, remaining, number, isAnonymous, stdFilter, onToggleFilter }: {
   podpoglavje: import('@/types/curriculum').Podpoglavje;
   predmetId: string;
   checked: boolean;
@@ -352,6 +355,7 @@ function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, 
   number: string;
   isAnonymous?: boolean;
   stdFilter: StdFilter;
+  onToggleFilter: (key: 'M' | 'I' | 'S') => void;
 }) {
   const [openCilji, setOpenCilji] = useState(false);
   const [openStandardi, setOpenStandardi] = useState(false);
@@ -448,7 +452,7 @@ function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, 
       )}
       {openStandardi && hasStandardi && (
         <div style={{ borderTop: '1px solid var(--hairline)', padding: '0 20px 20px 60px', background: '#fafaf8' }}>
-          <StandardiList standardi={podpoglavje.standardi} filter={stdFilter} />
+          <StandardiList standardi={podpoglavje.standardi} filter={stdFilter} onToggleFilter={onToggleFilter} />
         </div>
       )}
       {openPojmi && hasPojmi && (
@@ -462,7 +466,7 @@ function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, 
 
 // ── Poglavje row ──────────────────────────────────────────
 
-function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, onToggleOpen, getHours, onHourChange, remaining, resolve, addEnota, reorder, removeEnota, toggleCustom, isAnonymous, stdFilter }: {
+function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, onToggleOpen, getHours, onHourChange, remaining, resolve, addEnota, reorder, removeEnota, toggleCustom, isAnonymous, stdFilter, onToggleFilter }: {
   poglavje: import('@/types/curriculum').Poglavje;
   index: number;
   predmetId: string;
@@ -480,6 +484,7 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
   toggleCustom: (key: string, id: string) => void;
   isAnonymous?: boolean;
   stdFilter: StdFilter;
+  onToggleFilter: (key: 'M' | 'I' | 'S') => void;
 }) {
   const [openOpis, setOpenOpis] = useState(false);
   const [isDraggingCustom, setIsDraggingCustom] = useState(false);
@@ -570,6 +575,7 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
                         number={`${index}.${currNumSnapshot}`}
                         isAnonymous={isAnonymous}
                         stdFilter={stdFilter}
+                        onToggleFilter={onToggleFilter}
                       />
                     ) : (
                       <CustomEnotaRow
@@ -724,18 +730,15 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
         </div>
 
         <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 32px 64px' }}>
-          <div style={{ display: 'flex', gap: '8px', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', padding: '16px 0 8px' }}>
-            <StandardFilter filter={stdFilter} onToggle={toggleStdFilter} />
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={handleExpandAll}
-                style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 500, letterSpacing: '0.06em', color: 'var(--forest)', background: 'transparent', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', padding: '5px 12px', cursor: 'pointer' }}>
-                Razširi vse
-              </button>
-              <button onClick={collapseAll}
-                style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 500, letterSpacing: '0.06em', color: 'var(--muted)', background: 'transparent', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', padding: '5px 12px', cursor: 'pointer' }}>
-                Strni vse
-              </button>
-            </div>
+          <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', padding: '16px 0 8px' }}>
+            <button onClick={handleExpandAll}
+              style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 500, letterSpacing: '0.06em', color: 'var(--forest)', background: 'transparent', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', padding: '5px 12px', cursor: 'pointer' }}>
+              Razširi vse
+            </button>
+            <button onClick={collapseAll}
+              style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 500, letterSpacing: '0.06em', color: 'var(--muted)', background: 'transparent', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', padding: '5px 12px', cursor: 'pointer' }}>
+              Strni vse
+            </button>
           </div>
 
           {(() => {
@@ -786,6 +789,7 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
                         toggleCustom={toggleCustom}
                         isAnonymous={isAnonymous}
                         stdFilter={stdFilter}
+                        onToggleFilter={toggleStdFilter}
                       />
                     ))}
                   </div>
