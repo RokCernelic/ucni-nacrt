@@ -344,7 +344,7 @@ function CustomEnotaRow({ item, onToggle, onDragStart, onDragEnd }: {
 
 // ── Podpoglavje row ────────────────────────────────────────
 
-function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, onHourChange, remaining, number, isAnonymous, stdFilter, onToggleFilter }: {
+function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, onHourChange, remaining, number, isAnonymous }: {
   podpoglavje: import('@/types/curriculum').Podpoglavje;
   predmetId: string;
   checked: boolean;
@@ -354,12 +354,16 @@ function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, 
   remaining: number;
   number: string;
   isAnonymous?: boolean;
-  stdFilter: StdFilter;
-  onToggleFilter: (key: 'M' | 'I' | 'S') => void;
 }) {
   const [openCilji, setOpenCilji] = useState(false);
   const [openStandardi, setOpenStandardi] = useState(false);
   const [openPojmi, setOpenPojmi] = useState(false);
+  const [stdFilter, setStdFilter] = useState<StdFilter>(new Set());
+  const toggleFilter = (key: 'M' | 'I' | 'S') => setStdFilter(prev => {
+    const next = new Set(prev);
+    next.has(key) ? next.delete(key) : next.add(key);
+    return next;
+  });
   const hasCilji = podpoglavje.cilji.length > 0;
   const hasStandardi = (podpoglavje.standardi?.length ?? 0) > 0;
   const hasPojmi = (podpoglavje.noviPojmi?.length ?? 0) > 0;
@@ -452,7 +456,7 @@ function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, 
       )}
       {openStandardi && hasStandardi && (
         <div style={{ borderTop: '1px solid var(--hairline)', padding: '0 20px 20px 60px', background: '#fafaf8' }}>
-          <StandardiList standardi={podpoglavje.standardi} filter={stdFilter} onToggleFilter={onToggleFilter} />
+          <StandardiList standardi={podpoglavje.standardi} filter={stdFilter} onToggleFilter={toggleFilter} />
         </div>
       )}
       {openPojmi && hasPojmi && (
@@ -466,7 +470,7 @@ function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, 
 
 // ── Poglavje row ──────────────────────────────────────────
 
-function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, onToggleOpen, getHours, onHourChange, remaining, resolve, addEnota, reorder, removeEnota, toggleCustom, isAnonymous, stdFilter, onToggleFilter }: {
+function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, onToggleOpen, getHours, onHourChange, remaining, resolve, addEnota, reorder, removeEnota, toggleCustom, isAnonymous }: {
   poglavje: import('@/types/curriculum').Poglavje;
   index: number;
   predmetId: string;
@@ -483,8 +487,6 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
   removeEnota: (key: string, id: string) => void;
   toggleCustom: (key: string, id: string) => void;
   isAnonymous?: boolean;
-  stdFilter: StdFilter;
-  onToggleFilter: (key: 'M' | 'I' | 'S') => void;
 }) {
   const [openOpis, setOpenOpis] = useState(false);
   const [isDraggingCustom, setIsDraggingCustom] = useState(false);
@@ -574,8 +576,6 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
                         remaining={remaining}
                         number={`${index}.${currNumSnapshot}`}
                         isAnonymous={isAnonymous}
-                        stdFilter={stdFilter}
-                        onToggleFilter={onToggleFilter}
                       />
                     ) : (
                       <CustomEnotaRow
@@ -648,14 +648,6 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
   const { resolve, addEnota, reorder, removeEnota, toggleCustom, countCustom, countCheckedCustom } = useEnotaOrder(classId ? `ucni-nacrt-enote-order-${classId}` : undefined);
   const { openChapters, toggle: toggleChapter, expandAll, collapseAll } = useOpenChapters(classId ? `ucni-nacrt-open-chapters-${classId}` : undefined);
   const [paletteDrag, setPaletteDrag] = useState<PaletteType | null>(null);
-  const [stdFilter, setStdFilter] = useState<StdFilter>(new Set());
-  const toggleStdFilter = useCallback((key: 'M' | 'I' | 'S') => {
-    setStdFilter(prev => {
-      const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
-      return next;
-    });
-  }, []);
 
   const filteredPoglavja = useMemo(() =>
     razredFilter != null ? predmet.poglavja.filter(p => p.razred === razredFilter) : predmet.poglavja,
@@ -788,8 +780,6 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
                         removeEnota={removeEnota}
                         toggleCustom={toggleCustom}
                         isAnonymous={isAnonymous}
-                        stdFilter={stdFilter}
-                        onToggleFilter={toggleStdFilter}
                       />
                     ))}
                   </div>
