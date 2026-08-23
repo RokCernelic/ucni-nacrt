@@ -51,4 +51,7 @@ export interface Predmet {
   opis: string;
   barva: string;
   poglavja: Poglavje[];
+  /** če true, se številčenje poglavij nadaljuje čez razrede (npr. fizika 8.→9.);
+   *  privzeto (false) se številčenje začne znova pri vsakem razredu */
+  continuousNumbering?: boolean;
 }

@@ -15,7 +15,7 @@ export default function SubjectClient({ predmet, gradeTargets }: {
   predmet: Predmet;
   gradeTargets: Record<number, number>;
 }) {
-  const { classes, activeId, addClass, renameClass, removeClass, selectClass, reorderClasses, activeClass } = useClasses();
+  const { classes, activeId, addClass, renameClass, removeClass, selectClass, reorderClasses, activeClass } = useClasses(predmet.id);
   const { user, loading } = useAuth();
   const isAnonymous = !loading && !user;
   const razredFilter = activeClass ? getRazredFilter(activeClass.name) : null;

@@ -5,6 +5,7 @@ export const fizika: Predmet = {
   naslov: 'Fizika',
   opis: 'Prenovljeni učni načrt za fiziko — osnovna šola',
   barva: '#0a2e0e',
+  continuousNumbering: true,
   poglavja: [
     {
       id: 'vesolje',

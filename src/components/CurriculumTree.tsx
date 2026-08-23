@@ -736,10 +736,18 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
 
           {(() => {
             const groups: { razred: number; items: { poglavje: typeof predmet.poglavja[0]; index: number }[] }[] = [];
+            const continuous = predmet.continuousNumbering ?? false;
+            const gradeCounter: Record<number, number> = {};
             filteredPoglavja.forEach((poglavje) => {
               const razred = poglavje.razred ?? 0;
               const last = groups[groups.length - 1];
-              const index = predmet.poglavja.indexOf(poglavje) + 1;
+              let index: number;
+              if (continuous) {
+                index = predmet.poglavja.indexOf(poglavje) + 1;
+              } else {
+                gradeCounter[razred] = (gradeCounter[razred] ?? 0) + 1;
+                index = gradeCounter[razred];
+              }
               if (!last || last.razred !== razred) groups.push({ razred, items: [{ poglavje, index }] });
               else last.items.push({ poglavje, index });
             });
