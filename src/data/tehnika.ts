@@ -251,5 +251,118 @@ export const tehnika: Predmet = {
         },
       ],
     },
+
+    // ── 7. RAZRED (ogrodje – vsebina se dopolnjuje) ──────────
+    {
+      id: 'td-7',
+      naslov: 'Tehnika in družba',
+      razred: 7,
+      podpoglavja: [
+        { id: 'td7-sodobne', privzeteUre: 2, naslov: 'Sodobne tehnologije', cilji: [], standardi: [] },
+      ],
+    },
+    {
+      id: 'gk-7',
+      naslov: 'Grafična komunikacija v tehniki',
+      razred: 7,
+      podpoglavja: [
+        { id: 'gk7-risanje', privzeteUre: 2, naslov: 'Risanje', cilji: [], standardi: [] },
+        { id: 'gk7-3d', privzeteUre: 2, naslov: '3D modeliranje', cilji: [], standardi: [] },
+        { id: 'gk7-izometrija', privzeteUre: 4, naslov: 'Izometrična projekcija', cilji: [], standardi: [] },
+      ],
+    },
+    {
+      id: 'mat-7',
+      naslov: 'Materiali',
+      razred: 7,
+      podpoglavja: [
+        { id: 'mat7-vrste', privzeteUre: 2, naslov: 'Vrste in lastnosti materialov', cilji: [], standardi: [] },
+        { id: 'mat7-obdelave', privzeteUre: 2, naslov: 'Obdelave materialov', cilji: [], standardi: [] },
+      ],
+    },
+    {
+      id: 'em-7',
+      naslov: 'Energetika in mehatronika',
+      razred: 7,
+      podpoglavja: [
+        { id: 'em7-motor', privzeteUre: 2, naslov: 'Motor kot pogonski del stroja', cilji: [], standardi: [] },
+        { id: 'em7-gonila', privzeteUre: 4, naslov: 'Strojni elementi (gonila)', cilji: [], standardi: [] },
+        { id: 'em7-izdelava', privzeteUre: 4, naslov: 'Vodena izdelava izdelka', cilji: [], standardi: [] },
+      ],
+    },
+    {
+      id: 'niv-7',
+      naslov: 'Načrtovanje, izdelava in vrednotenje izdelka',
+      razred: 7,
+      podpoglavja: [
+        { id: 'niv7-nacrtovanje', privzeteUre: 4, naslov: 'Načrtovanje izdelka', cilji: [], standardi: [] },
+        { id: 'niv7-izdelava', privzeteUre: 4, naslov: 'Izdelava izdelka', cilji: [], standardi: [] },
+        { id: 'niv7-vrednotenje', privzeteUre: 1, naslov: 'Vrednotenje izdelka', cilji: [], standardi: [] },
+      ],
+    },
+    {
+      id: 'iv-7',
+      naslov: 'Izbirne vsebine',
+      razred: 7,
+      podpoglavja: [
+        { id: 'iv7-novosti', privzeteUre: 2, naslov: 'Novosti s področja tehnike', izbirna: true, cilji: [], standardi: [] },
+      ],
+    },
+
+    // ── 8. RAZRED (ogrodje – vsebina se dopolnjuje) ──────────
+    {
+      id: 'td-8',
+      naslov: 'Tehnika in družba',
+      razred: 8,
+      podpoglavja: [
+        { id: 'td8-vloga', privzeteUre: 2, naslov: 'Vloga tehnike v družbi', cilji: [], standardi: [] },
+      ],
+    },
+    {
+      id: 'gk-8',
+      naslov: 'Grafična komunikacija v tehniki',
+      razred: 8,
+      podpoglavja: [
+        { id: 'gk8-3d', privzeteUre: 2, naslov: '3D modeliranje', cilji: [], standardi: [] },
+        { id: 'gk8-vecpogledna', privzeteUre: 4, naslov: 'Večpogledna pravokotna projekcija', cilji: [], standardi: [] },
+      ],
+    },
+    {
+      id: 'mat-8',
+      naslov: 'Materiali',
+      razred: 8,
+      podpoglavja: [
+        { id: 'mat8-vrste', privzeteUre: 2, naslov: 'Vrste in lastnosti materialov', cilji: [], standardi: [] },
+        { id: 'mat8-obdelave', privzeteUre: 2, naslov: 'Obdelave materialov', cilji: [], standardi: [] },
+      ],
+    },
+    {
+      id: 'em-8',
+      naslov: 'Energetika in mehatronika',
+      razred: 8,
+      podpoglavja: [
+        { id: 'em8-energetika', privzeteUre: 1, naslov: 'Energetika in izkoriščanje primarnih virov energije', cilji: [], standardi: [] },
+        { id: 'em8-ai', privzeteUre: 5, naslov: 'Avtomatizacija in umetna inteligenca (UI)', cilji: [], standardi: [] },
+        { id: 'em8-izdelava', privzeteUre: 6, naslov: 'Vodena izdelava izdelka', cilji: [], standardi: [] },
+      ],
+    },
+    {
+      id: 'niv-8',
+      naslov: 'Načrtovanje, izdelava in vrednotenje izdelka',
+      razred: 8,
+      podpoglavja: [
+        { id: 'niv8-nacrtovanje', privzeteUre: 4, naslov: 'Načrtovanje izdelka', cilji: [], standardi: [] },
+        { id: 'niv8-izdelava', privzeteUre: 4, naslov: 'Izdelava izdelka', cilji: [], standardi: [] },
+        { id: 'niv8-vrednotenje', privzeteUre: 1, naslov: 'Vrednotenje izdelka', cilji: [], standardi: [] },
+      ],
+    },
+    {
+      id: 'iv-8',
+      naslov: 'Izbirne vsebine',
+      razred: 8,
+      podpoglavja: [
+        { id: 'iv8-novosti', privzeteUre: 2, naslov: 'Novosti s področja tehnike', izbirna: true, cilji: [], standardi: [] },
+      ],
+    },
   ],
 };
