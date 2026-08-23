@@ -257,8 +257,21 @@ export const tehnika: Predmet = {
       id: 'td-7',
       naslov: 'Tehnika in družba',
       razred: 7,
+      opis: 'Temo tehnika in družba v 7. in 8. razredu nadgradimo glede na 6. razred. Razdeljena je v dve skupini ciljev. V prvi obravnavamo poklice v tehniki, v drugi pa je poudarek na sodobnih tehnologijah v tehniki, ki jih prav tako povežemo s poklici.',
       podpoglavja: [
-        { id: 'td7-sodobne', privzeteUre: 2, naslov: 'Sodobne tehnologije', cilji: [], standardi: [] },
+        {
+          id: 'td7-sodobne',
+          privzeteUre: 2,
+          naslov: 'Sodobne tehnologije',
+          cilji: [
+            { id: 'c1', tip: 'O', text: 'pridobi vpogled v sodobne tehnologije in obdelovalne postopke za izdelavo prikazanih izdelkov;' },
+            { id: 'c2', tip: 'O', text: 'oceni prednosti in slabosti vpliva aktualnih tehnologij na okolje. (SC 2.2.1.1)' },
+          ],
+          standardi: [
+            { id: 's1', text: '**našteje nekaj sodobnih tehnologij** ter opiše njihove značilnosti;', minimalni: true },
+            { id: 's2', text: 'analizira prednosti in slabosti vpliva uporabljenih aktualnih tehnologij na naše življenje, okolje.' },
+          ],
+        },
       ],
     },
     {
@@ -314,8 +327,25 @@ export const tehnika: Predmet = {
       id: 'td-8',
       naslov: 'Tehnika in družba',
       razred: 8,
+      opis: 'Temo tehnika in družba v 7. in 8. razredu nadgradimo glede na 6. razred. Razdeljena je v dve skupini ciljev. V prvi obravnavamo poklice v tehniki, v drugi pa je poudarek na sodobnih tehnologijah v tehniki, ki jih prav tako povežemo s poklici.',
       podpoglavja: [
-        { id: 'td8-vloga', privzeteUre: 2, naslov: 'Vloga tehnike v družbi', cilji: [], standardi: [] },
+        {
+          id: 'td8-vloga',
+          privzeteUre: 2,
+          naslov: 'Vloga tehnike v družbi',
+          cilji: [
+            { id: 'c1', tip: 'O', text: 'razume pomen poklicev s področja tehnike za razvoj družbe in izpostavi tiste, ki so pomembni za trajnostni razvoj; (SC 2.2.2.1)' },
+            { id: 'c2', tip: 'O', text: 'razume pomembnost tehnike za dobrobit človeštva;' },
+            { id: 'c3', tip: 'O', text: 'se seznani s sodobnimi pristopi k podjetništvu in načinom zaposlovanja danes in v prihodnosti; (SC 5.1.3.1)' },
+            { id: 'c4', tip: 'O', text: 'uporablja ustrezno strokovno terminologijo; (SC 1.1.2.1)' },
+            { id: 'c5', tip: 'O', text: 'se seznani s pomenom varnega dela. (SC 3.2.4.1)' },
+          ],
+          standardi: [
+            { id: 's1', text: 'našteje področja in poklice, v katerih je tehnika prisotna in pomembna;', minimalni: true },
+            { id: 's2', text: 'pojasni pomen varnega dela.', minimalni: true },
+          ],
+          noviPojmi: ['podjetništvo'],
+        },
       ],
     },
     {
