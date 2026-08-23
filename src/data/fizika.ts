@@ -175,7 +175,7 @@ export const fizika: Predmet = {
           naslov: 'Merjenje',
           cilji: [
             { id: 'c1', tip: 'O', text: 'v naravi in vsakdanjem življenju prepozna nekaj pojavov, s katerimi se ukvarja fizika;' },
-            { id: 'c2', tip: 'O', text: 'po navodilih ali lastnem načrtu izmeri fizikalno količino ter kritično presoja podatke;' },
+            { id: 'c2', tip: 'O', text: 'po navodilih ali lastnem načrtu izmeri fizikalno količino ter kritično presoja podatke; (SC 2.2.2.1, SC 2.3.1.2)' },
           ],
           standardi: [
             { id: 's1', text: 'opiše pojav iz narave;' },
