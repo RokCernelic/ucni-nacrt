@@ -1,24 +1,26 @@
 import SubjectCard from '@/components/SubjectCard';
 import { fizika } from '@/data/fizika';
+import { tehnika } from '@/data/tehnika';
 
-const allFizikaPodpoglavja = fizika.poglavja.flatMap((p, pi) =>
-  p.podpoglavja.map((pp, ppi) => ({ number: `${pi + 1}.${ppi + 1}`, naslov: pp.naslov }))
-);
+const podpoglavjaOf = (predmet: typeof fizika) =>
+  predmet.poglavja.flatMap((p, pi) =>
+    p.podpoglavja.map((pp, ppi) => ({ number: `${pi + 1}.${ppi + 1}`, naslov: pp.naslov }))
+  );
 
 const subjects = [
   {
     href: '/fizika',
     naslov: 'Fizika',
     opis: 'Prenovljeni učni načrt za fiziko — osnovna šola',
-    enote: allFizikaPodpoglavja,
+    enote: podpoglavjaOf(fizika),
     disabled: false,
   },
   {
     href: '/tehnika',
-    naslov: 'Tehnika',
-    opis: 'Prenovljeni učni načrt za tehniko — osnovna šola',
-    enote: [] as { number: string; naslov: string }[],
-    disabled: true,
+    naslov: 'Tehnika in tehnologija',
+    opis: 'Prenovljeni učni načrt za tehniko in tehnologijo — osnovna šola',
+    enote: podpoglavjaOf(tehnika),
+    disabled: false,
   },
 ];
 

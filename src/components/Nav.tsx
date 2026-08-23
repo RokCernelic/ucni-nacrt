@@ -4,9 +4,9 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 
-const subjects = [
+const subjects: { href: string; label: string; disabled?: boolean }[] = [
   { href: '/fizika', label: 'Fizika' },
-  { href: '/tehnika', label: 'Tehnika', disabled: true },
+  { href: '/tehnika', label: 'Tehnika in tehnologija' },
 ];
 
 export default function Nav() {

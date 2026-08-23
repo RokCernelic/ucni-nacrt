@@ -636,12 +636,13 @@ function GradeDivider({ razred, target, used, doneHours, totalHours }: {
 
 // ── Main tree ─────────────────────────────────────────────
 
-export default function CurriculumTree({ predmet, classId, razredFilter = null, classBar, isAnonymous = false }: {
+export default function CurriculumTree({ predmet, classId, razredFilter = null, classBar, isAnonymous = false, gradeTargets = { 8: 70, 9: 64 } }: {
   predmet: Predmet;
   classId?: string;
   razredFilter?: number | null;
   classBar?: ReactNode;
   isAnonymous?: boolean;
+  gradeTargets?: Record<number, number>;
 }) {
   const { checked, toggle } = useProgress(classId ? `ucni-nacrt-progress-${classId}` : undefined);
   const { getHours, change } = useHours(classId ? `ucni-nacrt-hours-${classId}` : undefined);
@@ -654,10 +655,10 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
   [predmet.poglavja, razredFilter]);
 
   const gradeData = useMemo(() => {
-    const map: Record<number, { podpoglavjeKeys: string[]; poglavjeKeys: string[]; target: number }> = {
-      8: { podpoglavjeKeys: [], poglavjeKeys: [], target: 70 },
-      9: { podpoglavjeKeys: [], poglavjeKeys: [], target: 64 },
-    };
+    const map: Record<number, { podpoglavjeKeys: string[]; poglavjeKeys: string[]; target: number }> = {};
+    for (const [rStr, target] of Object.entries(gradeTargets)) {
+      map[Number(rStr)] = { podpoglavjeKeys: [], poglavjeKeys: [], target };
+    }
     for (const p of filteredPoglavja) {
       if (p.razred && map[p.razred]) {
         map[p.razred].poglavjeKeys.push(`${predmet.id}:${p.id}`);
@@ -665,7 +666,7 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
       }
     }
     return map;
-  }, [filteredPoglavja, predmet.id]);
+  }, [filteredPoglavja, predmet.id, gradeTargets]);
 
   // Privzete ure na podpoglavje (ključ: `${predmet.id}:${pp.id}`)
   const hourDefaults = useMemo(() => {
