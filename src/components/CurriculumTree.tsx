@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback, createContext, useContext, useRef, type ReactNode, type CSSProperties } from 'react';
+import { useState, useEffect, useMemo, useCallback, createContext, useContext, useRef, type ReactNode, type CSSProperties } from 'react';
 import Link from 'next/link';
 import type { Predmet, Standard } from '@/types/curriculum';
 
@@ -16,7 +16,9 @@ function sectionToggleStyle(open: boolean): CSSProperties {
 }
 import { useProgress } from '@/hooks/useProgress';
 import { useHours } from '@/hooks/useHours';
+import { useNotes } from '@/hooks/useNotes';
 import { useOpenChapters } from '@/hooks/useOpenChapters';
+import { useChapterOrder } from '@/hooks/useChapterOrder';
 import {
   useEnotaOrder,
   PALETTE_TYPES, PALETTE_COLORS,
@@ -353,9 +355,38 @@ function CustomEnotaRow({ item, onToggle, onDragStart, onDragEnd }: {
   );
 }
 
+// ── Učna vsebina (prosto besedilo / potek ure) ─────────────
+
+function UcnaVsebina({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [local, setLocal] = useState(value);
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => { setLocal(value); }, [value]);
+  const autosize = useCallback(() => {
+    const el = ref.current;
+    if (el) { el.style.height = 'auto'; el.style.height = `${el.scrollHeight}px`; }
+  }, []);
+  useEffect(() => { autosize(); }, [local, autosize]);
+  return (
+    <textarea
+      ref={ref}
+      value={local}
+      onChange={(e) => { setLocal(e.target.value); onChange(e.target.value); }}
+      placeholder="Prilepite ali vpišite zapis in potek učne ure …"
+      style={{
+        width: '100%', minHeight: '120px', resize: 'vertical', overflow: 'hidden',
+        fontFamily: 'var(--font-sans)', fontSize: '13px', lineHeight: 1.6,
+        color: 'var(--body)', background: 'var(--canvas)',
+        border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)',
+        padding: '10px 12px', boxSizing: 'border-box', outline: 'none',
+        whiteSpace: 'pre-wrap',
+      }}
+    />
+  );
+}
+
 // ── Podpoglavje row ────────────────────────────────────────
 
-function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, onHourChange, remaining, number, isAnonymous, listMode }: {
+function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, onHourChange, remaining, number, isAnonymous, listMode, noteValue, onNoteChange, onDragStart, onDragEnd }: {
   podpoglavje: import('@/types/curriculum').Podpoglavje;
   predmetId: string;
   checked: boolean;
@@ -366,10 +397,16 @@ function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, 
   number: string;
   isAnonymous?: boolean;
   listMode?: boolean;
+  noteValue: string;
+  onNoteChange: (v: string) => void;
+  onDragStart: () => void;
+  onDragEnd: () => void;
 }) {
   const [openCilji, setOpenCilji] = useState(false);
   const [openStandardi, setOpenStandardi] = useState(false);
   const [openPojmi, setOpenPojmi] = useState(false);
+  const [openVsebina, setOpenVsebina] = useState(false);
+  const headerRef = useRef<HTMLDivElement>(null);
   const [stdFilter, setStdFilter] = useState<StdFilter>(new Set());
   const toggleFilter = (key: 'M' | 'I' | 'S') => setStdFilter(prev => {
     const next = new Set(prev);
@@ -382,7 +419,21 @@ function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, 
 
   return (
     <div style={{ borderBottom: '1px solid var(--hairline)', background: checked ? '#f4fbf4' : 'var(--canvas)', transition: 'background 0.2s' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '11px 20px' }}>
+      <div ref={headerRef} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '11px 20px' }}>
+        <span
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', 'podpoglavje');
+            if (headerRef.current) e.dataTransfer.setDragImage(headerRef.current, 0, 16);
+            onDragStart();
+          }}
+          onDragEnd={onDragEnd}
+          style={{ cursor: 'grab', color: 'var(--muted)', flexShrink: 0, alignSelf: 'flex-start', marginTop: '3px' }}
+          title="Povleci za preureditev vrstnega reda"
+        >
+          <GripIcon />
+        </span>
         {isAnonymous ? (
           <Link
             href="/login"
@@ -466,13 +517,28 @@ function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, 
           )}
         </div>
       )}
+      {!listMode && (
+        <div style={{ borderTop: '1px solid var(--hairline)' }}>
+          <button onClick={() => setOpenVsebina(v => !v)} style={sectionToggleStyle(openVsebina)}>
+            <ChevronIcon open={openVsebina} /> Učna vsebina
+            {noteValue.trim() && (
+              <span style={{ marginLeft: '4px', width: '6px', height: '6px', borderRadius: '50%', background: 'var(--forest)', flexShrink: 0 }} title="Vsebina je vnesena" />
+            )}
+          </button>
+          {openVsebina && (
+            <div style={{ padding: '4px 20px 10px 44px' }}>
+              <UcnaVsebina value={noteValue} onChange={onNoteChange} />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
 // ── Poglavje row ──────────────────────────────────────────
 
-function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, onToggleOpen, getHours, onHourChange, remaining, resolve, addEnota, reorder, removeEnota, toggleCustom, isAnonymous, listMode }: {
+function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, onToggleOpen, getHours, onHourChange, remaining, resolve, addEnota, reorder, removeEnota, toggleCustom, isAnonymous, listMode, getNote, onNoteChange, onDragStart, onDragEnd }: {
   poglavje: import('@/types/curriculum').Poglavje;
   index: number;
   predmetId: string;
@@ -490,11 +556,16 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
   toggleCustom: (key: string, id: string) => void;
   isAnonymous?: boolean;
   listMode?: boolean;
+  getNote: (key: string) => string;
+  onNoteChange: (key: string, v: string) => void;
+  onDragStart: () => void;
+  onDragEnd: () => void;
 }) {
   const [openOpis, setOpenOpis] = useState(false);
   const [isDraggingCustom, setIsDraggingCustom] = useState(false);
   const dragFromRef = useRef<number | null>(null);
   const dragDroppedRef = useRef(false);
+  const chapterHeaderRef = useRef<HTMLDivElement>(null);
   const paletteType = useContext(PaletteDragCtx);
 
   const poglavjeKey = `${predmetId}:${poglavje.id}`;
@@ -524,20 +595,36 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
 
   return (
     <div style={{ borderBottom: '1px solid var(--hairline)' }}>
-      <button onClick={onToggleOpen}
-        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '14px', padding: '16px 20px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
-        <div style={{ width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0, background: allDone ? 'var(--green-ok)' : 'var(--forest)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', transition: 'background 0.3s' }}>
-          {allDone ? <CheckIcon /> : <ChevronIcon open={isOpen} />}
-        </div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontFamily: 'var(--font-serif)', fontSize: '20px', fontWeight: 400, color: 'var(--ink)', letterSpacing: '0.01em' }}>
-            <span style={{ fontWeight: 300, color: 'var(--muted)', marginRight: '10px' }}>{index}</span>{poglavje.naslov}
-          </div>
-        </div>
-        <span style={{ fontSize: '12px', color: doneHours > 0 ? 'var(--green-ok)' : 'var(--muted)', fontWeight: doneHours > 0 ? 600 : 400, whiteSpace: 'nowrap' }}>
-          {doneHours} / {totalHours} ur
+      <div ref={chapterHeaderRef} style={{ display: 'flex', alignItems: 'center', background: 'transparent' }}>
+        <span
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', 'poglavje');
+            if (chapterHeaderRef.current) e.dataTransfer.setDragImage(chapterHeaderRef.current, 0, 20);
+            onDragStart();
+          }}
+          onDragEnd={onDragEnd}
+          style={{ cursor: 'grab', color: 'var(--muted)', flexShrink: 0, paddingLeft: '14px', display: 'flex', alignItems: 'center' }}
+          title="Povleci za preureditev vrstnega reda poglavij"
+        >
+          <GripIcon />
         </span>
-      </button>
+        <button onClick={onToggleOpen}
+          style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '14px', padding: '16px 20px 16px 10px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+          <div style={{ width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0, background: allDone ? 'var(--green-ok)' : 'var(--forest)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', transition: 'background 0.3s' }}>
+            {allDone ? <CheckIcon /> : <ChevronIcon open={isOpen} />}
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontFamily: 'var(--font-serif)', fontSize: '20px', fontWeight: 400, color: 'var(--ink)', letterSpacing: '0.01em' }}>
+              <span style={{ fontWeight: 300, color: 'var(--muted)', marginRight: '10px' }}>{index}</span>{poglavje.naslov}
+            </div>
+          </div>
+          <span style={{ fontSize: '12px', color: doneHours > 0 ? 'var(--green-ok)' : 'var(--muted)', fontWeight: doneHours > 0 ? 600 : 400, whiteSpace: 'nowrap' }}>
+            {doneHours} / {totalHours} ur
+          </span>
+        </button>
+      </div>
 
       {isOpen && (
         <div style={{ borderTop: '1px solid var(--hairline)' }}>
@@ -580,6 +667,10 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
                         number={`${index}.${currNumSnapshot}`}
                         isAnonymous={isAnonymous}
                         listMode={listMode}
+                        noteValue={getNote(`${predmetId}:${item.id}`)}
+                        onNoteChange={(v) => onNoteChange(`${predmetId}:${item.id}`, v)}
+                        onDragStart={() => { dragDroppedRef.current = false; dragFromRef.current = idx; setIsDraggingCustom(true); }}
+                        onDragEnd={() => { dragDroppedRef.current = false; dragFromRef.current = null; setIsDraggingCustom(false); }}
                       />
                     ) : (
                       <CustomEnotaRow
@@ -650,10 +741,20 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
 }) {
   const { checked, toggle } = useProgress(classId ? `ucni-nacrt-progress-${classId}` : undefined);
   const { getHours, change } = useHours(classId ? `ucni-nacrt-hours-${classId}` : undefined);
+  const { getNote, setNote } = useNotes(classId ? `ucni-nacrt-notes-${classId}` : undefined);
   const { resolve, addEnota, reorder, removeEnota, toggleCustom, countCustom, countCheckedCustom } = useEnotaOrder(classId ? `ucni-nacrt-enote-order-${classId}` : undefined);
   const { openChapters, toggle: toggleChapter, expandAll, collapseAll } = useOpenChapters(classId ? `ucni-nacrt-open-chapters-${classId}` : undefined);
+  const { resolveOrder, reorderChapters } = useChapterOrder(classId ? `ucni-nacrt-chapter-order-${classId}` : undefined);
   const [paletteDrag, setPaletteDrag] = useState<PaletteType | null>(null);
   const [listMode, setListMode] = useState(false);
+  const [chapterDragging, setChapterDragging] = useState(false);
+  const chapterDragFrom = useRef<number | null>(null);
+
+  const handleChapterDrop = useCallback((groupKey: string, toIndex: number, ids: string[]) => {
+    if (chapterDragFrom.current === null) return;
+    reorderChapters(groupKey, chapterDragFrom.current, toIndex, ids);
+    chapterDragFrom.current = null;
+  }, [reorderChapters]);
 
   const filteredPoglavja = useMemo(() =>
     razredFilter != null ? predmet.poglavja.filter(p => p.razred === razredFilter) : predmet.poglavja,
@@ -746,24 +847,29 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
           </div>
 
           {(() => {
-            const groups: { razred: number; items: { poglavje: typeof predmet.poglavja[0]; index: number }[] }[] = [];
             const continuous = predmet.continuousNumbering ?? false;
-            const gradeCounter: Record<number, number> = {};
+
+            // 1) grupiraj po razredu v izvornem vrstnem redu
+            const rawGroups: { razred: number; poglavja: typeof predmet.poglavja }[] = [];
             filteredPoglavja.forEach((poglavje) => {
               const razred = poglavje.razred ?? 0;
-              const last = groups[groups.length - 1];
-              let index: number;
-              if (continuous) {
-                index = predmet.poglavja.indexOf(poglavje) + 1;
-              } else {
-                gradeCounter[razred] = (gradeCounter[razred] ?? 0) + 1;
-                index = gradeCounter[razred];
-              }
-              if (!last || last.razred !== razred) groups.push({ razred, items: [{ poglavje, index }] });
-              else last.items.push({ poglavje, index });
+              const last = rawGroups[rawGroups.length - 1];
+              if (!last || last.razred !== razred) rawGroups.push({ razred, poglavja: [poglavje] });
+              else last.poglavja.push(poglavje);
             });
 
-            return groups.map(({ razred, items }, gi) => {
+            // 2) uporabi shranjeni vrstni red poglavij znotraj razreda
+            const orderedGroups = rawGroups.map(g => {
+              const groupKey = `${predmet.id}:${g.razred}`;
+              const ids = g.poglavja.map(p => p.id);
+              const orderedIds = resolveOrder(groupKey, ids);
+              const byId = new Map(g.poglavja.map(p => [p.id, p]));
+              return { razred: g.razred, groupKey, ids: orderedIds, poglavja: orderedIds.map(id => byId.get(id)!) };
+            });
+
+            // 3) oštevilči glede na prikazani vrstni red
+            let globalCounter = 0;
+            return orderedGroups.map(({ razred, groupKey, ids, poglavja }, gi) => {
               const data = gradeData[razred];
               const remaining = data ? data.target - (gradeUsed[razred] ?? 0) : 0;
               return (
@@ -781,28 +887,40 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
                   />
                   {gi === 0 && <Legend />}
                   <div style={{ marginTop: '6px', background: 'var(--canvas)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
-                    {items.map(({ poglavje, index }) => (
-                      <PoglavjeRow
-                        key={poglavje.id}
-                        poglavje={poglavje}
-                        index={index}
-                        predmetId={predmet.id}
-                        checked={checked}
-                        onToggle={toggle}
-                        isOpen={openChapters.has(poglavje.id)}
-                        onToggleOpen={() => toggleChapter(poglavje.id)}
-                        getHours={getHoursD}
-                        onHourChange={(key, delta) => handleHourChange(key, delta, razred)}
-                        remaining={remaining}
-                        resolve={resolve}
-                        addEnota={addEnota}
-                        reorder={reorder}
-                        removeEnota={removeEnota}
-                        toggleCustom={toggleCustom}
-                        isAnonymous={isAnonymous}
-                        listMode={listMode}
-                      />
-                    ))}
+                    <div onDragOver={(e) => e.preventDefault()}>
+                      {chapterDragging && <DropZone onDrop={() => handleChapterDrop(groupKey, 0, ids)} />}
+                      {poglavja.map((poglavje, ci) => {
+                        const index = continuous ? (globalCounter += 1) : ci + 1;
+                        return (
+                          <div key={poglavje.id}>
+                            <PoglavjeRow
+                              poglavje={poglavje}
+                              index={index}
+                              predmetId={predmet.id}
+                              checked={checked}
+                              onToggle={toggle}
+                              isOpen={openChapters.has(poglavje.id)}
+                              onToggleOpen={() => toggleChapter(poglavje.id)}
+                              getHours={getHoursD}
+                              onHourChange={(key, delta) => handleHourChange(key, delta, razred)}
+                              remaining={remaining}
+                              resolve={resolve}
+                              addEnota={addEnota}
+                              reorder={reorder}
+                              removeEnota={removeEnota}
+                              toggleCustom={toggleCustom}
+                              isAnonymous={isAnonymous}
+                              listMode={listMode}
+                              getNote={getNote}
+                              onNoteChange={setNote}
+                              onDragStart={() => { chapterDragFrom.current = ci; setChapterDragging(true); }}
+                              onDragEnd={() => { chapterDragFrom.current = null; setChapterDragging(false); }}
+                            />
+                            {chapterDragging && <DropZone onDrop={() => handleChapterDrop(groupKey, ci + 1, ids)} />}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               );
