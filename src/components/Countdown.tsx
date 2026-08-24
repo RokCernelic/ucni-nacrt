@@ -44,11 +44,11 @@ export default function Countdown() {
     : '';
 
   return (
-    <div style={{ textAlign: 'right', flexShrink: 0, alignSelf: 'flex-start' }}>
+    <div style={{ textAlign: 'right', flexShrink: 0 }}>
       {remaining !== null ? (
         <>
           <div style={{
-            fontFamily: 'var(--font-serif)', fontSize: 'clamp(30px,4.5vw,52px)',
+            fontFamily: 'var(--font-serif)', fontSize: 'clamp(44px,6.5vw,76px)',
             fontWeight: 300, lineHeight: 1, whiteSpace: 'nowrap',
             fontVariantNumeric: 'tabular-nums',
             color: accent ? '#bfe3c0' : '#fff',
@@ -56,9 +56,9 @@ export default function Countdown() {
             {clock}
           </div>
           <div style={{
-            fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 600,
+            fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600,
             letterSpacing: '0.12em', textTransform: 'uppercase',
-            color: 'rgba(255,255,255,0.5)', marginTop: '7px', whiteSpace: 'nowrap',
+            color: 'rgba(255,255,255,0.5)', marginTop: '9px', whiteSpace: 'nowrap',
           }}>
             {caption}
           </div>

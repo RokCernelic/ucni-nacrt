@@ -5,12 +5,17 @@ import { useAuth } from '@/hooks/useAuth';
 import { useSchedule, DEFAULT_SCHEDULE, type Lesson } from '@/hooks/useSchedule';
 
 export default function SettingsModal({ onClose }: { onClose: () => void }) {
-  const { user, updateEmail } = useAuth();
+  const { user, updateEmail, updatePassword } = useAuth();
   const { schedule, setSchedule } = useSchedule();
 
   const [email, setEmail] = useState(user?.email ?? '');
   const [emailMsg, setEmailMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [emailBusy, setEmailBusy] = useState(false);
+
+  const [pw1, setPw1] = useState('');
+  const [pw2, setPw2] = useState('');
+  const [pwMsg, setPwMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [pwBusy, setPwBusy] = useState(false);
 
   const [rows, setRows] = useState<Lesson[]>(schedule.length ? schedule : DEFAULT_SCHEDULE);
   const [savedMsg, setSavedMsg] = useState(false);
@@ -25,6 +30,18 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
     setEmailMsg(error
       ? { ok: false, text: error.message }
       : { ok: true, text: 'Za potrditev preverite e-pošto na novem naslovu.' });
+  };
+
+  const handlePassword = async () => {
+    setPwMsg(null);
+    if (pw1.length < 6) { setPwMsg({ ok: false, text: 'Geslo mora imeti vsaj 6 znakov.' }); return; }
+    if (pw1 !== pw2) { setPwMsg({ ok: false, text: 'Gesli se ne ujemata.' }); return; }
+    setPwBusy(true);
+    const error = await updatePassword(pw1);
+    setPwBusy(false);
+    if (error) { setPwMsg({ ok: false, text: error.message }); return; }
+    setPw1(''); setPw2('');
+    setPwMsg({ ok: true, text: 'Geslo je posodobljeno.' });
   };
 
   const updateRow = (i: number, field: keyof Lesson, value: string) => {
@@ -64,11 +81,14 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
         <div style={{ padding: '22px' }}>
           {/* E-naslov */}
           <div style={{ marginBottom: '28px' }}>
-            <div style={{ ...label, marginBottom: '10px' }}>E-naslov</div>
+            <div style={{ ...label, marginBottom: '6px' }}>E-naslov</div>
+            <p style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '10px' }}>
+              Trenutni: <span style={{ color: 'var(--ink)', fontWeight: 500 }}>{user?.email ?? '—'}</span>
+            </p>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               <input
                 type="email" value={email} onChange={(e) => { setEmail(e.target.value); setEmailMsg(null); }}
-                placeholder="ime@primer.si"
+                placeholder="nov e-naslov"
                 style={{ ...inputStyle, flex: '1 1 220px' }}
               />
               <button onClick={handleEmail} disabled={emailBusy}
@@ -78,6 +98,30 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
             </div>
             {emailMsg && (
               <p style={{ marginTop: '8px', fontSize: '12px', color: emailMsg.ok ? 'var(--green-ok)' : '#c0392b' }}>{emailMsg.text}</p>
+            )}
+          </div>
+
+          {/* Geslo */}
+          <div style={{ marginBottom: '28px' }}>
+            <div style={{ ...label, marginBottom: '10px' }}>Sprememba gesla</div>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <input
+                type="password" value={pw1} onChange={(e) => { setPw1(e.target.value); setPwMsg(null); }}
+                placeholder="novo geslo" autoComplete="new-password"
+                style={{ ...inputStyle, flex: '1 1 140px' }}
+              />
+              <input
+                type="password" value={pw2} onChange={(e) => { setPw2(e.target.value); setPwMsg(null); }}
+                placeholder="ponovi geslo" autoComplete="new-password"
+                style={{ ...inputStyle, flex: '1 1 140px' }}
+              />
+              <button onClick={handlePassword} disabled={pwBusy}
+                style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 600, color: '#fff', background: 'var(--forest)', border: 'none', borderRadius: 'var(--r-sm)', padding: '8px 16px', cursor: pwBusy ? 'default' : 'pointer', opacity: pwBusy ? 0.6 : 1 }}>
+                {pwBusy ? 'Shranjujem …' : 'Posodobi'}
+              </button>
+            </div>
+            {pwMsg && (
+              <p style={{ marginTop: '8px', fontSize: '12px', color: pwMsg.ok ? 'var(--green-ok)' : '#c0392b' }}>{pwMsg.text}</p>
             )}
           </div>
 
