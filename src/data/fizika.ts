@@ -447,6 +447,7 @@ export const fizika: Predmet = {
       podpoglavja: [
         {
           id: 'delo-1',
+          privzeteUre: 2,
           naslov: 'Delo sile',
           cilji: [
             { id: 'c1', tip: 'O', text: 'usvoji delo sile.' },
@@ -466,6 +467,7 @@ export const fizika: Predmet = {
         },
         {
           id: 'delo-2',
+          privzeteUre: 2,
           naslov: 'Mehanske energije (kinetična in potencialna energija)',
           cilji: [
             { id: 'c1', tip: 'O', text: 'na kvalitativnem nivoju usvoji kinetično energijo gibajočih se teles;' },
@@ -485,6 +487,7 @@ export const fizika: Predmet = {
         },
         {
           id: 'delo-3',
+          privzeteUre: 2,
           naslov: 'Delo z orodji',
           cilji: [
             { id: 'c1', tip: 'O', text: 'spozna preprosta fizikalna orodja;' },
@@ -504,6 +507,7 @@ export const fizika: Predmet = {
         },
         {
           id: 'delo-4',
+          privzeteUre: 2,
           naslov: 'Moč',
           cilji: [
             { id: 'c1', tip: 'O', text: 'usvoji moč. (SC 3.2.1.2)' },
@@ -524,6 +528,7 @@ export const fizika: Predmet = {
       podpoglavja: [
         {
           id: 'gib-1',
+          privzeteUre: 2,
           naslov: 'Opis gibanja',
           cilji: [
             { id: 'c1', tip: 'O', text: 'usvoji relativnost gibanja in mirovanja telesa glede na izbrano okolico;' },
@@ -540,6 +545,7 @@ export const fizika: Predmet = {
         },
         {
           id: 'gib-2',
+          privzeteUre: 10,
           naslov: 'Premo gibanje',
           cilji: [
             { id: 'c1', tip: 'O', text: 'usvoji pojem hitrosti pri enakomernem gibanju;' },
@@ -579,6 +585,7 @@ export const fizika: Predmet = {
         },
         {
           id: 'gib-3',
+          privzeteUre: 2,
           naslov: 'Prosti pad',
           cilji: [
             { id: 'c1', tip: 'O', text: 'razišče prosto padanje teles;' },
@@ -594,6 +601,7 @@ export const fizika: Predmet = {
         },
         {
           id: 'gib-4',
+          privzeteUre: 6,
           naslov: 'Drugi Newtonov zakon',
           cilji: [
             { id: 'c1', tip: 'O', text: 'razume, da je vrsta gibanja odvisna od rezultante zunanjih sil;' },
@@ -611,6 +619,7 @@ export const fizika: Predmet = {
         },
         {
           id: 'gib-5',
+          privzeteUre: 0,
           naslov: 'Kroženje',
           izbirna: true,
           cilji: [
@@ -631,6 +640,7 @@ export const fizika: Predmet = {
       podpoglavja: [
         {
           id: 'et-1',
+          privzeteUre: 3,
           naslov: 'Mehanske energije (izrek o kinetični in potencialni energiji)',
           cilji: [
             { id: 'c1', tip: 'O', text: 'usvoji zvezo med kinetično energijo, maso in hitrostjo telesa;' },
@@ -651,6 +661,7 @@ export const fizika: Predmet = {
         },
         {
           id: 'et-2',
+          privzeteUre: 2,
           naslov: 'Zgradba snovi',
           cilji: [
             { id: 'c1', tip: 'O', text: 'spozna lastnosti snovi in gradnike, iz katerih je zgrajena snov;' },
@@ -666,6 +677,7 @@ export const fizika: Predmet = {
         },
         {
           id: 'et-3',
+          privzeteUre: 2,
           naslov: 'Temperatura',
           cilji: [
             { id: 'c1', tip: 'O', text: 'temperaturo izmeri s temperaturnim senzorjem ter dobljene podatke ustrezno organizira, jih deli med napravami in uporabniki, računalniško obdela in odpravi simulirane tehnične težave; (SC 4.5.1.1, SC 4.1.3.1)' },
@@ -689,6 +701,7 @@ export const fizika: Predmet = {
         },
         {
           id: 'et-4',
+          privzeteUre: 2,
           naslov: 'Temperaturno raztezanje',
           cilji: [
             { id: 'c1', tip: 'O', text: 'razišče temperaturno raztezanje snovi in teles;' },
@@ -705,6 +718,7 @@ export const fizika: Predmet = {
         },
         {
           id: 'et-5',
+          privzeteUre: 0,
           naslov: 'Tlak plina',
           izbirna: true,
           cilji: [
@@ -718,6 +732,7 @@ export const fizika: Predmet = {
         },
         {
           id: 'et-6',
+          privzeteUre: 3,
           naslov: 'Toplota in notranja energija',
           cilji: [
             { id: 'c1', tip: 'O', text: 'razlikuje med temperaturo, toploto in notranjo energijo;' },
@@ -746,6 +761,7 @@ export const fizika: Predmet = {
         },
         {
           id: 'et-7',
+          privzeteUre: 0,
           naslov: 'Toplotni tok',
           izbirna: true,
           cilji: [
@@ -762,6 +778,7 @@ export const fizika: Predmet = {
         },
         {
           id: 'et-8',
+          privzeteUre: 2,
           naslov: 'Energijski zakon',
           cilji: [
             { id: 'c1', tip: 'O', text: 'spozna, da se lahko energija telesa / sistema teles pretvarja iz ene oblike v drugo;' },
@@ -788,6 +805,7 @@ export const fizika: Predmet = {
       podpoglavja: [
         {
           id: 'el-1',
+          privzeteUre: 2,
           naslov: 'Električni naboj in električna sila',
           cilji: [
             { id: 'c1', tip: 'O', text: 'spozna električni naboj in električno silo;' },
@@ -810,6 +828,7 @@ export const fizika: Predmet = {
         },
         {
           id: 'el-2',
+          privzeteUre: 3,
           naslov: 'Električni tok',
           cilji: [
             { id: 'c1', tip: 'O', text: 'usvaja pojme, povezane z električnim krogom in tokom;' },
@@ -842,6 +861,7 @@ export const fizika: Predmet = {
         },
         {
           id: 'el-3',
+          privzeteUre: 2,
           naslov: 'Električna napetost',
           cilji: [
             { id: 'c1', tip: 'O', text: 'usvaja električno napetost;' },
@@ -859,6 +879,7 @@ export const fizika: Predmet = {
         },
         {
           id: 'el-4',
+          privzeteUre: 3,
           naslov: 'Ohmov zakon',
           cilji: [
             { id: 'c1', tip: 'O', text: 'spozna in usvaja električni upor;' },
@@ -875,6 +896,7 @@ export const fizika: Predmet = {
         },
         {
           id: 'el-5',
+          privzeteUre: 5,
           naslov: 'Zaporedna in vzporedna vezava električnih porabnikov',
           cilji: [
             { id: 'c1', tip: 'O', text: 'usvoji zakonitosti zaporedne in vzporedne vezave električnih porabnikov;' },
@@ -899,6 +921,7 @@ export const fizika: Predmet = {
         },
         {
           id: 'el-6',
+          privzeteUre: 3,
           naslov: 'Električno delo in električna moč',
           cilji: [
             { id: 'c1', tip: 'O', text: 'spozna električno delo, električno moč in energijski obračun;' },
@@ -916,6 +939,7 @@ export const fizika: Predmet = {
         },
         {
           id: 'el-7',
+          privzeteUre: 1,
           naslov: 'Magnetna sila',
           cilji: [
             { id: 'c1', tip: 'O', text: 'razišče delovanje magnetne sile; (SC 1.1.4.1)' },
@@ -936,6 +960,7 @@ export const fizika: Predmet = {
         },
         {
           id: 'el-8',
+          privzeteUre: 1,
           naslov: 'Okolje, elektrarne in električne naprave',
           cilji: [
             { id: 'c1', tip: 'O', text: 'razišče delovanje elektrarn in električnih naprav ter vplive na okolje. (SC 2.2.3.1, SC 2.2.1.1)' },
