@@ -1,8 +1,19 @@
 'use client';
 
-import { useState, useMemo, useCallback, createContext, useContext, useRef, type ReactNode } from 'react';
+import { useState, useMemo, useCallback, createContext, useContext, useRef, type ReactNode, type CSSProperties } from 'react';
 import Link from 'next/link';
 import type { Predmet, Standard } from '@/types/curriculum';
+
+// Slog za naslov razdelka (Cilji / Standardi znanja / Novi pojmi)
+function sectionToggleStyle(open: boolean): CSSProperties {
+  return {
+    display: 'flex', alignItems: 'center', gap: '5px', width: '100%',
+    background: 'none', border: 'none', padding: '6px 20px 6px 44px', cursor: 'pointer',
+    textAlign: 'left', fontFamily: 'var(--font-sans)', fontSize: '10px',
+    fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase',
+    color: open ? 'var(--forest)' : 'var(--muted)',
+  };
+}
 import { useProgress } from '@/hooks/useProgress';
 import { useHours } from '@/hooks/useHours';
 import { useOpenChapters } from '@/hooks/useOpenChapters';
@@ -107,8 +118,8 @@ function matchesFilter(s: Standard, filter: StdFilter): boolean {
 function StandardiList({ standardi, filter, onToggleFilter }: { standardi: Standard[]; filter: StdFilter; onToggleFilter: (key: 'M' | 'I' | 'S') => void }) {
   const visible = standardi.filter(s => matchesFilter(s, filter));
   return (
-    <div style={{ padding: '14px 0 8px' }}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
+    <div style={{ padding: '2px 0 0' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '6px' }}>
         <StandardFilter filter={filter} onToggle={onToggleFilter} />
       </div>
       {visible.length === 0 ? (
@@ -133,7 +144,7 @@ function StandardiList({ standardi, filter, onToggleFilter }: { standardi: Stand
 
 function NoviPojmiList({ noviPojmi }: { noviPojmi: string[] }) {
   return (
-    <div style={{ padding: '14px 0 8px' }}>
+    <div style={{ padding: '2px 0 0' }}>
       <p style={{ fontSize: '13px', color: 'var(--body)', lineHeight: 1.6, margin: 0 }}>
         {noviPojmi.map((p, i) => (
           <span key={i}>
@@ -398,37 +409,6 @@ function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, 
               </span>
             )}
           </div>
-          {(hasCilji || hasStandardi || hasPojmi) && (
-            <div style={{ display: 'flex', gap: '12px', marginTop: '4px', flexWrap: 'wrap' }}>
-              {hasCilji && (
-                <button
-                  onClick={() => setOpenCilji(v => !v)}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '10px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: openCilji ? 'var(--forest)' : 'var(--muted)', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
-                >
-                  <ChevronIcon open={openCilji} />
-                  Cilji
-                </button>
-              )}
-              {hasStandardi && (
-                <button
-                  onClick={() => setOpenStandardi(v => !v)}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '10px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: openStandardi ? 'var(--forest)' : 'var(--muted)', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
-                >
-                  <ChevronIcon open={openStandardi} />
-                  Standardi znanja
-                </button>
-              )}
-              {hasPojmi && (
-                <button
-                  onClick={() => setOpenPojmi(v => !v)}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '10px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: openPojmi ? 'var(--forest)' : 'var(--muted)', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
-                >
-                  <ChevronIcon open={openPojmi} />
-                  Novi pojmi
-                </button>
-              )}
-            </div>
-          )}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
@@ -447,21 +427,42 @@ function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, 
         </div>
       </div>
 
-      {openCilji && hasCilji && (
-        <div style={{ borderTop: '1px solid var(--hairline)', padding: '10px 20px 14px 60px' }}>
-          {podpoglavje.cilji.map(c => (
-            <CiljRow key={c.id} tip={c.tip} text={c.text} />
-          ))}
+      {hasCilji && (
+        <div style={{ borderTop: '1px solid var(--hairline)' }}>
+          <button onClick={() => setOpenCilji(v => !v)} style={sectionToggleStyle(openCilji)}>
+            <ChevronIcon open={openCilji} /> Cilji
+          </button>
+          {openCilji && (
+            <div style={{ padding: '0 20px 6px 44px' }}>
+              {podpoglavje.cilji.map(c => (
+                <CiljRow key={c.id} tip={c.tip} text={c.text} />
+              ))}
+            </div>
+          )}
         </div>
       )}
-      {openStandardi && hasStandardi && (
-        <div style={{ borderTop: '1px solid var(--hairline)', padding: '0 20px 20px 60px', background: '#fafaf8' }}>
-          <StandardiList standardi={podpoglavje.standardi} filter={stdFilter} onToggleFilter={toggleFilter} />
+      {hasStandardi && (
+        <div style={{ borderTop: '1px solid var(--hairline)' }}>
+          <button onClick={() => setOpenStandardi(v => !v)} style={sectionToggleStyle(openStandardi)}>
+            <ChevronIcon open={openStandardi} /> Standardi znanja
+          </button>
+          {openStandardi && (
+            <div style={{ padding: '0 20px 6px 44px', background: '#fafaf8' }}>
+              <StandardiList standardi={podpoglavje.standardi} filter={stdFilter} onToggleFilter={toggleFilter} />
+            </div>
+          )}
         </div>
       )}
-      {openPojmi && hasPojmi && (
-        <div style={{ borderTop: '1px solid var(--hairline)', padding: '0 20px 20px 60px', background: 'var(--cream)' }}>
-          <NoviPojmiList noviPojmi={podpoglavje.noviPojmi!} />
+      {hasPojmi && (
+        <div style={{ borderTop: '1px solid var(--hairline)' }}>
+          <button onClick={() => setOpenPojmi(v => !v)} style={sectionToggleStyle(openPojmi)}>
+            <ChevronIcon open={openPojmi} /> Novi pojmi
+          </button>
+          {openPojmi && (
+            <div style={{ padding: '0 20px 6px 44px', background: 'var(--cream)' }}>
+              <NoviPojmiList noviPojmi={podpoglavje.noviPojmi!} />
+            </div>
+          )}
         </div>
       )}
     </div>
