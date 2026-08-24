@@ -355,7 +355,7 @@ function CustomEnotaRow({ item, onToggle, onDragStart, onDragEnd }: {
 
 // ── Podpoglavje row ────────────────────────────────────────
 
-function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, onHourChange, remaining, number, isAnonymous }: {
+function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, onHourChange, remaining, number, isAnonymous, listMode }: {
   podpoglavje: import('@/types/curriculum').Podpoglavje;
   predmetId: string;
   checked: boolean;
@@ -365,6 +365,7 @@ function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, 
   remaining: number;
   number: string;
   isAnonymous?: boolean;
+  listMode?: boolean;
 }) {
   const [openCilji, setOpenCilji] = useState(false);
   const [openStandardi, setOpenStandardi] = useState(false);
@@ -375,9 +376,9 @@ function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, 
     next.has(key) ? next.delete(key) : next.add(key);
     return next;
   });
-  const hasCilji = podpoglavje.cilji.length > 0;
-  const hasStandardi = (podpoglavje.standardi?.length ?? 0) > 0;
-  const hasPojmi = (podpoglavje.noviPojmi?.length ?? 0) > 0;
+  const hasCilji = !listMode && podpoglavje.cilji.length > 0;
+  const hasStandardi = !listMode && (podpoglavje.standardi?.length ?? 0) > 0;
+  const hasPojmi = !listMode && (podpoglavje.noviPojmi?.length ?? 0) > 0;
 
   return (
     <div style={{ borderBottom: '1px solid var(--hairline)', background: checked ? '#f4fbf4' : 'var(--canvas)', transition: 'background 0.2s' }}>
@@ -471,7 +472,7 @@ function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, 
 
 // ── Poglavje row ──────────────────────────────────────────
 
-function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, onToggleOpen, getHours, onHourChange, remaining, resolve, addEnota, reorder, removeEnota, toggleCustom, isAnonymous }: {
+function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, onToggleOpen, getHours, onHourChange, remaining, resolve, addEnota, reorder, removeEnota, toggleCustom, isAnonymous, listMode }: {
   poglavje: import('@/types/curriculum').Poglavje;
   index: number;
   predmetId: string;
@@ -488,6 +489,7 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
   removeEnota: (key: string, id: string) => void;
   toggleCustom: (key: string, id: string) => void;
   isAnonymous?: boolean;
+  listMode?: boolean;
 }) {
   const [openOpis, setOpenOpis] = useState(false);
   const [isDraggingCustom, setIsDraggingCustom] = useState(false);
@@ -539,7 +541,7 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
 
       {isOpen && (
         <div style={{ borderTop: '1px solid var(--hairline)' }}>
-          {poglavje.opis && (
+          {poglavje.opis && !listMode && (
             <div style={{ borderBottom: '1px solid var(--hairline)' }}>
               <button
                 onClick={() => setOpenOpis(v => !v)}
@@ -577,6 +579,7 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
                         remaining={remaining}
                         number={`${index}.${currNumSnapshot}`}
                         isAnonymous={isAnonymous}
+                        listMode={listMode}
                       />
                     ) : (
                       <CustomEnotaRow
@@ -650,6 +653,7 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
   const { resolve, addEnota, reorder, removeEnota, toggleCustom, countCustom, countCheckedCustom } = useEnotaOrder(classId ? `ucni-nacrt-enote-order-${classId}` : undefined);
   const { openChapters, toggle: toggleChapter, expandAll, collapseAll } = useOpenChapters(classId ? `ucni-nacrt-open-chapters-${classId}` : undefined);
   const [paletteDrag, setPaletteDrag] = useState<PaletteType | null>(null);
+  const [listMode, setListMode] = useState(false);
 
   const filteredPoglavja = useMemo(() =>
     razredFilter != null ? predmet.poglavja.filter(p => p.razred === razredFilter) : predmet.poglavja,
@@ -700,7 +704,9 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
     return r;
   }, [gradeData, checked, getHoursD, countCheckedCustom]);
 
-  const handleExpandAll = useCallback(() => expandAll(filteredPoglavja.map(p => p.id)), [expandAll, filteredPoglavja]);
+  const handleExpandAll = useCallback(() => { setListMode(false); expandAll(filteredPoglavja.map(p => p.id)); }, [expandAll, filteredPoglavja]);
+  const handleExpandList = useCallback(() => { setListMode(true); expandAll(filteredPoglavja.map(p => p.id)); }, [expandAll, filteredPoglavja]);
+  const handleCollapseAll = useCallback(() => { setListMode(false); collapseAll(); }, [collapseAll]);
 
   const handleHourChange = useCallback((unitKey: string, delta: number, razred: number) => {
     const data = gradeData[razred];
@@ -729,7 +735,11 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
               style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 500, letterSpacing: '0.06em', color: 'var(--forest)', background: 'transparent', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', padding: '5px 12px', cursor: 'pointer' }}>
               Razširi vse
             </button>
-            <button onClick={collapseAll}
+            <button onClick={handleExpandList} title="Razširi vsa poglavja kot strnjen seznam – brez ciljev, standardov in pojmov"
+              style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 500, letterSpacing: '0.06em', color: listMode ? '#fff' : 'var(--forest)', background: listMode ? 'var(--forest)' : 'transparent', border: `1px solid ${listMode ? 'var(--forest)' : 'var(--hairline)'}`, borderRadius: 'var(--r-sm)', padding: '5px 12px', cursor: 'pointer' }}>
+              Razširi kot seznam
+            </button>
+            <button onClick={handleCollapseAll}
               style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 500, letterSpacing: '0.06em', color: 'var(--muted)', background: 'transparent', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', padding: '5px 12px', cursor: 'pointer' }}>
               Strni vse
             </button>
@@ -790,6 +800,7 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
                         removeEnota={removeEnota}
                         toggleCustom={toggleCustom}
                         isAnonymous={isAnonymous}
+                        listMode={listMode}
                       />
                     ))}
                   </div>
