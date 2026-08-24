@@ -650,10 +650,10 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
           <div onDragOver={(e) => e.preventDefault()}>
             <DropZone onDrop={() => handleDrop(0)} />
             {(() => {
-              let currNum = 0;
+              // IZVORNE številke podpoglavij (iz UN) — se ne spreminjajo ob preurejanju
+              const origSubNum = new Map<string, number>();
+              poglavje.podpoglavja.forEach((pp, i) => origSubNum.set(pp.id, i + 1));
               return items.map((item, idx) => {
-                if (item.kind === 'curriculum') currNum++;
-                const currNumSnapshot = currNum;
                 return (
                   <div key={item.id}>
                     {item.kind === 'curriculum' ? (
@@ -665,7 +665,7 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
                         unitHours={getHours(`${predmetId}:${item.id}`)}
                         onHourChange={delta => onHourChange(`${predmetId}:${item.id}`, delta)}
                         remaining={remaining}
-                        number={`${index}.${currNumSnapshot}`}
+                        number={`${index}.${origSubNum.get(item.id) ?? ''}`}
                         isAnonymous={isAnonymous}
                         listMode={listMode}
                         noteValue={getNote(`${predmetId}:${item.id}`)}
@@ -808,7 +808,13 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
   }, [gradeData, checked, getHoursD, countCheckedCustom]);
 
   const handleExpandAll = useCallback(() => { setListMode(false); expandAll(filteredPoglavja.map(p => p.id)); }, [expandAll, filteredPoglavja]);
-  const handleExpandList = useCallback(() => { setListMode(true); expandAll(filteredPoglavja.map(p => p.id)); }, [expandAll, filteredPoglavja]);
+  const handleExpandList = useCallback(() => {
+    setListMode(prev => {
+      if (prev) return false;            // izklop – vrni podroben pogled
+      expandAll(filteredPoglavja.map(p => p.id));
+      return true;                       // vklop – razširi kot seznam
+    });
+  }, [expandAll, filteredPoglavja]);
   const handleCollapseAll = useCallback(() => { setListMode(false); collapseAll(); }, [collapseAll]);
 
   const handleHourChange = useCallback((unitKey: string, delta: number, razred: number) => {
@@ -867,7 +873,13 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
               else last.poglavja.push(poglavje);
             });
 
-            // 2) uporabi shranjeni vrstni red poglavij znotraj razreda
+            // 2) IZVORNE številke poglavij (iz UN) — se ne spreminjajo ob preurejanju
+            const chapterNum = new Map<string, number>();
+            rawGroups.forEach(g => g.poglavja.forEach((p, i) => {
+              chapterNum.set(p.id, continuous ? predmet.poglavja.indexOf(p) + 1 : i + 1);
+            }));
+
+            // 3) uporabi shranjeni vrstni red poglavij znotraj razreda
             const orderedGroups = rawGroups.map(g => {
               const groupKey = `${predmet.id}:${g.razred}`;
               const ids = g.poglavja.map(p => p.id);
@@ -876,8 +888,6 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
               return { razred: g.razred, groupKey, ids: orderedIds, poglavja: orderedIds.map(id => byId.get(id)!) };
             });
 
-            // 3) oštevilči glede na prikazani vrstni red
-            let globalCounter = 0;
             return orderedGroups.map(({ razred, groupKey, ids, poglavja }, gi) => {
               const data = gradeData[razred];
               const remaining = data ? data.target - (gradeUsed[razred] ?? 0) : 0;
@@ -899,7 +909,7 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
                     <div onDragOver={(e) => e.preventDefault()}>
                       {chapterDragging && <DropZone onDrop={() => handleChapterDrop(groupKey, 0, ids)} />}
                       {poglavja.map((poglavje, ci) => {
-                        const index = continuous ? (globalCounter += 1) : ci + 1;
+                        const index = chapterNum.get(poglavje.id) ?? 0;
                         return (
                           <div key={poglavje.id}>
                             <PoglavjeRow
