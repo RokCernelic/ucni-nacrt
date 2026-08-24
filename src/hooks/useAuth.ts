@@ -65,5 +65,14 @@ export function useAuth() {
     return error;
   }, []);
 
-  return { user, session, loading, signIn, signUp, signOut, resetPassword, updatePassword };
+  const updateEmail = useCallback(async (email: string) => {
+    const supabase = getSupabaseBrowserClient();
+    const { error } = await supabase.auth.updateUser(
+      { email },
+      { emailRedirectTo: `${window.location.origin}/auth/callback` },
+    );
+    return error;
+  }, []);
+
+  return { user, session, loading, signIn, signUp, signOut, resetPassword, updatePassword, updateEmail };
 }

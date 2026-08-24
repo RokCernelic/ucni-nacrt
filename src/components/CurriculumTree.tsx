@@ -19,6 +19,7 @@ import { useHours } from '@/hooks/useHours';
 import { useNotes } from '@/hooks/useNotes';
 import { useOpenChapters } from '@/hooks/useOpenChapters';
 import { useChapterOrder } from '@/hooks/useChapterOrder';
+import Countdown from '@/components/Countdown';
 import {
   useEnotaOrder,
   PALETTE_TYPES, PALETTE_COLORS,
@@ -820,12 +821,17 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
       <div>
         <div style={{ background: 'var(--forest)', padding: '32px 32px 28px' }}>
           <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
-            <p style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginBottom: '6px' }}>
-              {predmet.opis}
-            </p>
-            <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(36px,5vw,56px)', fontWeight: 300, color: '#fff', lineHeight: 1 }}>
-              {predmet.naslov}
-            </h1>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '24px', flexWrap: 'wrap' }}>
+              <div style={{ flex: '1 1 auto', minWidth: 0 }}>
+                <p style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginBottom: '6px' }}>
+                  {predmet.opis}
+                </p>
+                <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(36px,5vw,56px)', fontWeight: 300, color: '#fff', lineHeight: 1 }}>
+                  {predmet.naslov}
+                </h1>
+              </div>
+              <Countdown />
+            </div>
             {classBar}
           </div>
         </div>
