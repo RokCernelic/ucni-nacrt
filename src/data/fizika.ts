@@ -896,7 +896,7 @@ export const fizika: Predmet = {
         },
         {
           id: 'el-5',
-          privzeteUre: 5,
+          privzeteUre: 4,
           naslov: 'Zaporedna in vzporedna vezava električnih porabnikov',
           cilji: [
             { id: 'c1', tip: 'O', text: 'usvoji zakonitosti zaporedne in vzporedne vezave električnih porabnikov;' },
