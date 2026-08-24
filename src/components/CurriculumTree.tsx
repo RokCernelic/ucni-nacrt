@@ -853,7 +853,7 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
             </button>
             <button onClick={handleExpandList} title="Razširi vsa poglavja kot strnjen seznam – brez ciljev, standardov in pojmov"
               style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 500, letterSpacing: '0.06em', color: listMode ? '#fff' : 'var(--forest)', background: listMode ? 'var(--forest)' : 'transparent', border: `1px solid ${listMode ? 'var(--forest)' : 'var(--hairline)'}`, borderRadius: 'var(--r-sm)', padding: '5px 12px', cursor: 'pointer' }}>
-              Razširi kot seznam
+              Strnjen seznam
             </button>
             <button onClick={handleCollapseAll}
               style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 500, letterSpacing: '0.06em', color: 'var(--muted)', background: 'transparent', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', padding: '5px 12px', cursor: 'pointer' }}>
