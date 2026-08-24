@@ -9,7 +9,7 @@ export default function Countdown() {
 
   useEffect(() => {
     setNow(new Date());
-    const id = setInterval(() => setNow(new Date()), 10000);
+    const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
   }, []);
 
@@ -22,36 +22,38 @@ export default function Countdown() {
     .filter(l => l.startS >= 0 && l.endS > l.startS)
     .sort((a, b) => a.startS - b.startS);
 
-  let minutes: number | null = null;
+  let remaining: number | null = null; // preostale sekunde
   let caption = '';
   let accent = false; // true = med uro (odštevanje do konca)
 
   const active = lessons.find(l => nowSec >= l.startS && nowSec < l.endS);
   if (active) {
-    minutes = Math.max(1, Math.ceil((active.endS - nowSec) / 60));
+    remaining = active.endS - nowSec;
     caption = `do konca ${active.i + 1}. ure`;
     accent = true;
   } else {
     const next = lessons.find(l => l.startS > nowSec);
     if (next) {
-      minutes = Math.max(1, Math.ceil((next.startS - nowSec) / 60));
+      remaining = next.startS - nowSec;
       caption = `do začetka ${next.i + 1}. ure`;
     }
   }
 
+  const clock = remaining !== null
+    ? `${String(Math.floor(Math.max(0, remaining) / 60)).padStart(2, '0')}:${String(Math.max(0, remaining) % 60).padStart(2, '0')}`
+    : '';
+
   return (
     <div style={{ textAlign: 'right', flexShrink: 0, alignSelf: 'flex-start' }}>
-      {minutes !== null ? (
+      {remaining !== null ? (
         <>
           <div style={{
             fontFamily: 'var(--font-serif)', fontSize: 'clamp(30px,4.5vw,52px)',
             fontWeight: 300, lineHeight: 1, whiteSpace: 'nowrap',
+            fontVariantNumeric: 'tabular-nums',
             color: accent ? '#bfe3c0' : '#fff',
           }}>
-            {minutes}
-            <span style={{ fontSize: '0.34em', fontFamily: 'var(--font-sans)', fontWeight: 500, marginLeft: '6px', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.04em' }}>
-              min
-            </span>
+            {clock}
           </div>
           <div style={{
             fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 600,
