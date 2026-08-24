@@ -144,7 +144,7 @@ function StandardiList({ standardi, filter, onToggleFilter }: { standardi: Stand
 
 function NoviPojmiList({ noviPojmi }: { noviPojmi: string[] }) {
   return (
-    <div style={{ padding: '2px 0 0' }}>
+    <div style={{ padding: 0 }}>
       <p style={{ fontSize: '13px', color: 'var(--body)', lineHeight: 1.6, margin: 0 }}>
         {noviPojmi.map((p, i) => (
           <span key={i}>
@@ -459,7 +459,7 @@ function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, 
             <ChevronIcon open={openPojmi} /> Novi pojmi
           </button>
           {openPojmi && (
-            <div style={{ padding: '0 20px 6px 44px', background: 'var(--cream)' }}>
+            <div style={{ padding: '6px 20px 6px 44px', background: 'var(--cream)' }}>
               <NoviPojmiList noviPojmi={podpoglavje.noviPojmi!} />
             </div>
           )}
