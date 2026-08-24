@@ -89,7 +89,7 @@ export const fizika: Predmet = {
       podpoglavja: [
         {
           id: 'odboj-lom',
-          privzeteUre: 2,
+          privzeteUre: 4,
           naslov: 'Odboj in lom svetlobe',
           cilji: [
             { id: 'c1', tip: 'O', text: 's poskusi razišče in usvoji odboj in lom svetlobe;' },
@@ -114,7 +114,7 @@ export const fizika: Predmet = {
         },
         {
           id: 'preslikave',
-          privzeteUre: 4,
+          privzeteUre: 5,
           naslov: 'Preslikave',
           cilji: [
             { id: 'c1', tip: 'O', text: 's poskusi razišče in usvoji nastanek navidezne/realne slike na ravnem zrcalu in pri preslikavi/opazovanju skozi zbiralno lečo;' },
@@ -139,7 +139,7 @@ export const fizika: Predmet = {
         },
         {
           id: 'opticne-naprave',
-          privzeteUre: 2,
+          privzeteUre: 3,
           naslov: 'Optične naprave',
           cilji: [
             { id: 'c1', tip: 'O', text: 'spozna zgradbo in delovanje očesa ter razišče njegovo akomodacijo;' },
