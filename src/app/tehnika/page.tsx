@@ -1,8 +1,5 @@
-import SubjectClient from '@/components/SubjectClient';
-import { tehnika } from '@/data/tehnika';
-
-export const metadata = { title: 'Tehnika in tehnologija — Učni načrt' };
+import { redirect } from 'next/navigation';
 
 export default function TehnikaPage() {
-  return <SubjectClient predmet={tehnika} gradeTargets={{ 6: 70, 7: 35, 8: 35 }} />;
+  redirect('/predmet/tehnika');
 }

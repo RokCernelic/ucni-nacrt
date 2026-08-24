@@ -11,11 +11,14 @@ function getRazredFilter(name: string): number | null {
   return m ? Number(m[0]) : null;
 }
 
-export default function SubjectClient({ predmet, gradeTargets }: {
+export default function SubjectClient({ predmet, gradeTargets, scopeId, subtitle }: {
   predmet: Predmet;
   gradeTargets: Record<number, number>;
+  /** ločen prostor za oddelke (id instance predmeta); privzeto id kurikula */
+  scopeId?: string;
+  subtitle?: string;
 }) {
-  const { classes, activeId, addClass, renameClass, removeClass, selectClass, reorderClasses, activeClass } = useClasses(predmet.id);
+  const { classes, activeId, addClass, renameClass, removeClass, selectClass, reorderClasses, activeClass } = useClasses(scopeId ?? predmet.id);
   const { user, loading } = useAuth();
   const isAnonymous = !loading && !user;
   const razredFilter = activeClass ? getRazredFilter(activeClass.name) : null;
@@ -40,6 +43,7 @@ export default function SubjectClient({ predmet, gradeTargets }: {
       classBar={classBar}
       isAnonymous={isAnonymous}
       gradeTargets={gradeTargets}
+      subtitle={subtitle}
     />
   );
 }

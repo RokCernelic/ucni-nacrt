@@ -1,7 +1,5 @@
-import FizikaClient from '@/components/FizikaClient';
-
-export const metadata = { title: 'Fizika — Učni načrt' };
+import { redirect } from 'next/navigation';
 
 export default function FizikaPage() {
-  return <FizikaClient />;
+  redirect('/predmet/fizika');
 }

@@ -1,28 +1,4 @@
-import SubjectCard from '@/components/SubjectCard';
-import { fizika } from '@/data/fizika';
-import { tehnika } from '@/data/tehnika';
-
-const podpoglavjaOf = (predmet: typeof fizika) =>
-  predmet.poglavja.flatMap((p, pi) =>
-    p.podpoglavja.map((pp, ppi) => ({ number: `${pi + 1}.${ppi + 1}`, naslov: pp.naslov }))
-  );
-
-const subjects = [
-  {
-    href: '/fizika',
-    naslov: 'Fizika',
-    opis: 'Prenovljeni učni načrt za fiziko — osnovna šola',
-    enote: podpoglavjaOf(fizika),
-    disabled: false,
-  },
-  {
-    href: '/tehnika',
-    naslov: 'Tehnika in tehnologija',
-    opis: 'Prenovljeni učni načrt za tehniko in tehnologijo — osnovna šola',
-    enote: podpoglavjaOf(tehnika),
-    disabled: false,
-  },
-];
+import HomeSubjects from '@/components/HomeSubjects';
 
 export default function Home() {
   return (
@@ -42,25 +18,8 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Subject cards */}
-      <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '40px 32px 80px' }}>
-        <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: '20px' }}>
-          Predmeti
-        </p>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {subjects.map((s) => (
-            <SubjectCard
-              key={s.href}
-              href={s.href}
-              naslov={s.naslov}
-              opis={s.opis}
-              enote={s.enote}
-              disabled={s.disabled}
-            />
-          ))}
-        </div>
-      </div>
+      {/* Moji predmeti */}
+      <HomeSubjects />
     </>
   );
 }

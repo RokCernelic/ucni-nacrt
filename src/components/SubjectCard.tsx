@@ -11,9 +11,10 @@ interface Enota {
 interface Props {
   href: string;
   naslov: string;
-  opis: string;
+  subtitle: string;
+  onSubtitleChange: (v: string) => void;
   enote: Enota[];
-  disabled?: boolean;
+  onDelete?: () => void;
 }
 
 function ChevronIcon({ open }: { open: boolean }) {
@@ -25,8 +26,9 @@ function ChevronIcon({ open }: { open: boolean }) {
   );
 }
 
-export default function SubjectCard({ href, naslov, opis, enote, disabled }: Props) {
+export default function SubjectCard({ href, naslov, subtitle, onSubtitleChange, enote, onDelete }: Props) {
   const [open, setOpen] = useState(false);
+  const [focused, setFocused] = useState(false);
 
   return (
     <div style={{
@@ -34,26 +36,38 @@ export default function SubjectCard({ href, naslov, opis, enote, disabled }: Pro
       border: '1px solid var(--hairline)',
       borderRadius: 'var(--r-lg)',
       padding: '28px 28px 24px',
-      opacity: disabled ? 0.45 : 1,
       boxShadow: 'var(--shadow-sm)',
     }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '6px' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: '8px' }}>
         <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '28px', fontWeight: 400, lineHeight: 1, margin: 0 }}>
-          {disabled ? (
-            <span style={{ color: 'var(--ink)' }}>{naslov}</span>
-          ) : (
-            <Link href={href} style={{ color: 'var(--ink)', textDecoration: 'none' }}>{naslov}</Link>
-          )}
+          <Link href={href} style={{ color: 'var(--ink)', textDecoration: 'none' }}>{naslov}</Link>
         </h2>
-        {disabled && (
-          <span style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted)', border: '1px solid var(--hairline)', borderRadius: '4px', padding: '3px 8px' }}>
-            Kmalu
-          </span>
+        {onDelete && (
+          <button
+            onClick={onDelete}
+            title="Odstrani predmet"
+            style={{ flexShrink: 0, background: 'transparent', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', color: 'var(--muted)', width: '26px', height: '26px', cursor: 'pointer', fontSize: '15px', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            ×
+          </button>
         )}
       </div>
-      <p style={{ fontSize: '13px', color: 'var(--muted)', lineHeight: 1.55, marginBottom: enote.length > 0 ? '16px' : 0 }}>
-        {opis}
-      </p>
+
+      <input
+        value={subtitle}
+        onChange={(e) => onSubtitleChange(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        placeholder="Dodaj podnaslov (npr. OŠ Cerklje ob Krki)"
+        style={{
+          width: '100%', boxSizing: 'border-box',
+          fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--body)',
+          background: 'transparent', border: 'none', outline: 'none',
+          borderBottom: `1px solid ${focused ? 'var(--forest)' : 'transparent'}`,
+          padding: '2px 0', marginBottom: enote.length > 0 ? '16px' : 0,
+          transition: 'border-color 0.15s',
+        }}
+      />
 
       {enote.length > 0 && (
         <div style={{ borderTop: '1px solid var(--hairline)', paddingTop: '12px' }}>

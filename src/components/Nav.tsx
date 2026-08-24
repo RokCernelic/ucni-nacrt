@@ -4,12 +4,9 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useSubjects } from '@/hooks/useSubjects';
+import { getCurriculum } from '@/data/registry';
 import SettingsModal from '@/components/SettingsModal';
-
-const subjects: { href: string; label: string; disabled?: boolean }[] = [
-  { href: '/fizika', label: 'Fizika' },
-  { href: '/tehnika', label: 'Tehnika in tehnologija' },
-];
 
 function GearIcon() {
   return (
@@ -23,7 +20,15 @@ function GearIcon() {
 export default function Nav() {
   const path = usePathname();
   const { user, loading, signOut } = useAuth();
+  const { subjects } = useSubjects();
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  const navItems = subjects
+    .map((s) => {
+      const entry = getCurriculum(s.curriculum);
+      return entry ? { href: `/predmet/${s.id}`, label: entry.predmet.naslov, subtitle: s.subtitle } : null;
+    })
+    .filter((x): x is { href: string; label: string; subtitle: string } => x !== null);
 
   return (
     <nav style={{
@@ -41,27 +46,28 @@ export default function Nav() {
           Učni načrt
         </Link>
 
-        <div style={{ display: 'flex', gap: '4px', flex: 1 }}>
-          {subjects.map((s) => {
-            const active = path.startsWith(s.href);
+        <div style={{ display: 'flex', gap: '4px', flex: 1, overflowX: 'auto' }}>
+          {navItems.map((s) => {
+            const active = path === s.href;
             return (
               <Link
                 key={s.href}
-                href={s.disabled ? '#' : s.href}
+                href={s.href}
+                title={s.subtitle || s.label}
                 style={{
+                  display: 'inline-flex', alignItems: 'baseline', gap: '6px',
                   fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 500,
                   padding: '5px 14px', borderRadius: 'var(--r-sm)',
-                  textDecoration: 'none',
+                  textDecoration: 'none', whiteSpace: 'nowrap',
                   background: active ? 'rgba(255,255,255,0.15)' : 'transparent',
-                  color: s.disabled ? 'rgba(255,255,255,0.3)' : active ? '#fff' : 'rgba(255,255,255,0.65)',
-                  cursor: s.disabled ? 'default' : 'pointer',
+                  color: active ? '#fff' : 'rgba(255,255,255,0.65)',
+                  cursor: 'pointer',
                   transition: 'background 0.15s, color 0.15s',
-                  pointerEvents: s.disabled ? 'none' : 'auto',
                 }}
               >
                 {s.label}
-                {s.disabled && (
-                  <span style={{ marginLeft: '6px', fontSize: '10px', opacity: 0.5 }}>kmalu</span>
+                {s.subtitle && (
+                  <span style={{ fontSize: '11px', opacity: 0.55, fontWeight: 400 }}>{s.subtitle}</span>
                 )}
               </Link>
             );

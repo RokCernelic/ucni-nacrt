@@ -732,13 +732,14 @@ function GradeDivider({ razred, target, used, doneHours, totalHours }: {
 
 // ── Main tree ─────────────────────────────────────────────
 
-export default function CurriculumTree({ predmet, classId, razredFilter = null, classBar, isAnonymous = false, gradeTargets = { 8: 70, 9: 64 } }: {
+export default function CurriculumTree({ predmet, classId, razredFilter = null, classBar, isAnonymous = false, gradeTargets = { 8: 70, 9: 64 }, subtitle }: {
   predmet: Predmet;
   classId?: string;
   razredFilter?: number | null;
   classBar?: ReactNode;
   isAnonymous?: boolean;
   gradeTargets?: Record<number, number>;
+  subtitle?: string;
 }) {
   const { checked, toggle } = useProgress(classId ? `ucni-nacrt-progress-${classId}` : undefined);
   const { getHours, change } = useHours(classId ? `ucni-nacrt-hours-${classId}` : undefined);
@@ -823,6 +824,11 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
           <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '24px', flexWrap: 'wrap' }}>
               <div style={{ flex: '1 1 auto', minWidth: 0 }}>
+                {subtitle && (
+                  <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)', marginBottom: '8px' }}>
+                    {subtitle}
+                  </p>
+                )}
                 <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(36px,5vw,56px)', fontWeight: 300, color: '#fff', lineHeight: 1 }}>
                   {predmet.naslov}
                 </h1>
