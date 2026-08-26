@@ -2,11 +2,9 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useSubjects } from '@/hooks/useSubjects';
 import { getCurriculum } from '@/data/registry';
-import SettingsModal from '@/components/SettingsModal';
 
 function GearIcon() {
   return (
@@ -21,7 +19,6 @@ export default function Nav() {
   const path = usePathname();
   const { user, loading, signOut } = useAuth();
   const { subjects } = useSubjects();
-  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const navItems = subjects
     .map((s) => {
@@ -81,8 +78,8 @@ export default function Nav() {
               <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'rgba(255,255,255,0.45)' }}>
                 {user.email}
               </span>
-              <button
-                onClick={() => setSettingsOpen(true)}
+              <Link
+                href="/nastavitve"
                 title="Nastavitve"
                 style={{
                   background: 'rgba(255,255,255,0.08)',
@@ -96,7 +93,7 @@ export default function Nav() {
                 }}
               >
                 <GearIcon />
-              </button>
+              </Link>
               <button
                 onClick={signOut}
                 style={{
@@ -136,7 +133,6 @@ export default function Nav() {
           )
         )}
       </div>
-      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
     </nav>
   );
 }

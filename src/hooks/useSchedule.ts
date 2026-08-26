@@ -3,28 +3,23 @@
 import { useState, useEffect, useCallback } from 'react';
 
 export interface Lesson {
-  /** ime ure, npr. "3.ura vš", "K1" */
+  /** ime ure, npr. "3.ura vš" */
   name?: string;
   /** začetek v obliki "HH:MM" (24h) */
   start: string;
   /** konec v obliki "HH:MM" (24h) */
   end: string;
-  /** ali se ura všteva v odštevalnik (privzeto true); npr. kosilo se ne šteje */
-  count?: boolean;
 }
 
-/** Privzeti urnik šolskih ur. Ure z count:false (npr. kosilo) se ne štejejo. */
+/** Privzeti urnik šolskih ur; vsaka navedena ura se všteva v odštevalnik. */
 export const DEFAULT_SCHEDULE: Lesson[] = [
   { name: '1.ura',    start: '07:30', end: '08:15' },
   { name: '2.ura',    start: '08:20', end: '09:05' },
   { name: '3.ura vš', start: '09:10', end: '09:55' },
-  { name: '3.ura',    start: '09:25', end: '10:10', count: false },
   { name: '4.ura',    start: '10:15', end: '11:00' },
   { name: '5.ura',    start: '11:05', end: '11:50' },
-  { name: 'K1',       start: '11:55', end: '12:15', count: false },
   { name: '6.ura vš', start: '11:55', end: '12:40' },
   { name: '6.ura',    start: '12:15', end: '13:00' },
-  { name: 'K3',       start: '12:40', end: '13:00', count: false },
   { name: '7.ura',    start: '13:05', end: '13:50' },
   { name: '8.ura',    start: '13:55', end: '14:40' },
 ];
