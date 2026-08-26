@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useSchedule, DEFAULT_SCHEDULE, type Lesson } from '@/hooks/useSchedule';
+import { CURRICULA } from '@/data/registry';
+import { curriculumToText, downloadText } from '@/lib/exportCurriculum';
 
 export default function SettingsModal({ onClose }: { onClose: () => void }) {
   const { user, updateEmail, updatePassword } = useAuth();
@@ -152,6 +154,25 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                 Shrani urnik
               </button>
               {savedMsg && <span style={{ fontSize: '12px', color: 'var(--green-ok)' }}>Shranjeno ✓</span>}
+            </div>
+          </div>
+
+          {/* Izvoz učnega načrta */}
+          <div style={{ marginTop: '28px', borderTop: '1px solid var(--hairline)', paddingTop: '22px' }}>
+            <div style={{ ...label, marginBottom: '4px' }}>Izvoz učnega načrta</div>
+            <p style={{ fontSize: '11px', color: 'var(--muted)', marginBottom: '12px', lineHeight: 1.5 }}>
+              Prenesi celoten učni načrt predmeta kot besedilno datoteko (poglavja, cilji, standardi, novi pojmi, predvidene ure).
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+              {CURRICULA.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => downloadText(`ucni-nacrt-${c.id}.txt`, curriculumToText(c.predmet))}
+                  style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 600, color: 'var(--forest)', background: 'transparent', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', padding: '8px 14px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '7px' }}
+                >
+                  <span style={{ fontSize: '14px' }}>↓</span> {c.predmet.naslov}
+                </button>
+              ))}
             </div>
           </div>
         </div>
