@@ -48,7 +48,20 @@ export function useAuth() {
 
   const signOut = useCallback(async () => {
     const supabase = getSupabaseBrowserClient();
+    // 1) najprej odjava (seja se odstrani), da čiščenje ne sproži zapisa v oblak
     await supabase.auth.signOut();
+    // 2) počisti lokalne (osebne) podatke – predmeti, oddelki, napredek, ure …
+    //    (v oblaku ostanejo in se ob ponovni prijavi obnovijo)
+    try {
+      const keys: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('ucni-nacrt-')) keys.push(k);
+      }
+      keys.forEach(k => localStorage.removeItem(k));
+    } catch { /* ignore */ }
+    // 3) osveži na domačo stran kot anonimni uporabnik
+    window.location.href = '/';
   }, []);
 
   const resetPassword = useCallback(async (email: string) => {
