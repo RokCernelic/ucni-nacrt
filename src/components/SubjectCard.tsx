@@ -15,6 +15,8 @@ interface Props {
   onSubtitleChange: (v: string) => void;
   enote: Enota[];
   onDelete?: () => void;
+  onGripDragStart?: (e: React.DragEvent) => void;
+  onGripDragEnd?: () => void;
 }
 
 function ChevronIcon({ open }: { open: boolean }) {
@@ -26,7 +28,17 @@ function ChevronIcon({ open }: { open: boolean }) {
   );
 }
 
-export default function SubjectCard({ href, naslov, subtitle, onSubtitleChange, enote, onDelete }: Props) {
+function GripIcon() {
+  return (
+    <svg width="12" height="16" viewBox="0 0 10 14" fill="none" style={{ flexShrink: 0 }}>
+      {[3, 7, 11].flatMap((cy) => [3, 7].map((cx) => (
+        <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="1.2" fill="currentColor" />
+      )))}
+    </svg>
+  );
+}
+
+export default function SubjectCard({ href, naslov, subtitle, onSubtitleChange, enote, onDelete, onGripDragStart, onGripDragEnd }: Props) {
   const [open, setOpen] = useState(false);
   const [focused, setFocused] = useState(false);
 
@@ -39,7 +51,18 @@ export default function SubjectCard({ href, naslov, subtitle, onSubtitleChange, 
       boxShadow: 'var(--shadow-sm)',
     }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: '8px' }}>
-        <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '28px', fontWeight: 400, lineHeight: 1, margin: 0 }}>
+        {onGripDragStart && (
+          <span
+            draggable
+            onDragStart={onGripDragStart}
+            onDragEnd={onGripDragEnd}
+            title="Povleci za preureditev"
+            style={{ cursor: 'grab', color: 'var(--muted)', flexShrink: 0, alignSelf: 'center', marginRight: '2px', display: 'flex', alignItems: 'center' }}
+          >
+            <GripIcon />
+          </span>
+        )}
+        <h2 style={{ flex: 1, fontFamily: 'var(--font-serif)', fontSize: '28px', fontWeight: 400, lineHeight: 1, margin: 0 }}>
           <Link href={href} style={{ color: 'var(--ink)', textDecoration: 'none' }}>{naslov}</Link>
         </h2>
         {onDelete && (

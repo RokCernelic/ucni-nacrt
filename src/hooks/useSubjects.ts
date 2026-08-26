@@ -13,11 +13,8 @@ export interface UserSubject {
 
 const KEY = 'ucni-nacrt-subjects';
 
-/** Privzeta predmeta – id-ja se ujemata s starimi ključi razredov (migracija). */
-export const DEFAULT_SUBJECTS: UserSubject[] = [
-  { id: 'fizika', curriculum: 'fizika', subtitle: '' },
-  { id: 'tehnika', curriculum: 'tehnika', subtitle: '' },
-];
+/** Predmete ima le prijavljeni uporabnik (shranjeno na profilu); privzeto prazno. */
+export const DEFAULT_SUBJECTS: UserSubject[] = [];
 
 const SYNC_EVENT = 'ucni-nacrt-subjects-changed';
 
@@ -85,5 +82,14 @@ export function useSubjects() {
     save(next, [id]);
   }, []);
 
-  return { subjects, loaded, addSubject, updateSubtitle, removeSubject };
+  const reorderSubjects = useCallback((from: number, to: number) => {
+    const cur = [...(readSubjects() ?? DEFAULT_SUBJECTS)];
+    if (from < 0 || from >= cur.length || to < 0 || to >= cur.length || from === to) return;
+    const [moved] = cur.splice(from, 1);
+    cur.splice(to, 0, moved);
+    setSubjects(cur);
+    save(cur);
+  }, []);
+
+  return { subjects, loaded, addSubject, updateSubtitle, removeSubject, reorderSubjects };
 }
