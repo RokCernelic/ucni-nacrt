@@ -18,9 +18,11 @@ export default function Countdown() {
   const nowSec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
 
   const lessons = schedule
-    .map((l, i) => ({ i, startS: toMinutes(l.start) * 60, endS: toMinutes(l.end) * 60 }))
-    .filter(l => l.startS >= 0 && l.endS > l.startS)
+    .map((l, i) => ({ i, name: l.name, count: l.count !== false, startS: toMinutes(l.start) * 60, endS: toMinutes(l.end) * 60 }))
+    .filter(l => l.count && l.startS >= 0 && l.endS > l.startS)
     .sort((a, b) => a.startS - b.startS);
+
+  const labelOf = (l: { name?: string; i: number }) => l.name || `${l.i + 1}. ura`;
 
   let remaining: number | null = null; // preostale sekunde
   let caption = '';
@@ -29,13 +31,13 @@ export default function Countdown() {
   const active = lessons.find(l => nowSec >= l.startS && nowSec < l.endS);
   if (active) {
     remaining = active.endS - nowSec;
-    caption = `do konca ${active.i + 1}. ure`;
+    caption = `do konca · ${labelOf(active)}`;
     accent = true;
   } else {
     const next = lessons.find(l => l.startS > nowSec);
     if (next) {
       remaining = next.startS - nowSec;
-      caption = `do začetka ${next.i + 1}. ure`;
+      caption = `do začetka · ${labelOf(next)}`;
     }
   }
 

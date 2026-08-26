@@ -50,9 +50,13 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
     setRows(prev => prev.map((r, j) => j === i ? { ...r, [field]: value } : r));
     setSavedMsg(false);
   };
+  const toggleCount = (i: number) => {
+    setRows(prev => prev.map((r, j) => j === i ? { ...r, count: r.count === false ? true : false } : r));
+    setSavedMsg(false);
+  };
   const addRow = () => {
     const last = rows[rows.length - 1];
-    setRows(prev => [...prev, { start: last?.end ?? '08:00', end: '' }]);
+    setRows(prev => [...prev, { name: '', start: last?.end ?? '08:00', end: '' }]);
     setSavedMsg(false);
   };
   const removeRow = (i: number) => { setRows(prev => prev.filter((_, j) => j !== i)); setSavedMsg(false); };
@@ -131,15 +135,18 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
           <div>
             <div style={{ ...label, marginBottom: '4px' }}>Urnik šolskih ur</div>
             <p style={{ fontSize: '11px', color: 'var(--muted)', marginBottom: '12px', lineHeight: 1.5 }}>
-              Začetek in konec vsake ure. To poganja odštevalnik do konca / začetka ure.
+              Ime, začetek in konec vsake ure. To poganja odštevalnik. Odkljukaj <b>štej</b> pri urah, ki naj se ne vštevajo v odštevalnik (npr. kosilo ali vzporedne ure).
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {rows.map((r, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 600, color: 'var(--muted)', width: '44px', flexShrink: 0 }}>{i + 1}. ura</span>
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', opacity: r.count === false ? 0.6 : 1 }}>
+                  <input type="text" value={r.name ?? ''} placeholder="ime ure" onChange={(e) => updateRow(i, 'name', e.target.value)} style={{ ...inputStyle, flex: '1 1 96px', minWidth: '80px' }} />
                   <input type="time" value={r.start} onChange={(e) => updateRow(i, 'start', e.target.value)} style={{ ...inputStyle }} />
                   <span style={{ color: 'var(--muted)' }}>–</span>
                   <input type="time" value={r.end} onChange={(e) => updateRow(i, 'end', e.target.value)} style={{ ...inputStyle }} />
+                  <label title="Ali se ura všteva v odštevalnik" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--muted)', cursor: 'pointer', flexShrink: 0 }}>
+                    <input type="checkbox" checked={r.count !== false} onChange={() => toggleCount(i)} /> štej
+                  </label>
                   <button onClick={() => removeRow(i)} title="Odstrani uro" style={{ marginLeft: 'auto', background: 'transparent', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', color: 'var(--muted)', width: '28px', height: '28px', cursor: 'pointer', fontSize: '16px', lineHeight: 1, flexShrink: 0 }}>×</button>
                 </div>
               ))}
