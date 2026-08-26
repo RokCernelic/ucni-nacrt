@@ -14,13 +14,13 @@ export const PALETTE_COLORS: Record<string, string> = {
 
 type StoredItem =
   | { k: 'c'; id: string }
-  | { k: 'x'; id: string; type: PaletteType; checked: boolean };
+  | { k: 'x'; id: string; type: string; checked: boolean; color?: string };
 
 type Store = Record<string, StoredItem[]>;
 
 export type ResolvedEnotaItem =
   | { kind: 'curriculum'; id: string }
-  | { kind: 'custom'; id: string; type: PaletteType; checked: boolean; color: string };
+  | { kind: 'custom'; id: string; type: string; checked: boolean; color: string };
 
 export function useEnotaOrder(storageKey = 'ucni-nacrt-enote-order') {
   const [store, setStore] = useState<Store>({});
@@ -47,14 +47,14 @@ export function useEnotaOrder(storageKey = 'ucni-nacrt-enote-order') {
       if (item.k === 'c') {
         return currSet.has(item.id) ? [{ kind: 'curriculum', id: item.id }] : [];
       }
-      return [{ kind: 'custom', id: item.id, type: item.type, checked: item.checked, color: PALETTE_COLORS[item.type] ?? '#666' }];
+      return [{ kind: 'custom', id: item.id, type: item.type, checked: item.checked, color: item.color ?? PALETTE_COLORS[item.type] ?? '#666' }];
     });
   }, [store]);
 
-  const addEnota = useCallback((poglavjeKey: string, type: PaletteType, atIndex: number, currIds: string[]) => {
+  const addEnota = useCallback((poglavjeKey: string, type: string, color: string, atIndex: number, currIds: string[]) => {
     setStore(prev => {
       const cur = prev[poglavjeKey] ?? currIds.map(id => ({ k: 'c' as const, id }));
-      const item: StoredItem = { k: 'x', id: crypto.randomUUID(), type, checked: false };
+      const item: StoredItem = { k: 'x', id: crypto.randomUUID(), type, checked: false, color };
       const next = [...cur.slice(0, atIndex), item, ...cur.slice(atIndex)];
       const s = { ...prev, [poglavjeKey]: next };
       localStorage.setItem(storageKey, JSON.stringify(s));

@@ -19,12 +19,9 @@ import { useHours } from '@/hooks/useHours';
 import { useNotes } from '@/hooks/useNotes';
 import { useOpenChapters } from '@/hooks/useOpenChapters';
 import { useChapterOrder } from '@/hooks/useChapterOrder';
+import { usePalette } from '@/hooks/usePalette';
 import Countdown from '@/components/Countdown';
-import {
-  useEnotaOrder,
-  PALETTE_TYPES, PALETTE_COLORS,
-  type PaletteType, type ResolvedEnotaItem,
-} from '@/hooks/useEnotaOrder';
+import { useEnotaOrder, type ResolvedEnotaItem } from '@/hooks/useEnotaOrder';
 
 // ── Icons ──────────────────────────────────────────────────
 
@@ -69,7 +66,8 @@ function GripIcon() {
 
 // ── Palette drag context ───────────────────────────────────
 
-const PaletteDragCtx = createContext<PaletteType | null>(null);
+type PaletteDrag = { type: string; color: string };
+const PaletteDragCtx = createContext<PaletteDrag | null>(null);
 
 // ── Standardi list ─────────────────────────────────────────
 
@@ -224,38 +222,96 @@ function StandardFilter({ filter, onToggle }: { filter: StdFilter; onToggle: (ke
 
 // ── Palette ────────────────────────────────────────────────
 
-function Palette({ onDragStart, onDragEnd }: { onDragStart: (t: PaletteType) => void; onDragEnd: () => void }) {
+function Palette({ onDragStart, onDragEnd }: { onDragStart: (d: PaletteDrag) => void; onDragEnd: () => void }) {
+  const { chips, addChip, renameChip, removeChip } = usePalette();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editLabel, setEditLabel] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [newLabel, setNewLabel] = useState('');
+  const editRef = useRef<HTMLInputElement>(null);
+  const addRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { if (editingId) editRef.current?.focus(); }, [editingId]);
+  useEffect(() => { if (adding) addRef.current?.focus(); }, [adding]);
+
+  const commitEdit = () => {
+    if (editingId && editLabel.trim()) renameChip(editingId, editLabel.trim());
+    setEditingId(null);
+  };
+  const commitAdd = () => {
+    if (newLabel.trim()) addChip(newLabel.trim());
+    setAdding(false); setNewLabel('');
+  };
+
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', padding: '10px 2px 6px' }}>
       <span style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted)', whiteSpace: 'nowrap', marginRight: '2px' }}>
         Dodaj:
       </span>
-      {PALETTE_TYPES.map(type => (
-        <div
-          key={type}
-          draggable
-          onDragStart={(e) => {
-            e.dataTransfer.setData('text/plain', type);
-            e.dataTransfer.effectAllowed = 'copy';
-            onDragStart(type);
-          }}
-          onDragEnd={onDragEnd}
-          style={{
-            padding: '4px 10px',
-            borderRadius: 'var(--r-sm)',
-            border: `1px solid ${PALETTE_COLORS[type]}44`,
-            color: PALETTE_COLORS[type],
-            background: `${PALETTE_COLORS[type]}11`,
-            fontSize: '11px',
-            fontWeight: 600,
-            cursor: 'grab',
-            userSelect: 'none',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {type}
-        </div>
-      ))}
+      {chips.map(chip => {
+        const isEditing = chip.id === editingId;
+        return (
+          <div
+            key={chip.id}
+            draggable={!isEditing}
+            onDragStart={(e) => {
+              e.dataTransfer.setData('text/plain', chip.label);
+              e.dataTransfer.effectAllowed = 'copy';
+              onDragStart({ type: chip.label, color: chip.color });
+            }}
+            onDragEnd={onDragEnd}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: '5px',
+              padding: '4px 8px 4px 10px',
+              borderRadius: 'var(--r-sm)',
+              border: `1px solid ${chip.color}44`,
+              color: chip.color,
+              background: `${chip.color}11`,
+              fontSize: '11px', fontWeight: 600,
+              cursor: isEditing ? 'text' : 'grab',
+              userSelect: 'none', whiteSpace: 'nowrap',
+            }}
+          >
+            {isEditing ? (
+              <input
+                ref={editRef}
+                value={editLabel}
+                onChange={e => setEditLabel(e.target.value)}
+                onBlur={commitEdit}
+                onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setEditingId(null); }}
+                style={{ background: 'transparent', border: 'none', outline: 'none', color: chip.color, fontSize: '11px', fontWeight: 600, width: `${Math.max(editLabel.length, 3) + 1}ch` }}
+              />
+            ) : (
+              <span onDoubleClick={() => { setEditingId(chip.id); setEditLabel(chip.label); }} title="Dvoklik za preimenovanje">
+                {chip.label}
+              </span>
+            )}
+            <button
+              onClick={() => removeChip(chip.id)}
+              title="Odstrani gumb"
+              style={{ background: 'transparent', border: 'none', color: chip.color, opacity: 0.6, cursor: 'pointer', fontSize: '13px', lineHeight: 1, padding: '0 1px' }}
+            >×</button>
+          </div>
+        );
+      })}
+
+      {adding ? (
+        <input
+          ref={addRef}
+          value={newLabel}
+          onChange={e => setNewLabel(e.target.value)}
+          onBlur={commitAdd}
+          onKeyDown={e => { if (e.key === 'Enter') commitAdd(); if (e.key === 'Escape') { setAdding(false); setNewLabel(''); } }}
+          placeholder="lasten napis"
+          style={{ background: 'var(--canvas)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', color: 'var(--ink)', fontSize: '11px', fontWeight: 600, padding: '4px 8px', outline: 'none', width: '110px' }}
+        />
+      ) : (
+        <button
+          onClick={() => setAdding(true)}
+          title="Dodaj gumb z lastnim napisom"
+          style={{ background: 'transparent', border: '1px dashed var(--hairline)', borderRadius: 'var(--r-sm)', color: 'var(--muted)', fontSize: '15px', fontWeight: 400, width: '28px', height: '25px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}
+        >+</button>
+      )}
     </div>
   );
 }
@@ -551,7 +607,7 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
   onHourChange: (key: string, delta: number) => void;
   remaining: number;
   resolve: (key: string, currIds: string[]) => ResolvedEnotaItem[];
-  addEnota: (key: string, type: PaletteType, at: number, currIds: string[]) => void;
+  addEnota: (key: string, type: string, color: string, at: number, currIds: string[]) => void;
   reorder: (key: string, from: number, to: number, currIds: string[]) => void;
   removeEnota: (key: string, id: string) => void;
   toggleCustom: (key: string, id: string) => void;
@@ -585,7 +641,7 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
 
   const handleDrop = (toIndex: number) => {
     if (paletteType !== null) {
-      addEnota(poglavjeKey, paletteType, toIndex, podpoglavjeIds);
+      addEnota(poglavjeKey, paletteType.type, paletteType.color, toIndex, podpoglavjeIds);
     } else if (dragFromRef.current !== null) {
       dragDroppedRef.current = true;
       reorder(poglavjeKey, dragFromRef.current, toIndex, podpoglavjeIds);
@@ -747,7 +803,7 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
   const { resolve, addEnota, reorder, removeEnota, toggleCustom, countCustom, countCheckedCustom } = useEnotaOrder(classId ? `ucni-nacrt-enote-order-${classId}` : undefined);
   const { openChapters, toggle: toggleChapter, expandAll, collapseAll } = useOpenChapters(classId ? `ucni-nacrt-open-chapters-${classId}` : undefined);
   const { resolveOrder, reorderChapters } = useChapterOrder(classId ? `ucni-nacrt-chapter-order-${classId}` : undefined);
-  const [paletteDrag, setPaletteDrag] = useState<PaletteType | null>(null);
+  const [paletteDrag, setPaletteDrag] = useState<PaletteDrag | null>(null);
   const [listMode, setListMode] = useState(false);
   const [chapterDragging, setChapterDragging] = useState(false);
   const chapterDragFrom = useRef<number | null>(null);
