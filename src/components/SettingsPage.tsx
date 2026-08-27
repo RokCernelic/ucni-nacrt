@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
-import { useSchedules, schoolKey, type Lesson } from '@/hooks/useSchedule';
+import { useSchedules, schoolKey, toMinutes, type Lesson } from '@/hooks/useSchedule';
 import { useSubjects } from '@/hooks/useSubjects';
 import { CURRICULA } from '@/data/registry';
 import { curriculumToText, downloadText } from '@/lib/exportCurriculum';
@@ -15,13 +15,18 @@ export default function SettingsPage() {
 
   const isAnon = !loading && !user;
 
-  // Šole = privzeto ("") + različni podnaslovi predmetov
+  // Šole = različni podnaslovi predmetov (brez privzetega)
   const schools = useMemo(() => {
-    const set = new Set<string>(['']);
+    const set = new Set<string>();
     subjects.forEach(s => { const k = schoolKey(s.subtitle); if (k) set.add(k); });
     return Array.from(set);
   }, [subjects]);
   const [selectedSchool, setSelectedSchool] = useState('');
+
+  // izberi prvo šolo, ko trenutna izbira ni več veljavna
+  useEffect(() => {
+    if (schools.length && !schools.includes(selectedSchool)) setSelectedSchool(schools[0]);
+  }, [schools, selectedSchool]);
 
   const [email, setEmail] = useState(user?.email ?? '');
   const [emailMsg, setEmailMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -72,8 +77,10 @@ export default function SettingsPage() {
     setSavedMsg(false);
   };
   const removeRow = (i: number) => { setRows(prev => prev.filter((_, j) => j !== i)); setSavedMsg(false); };
+  const byStart = (a: Lesson, b: Lesson) => (a.start ? toMinutes(a.start) : 1e9) - (b.start ? toMinutes(b.start) : 1e9);
+  const sortRows = () => setRows(prev => [...prev].sort(byStart));
   const saveSchedule = () => {
-    const clean = rows.filter(r => r.start && r.end);
+    const clean = rows.filter(r => r.start && r.end).sort(byStart);
     setSchedule(selectedSchool, clean);
     setRows(clean);
     setSavedMsg(true);
@@ -135,50 +142,56 @@ export default function SettingsPage() {
           <div style={{ ...label, marginBottom: '4px' }}>Urnik šolskih ur</div>
           <p style={{ fontSize: '11px', color: 'var(--muted)', marginBottom: '14px', lineHeight: 1.5 }}>
             Ime, začetek in konec vsake ure. To poganja odštevalnik do konca / začetka ure.
-            {schools.length > 1 && ' Vsaka šola (podnaslov predmeta) ima svoj urnik.'}
+            {schools.length > 0 && ' Vsaka šola (podnaslov predmeta) ima svoj urnik.'}
           </p>
 
-          {schools.length > 1 && (
-            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '16px' }}>
-              {schools.map(s => {
-                const active = s === selectedSchool;
-                return (
-                  <button
-                    key={s || '__default__'}
-                    onClick={() => { setSelectedSchool(s); setSavedMsg(false); }}
-                    style={{
-                      fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: active ? 600 : 500,
-                      color: active ? '#fff' : 'var(--forest)',
-                      background: active ? 'var(--forest)' : 'transparent',
-                      border: `1px solid ${active ? 'var(--forest)' : 'var(--hairline)'}`,
-                      borderRadius: 'var(--r-sm)', padding: '6px 14px', cursor: 'pointer',
-                    }}
-                  >
-                    {s || 'Privzeto'}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {rows.map((r, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <input type="text" value={r.name ?? ''} placeholder="ime ure" onChange={(e) => updateRow(i, 'name', e.target.value)} style={{ ...inputStyle, flex: '1 1 120px', minWidth: '90px' }} />
-                <input type="time" value={r.start} onChange={(e) => updateRow(i, 'start', e.target.value)} style={inputStyle} />
-                <span style={{ color: 'var(--muted)' }}>–</span>
-                <input type="time" value={r.end} onChange={(e) => updateRow(i, 'end', e.target.value)} style={inputStyle} />
-                <button onClick={() => removeRow(i)} title="Odstrani uro" style={{ marginLeft: 'auto', background: 'transparent', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', color: 'var(--muted)', width: '28px', height: '28px', cursor: 'pointer', fontSize: '16px', lineHeight: 1, flexShrink: 0 }}>×</button>
+          {schools.length === 0 ? (
+            <p style={{ fontSize: '13px', color: 'var(--muted)' }}>
+              Dodaj predmet in mu vpiši <b>podnaslov (šolo)</b>, da nastaviš njen urnik.
+            </p>
+          ) : (
+            <>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '16px' }}>
+                {schools.map(s => {
+                  const active = s === selectedSchool;
+                  return (
+                    <button
+                      key={s}
+                      onClick={() => { setSelectedSchool(s); setSavedMsg(false); }}
+                      style={{
+                        fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: active ? 600 : 500,
+                        color: active ? '#fff' : 'var(--forest)',
+                        background: active ? 'var(--forest)' : 'transparent',
+                        border: `1px solid ${active ? 'var(--forest)' : 'var(--hairline)'}`,
+                        borderRadius: 'var(--r-sm)', padding: '6px 14px', cursor: 'pointer',
+                      }}
+                    >
+                      {s}
+                    </button>
+                  );
+                })}
               </div>
-            ))}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '14px' }}>
-            <button onClick={addRow} style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500, color: 'var(--forest)', background: 'transparent', border: '1px dashed var(--hairline)', borderRadius: 'var(--r-sm)', padding: '7px 14px', cursor: 'pointer' }}>
-              + Dodaj uro
-            </button>
-            <button onClick={saveSchedule} style={primaryBtn}>Shrani urnik</button>
-            {savedMsg && <span style={{ fontSize: '12px', color: 'var(--green-ok)' }}>Shranjeno ✓</span>}
-          </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {rows.map((r, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <input type="text" value={r.name ?? ''} placeholder="ime ure" onChange={(e) => updateRow(i, 'name', e.target.value)} style={{ ...inputStyle, flex: '1 1 120px', minWidth: '90px' }} />
+                    <input type="time" value={r.start} onChange={(e) => updateRow(i, 'start', e.target.value)} onBlur={sortRows} style={inputStyle} />
+                    <span style={{ color: 'var(--muted)' }}>–</span>
+                    <input type="time" value={r.end} onChange={(e) => updateRow(i, 'end', e.target.value)} style={inputStyle} />
+                    <button onClick={() => removeRow(i)} title="Odstrani uro" style={{ marginLeft: 'auto', background: 'transparent', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', color: 'var(--muted)', width: '28px', height: '28px', cursor: 'pointer', fontSize: '16px', lineHeight: 1, flexShrink: 0 }}>×</button>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '14px' }}>
+                <button onClick={addRow} style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500, color: 'var(--forest)', background: 'transparent', border: '1px dashed var(--hairline)', borderRadius: 'var(--r-sm)', padding: '7px 14px', cursor: 'pointer' }}>
+                  + Dodaj uro
+                </button>
+                <button onClick={saveSchedule} style={primaryBtn}>Shrani urnik</button>
+                {savedMsg && <span style={{ fontSize: '12px', color: 'var(--green-ok)' }}>Shranjeno ✓</span>}
+              </div>
+            </>
+          )}
         </div>
 
         {/* Izvoz učnega načrta */}

@@ -91,9 +91,9 @@ export function useSchedules() {
     return () => { window.removeEventListener('storage', onStorage); window.removeEventListener(SYNC_EVENT, resync); };
   }, []);
 
-  /** Urnik za dano šolo; če ni svojega, uporabi prednastavljenega/privzetega. */
+  /** Urnik za dano šolo; če ni svojega, uporabi prednastavljenega oz. tovarniškega. */
   const getSchedule = useCallback((school: string): Lesson[] => {
-    return schedules[school] ?? SCHOOL_PRESETS[school] ?? schedules[''] ?? DEFAULT_SCHEDULE;
+    return schedules[school] ?? SCHOOL_PRESETS[school] ?? DEFAULT_SCHEDULE;
   }, [schedules]);
 
   const setSchedule = useCallback((school: string, next: Lesson[]) => {
