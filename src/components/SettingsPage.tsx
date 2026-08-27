@@ -1,17 +1,27 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
-import { useSchedule, DEFAULT_SCHEDULE, type Lesson } from '@/hooks/useSchedule';
+import { useSchedules, schoolKey, type Lesson } from '@/hooks/useSchedule';
+import { useSubjects } from '@/hooks/useSubjects';
 import { CURRICULA } from '@/data/registry';
 import { curriculumToText, downloadText } from '@/lib/exportCurriculum';
 
 export default function SettingsPage() {
   const { user, loading, updateEmail, updatePassword } = useAuth();
-  const { schedule, setSchedule } = useSchedule();
+  const { getSchedule, setSchedule } = useSchedules();
+  const { subjects } = useSubjects();
 
   const isAnon = !loading && !user;
+
+  // Šole = privzeto ("") + različni podnaslovi predmetov
+  const schools = useMemo(() => {
+    const set = new Set<string>(['']);
+    subjects.forEach(s => { const k = schoolKey(s.subtitle); if (k) set.add(k); });
+    return Array.from(set);
+  }, [subjects]);
+  const [selectedSchool, setSelectedSchool] = useState('');
 
   const [email, setEmail] = useState(user?.email ?? '');
   const [emailMsg, setEmailMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -22,8 +32,11 @@ export default function SettingsPage() {
   const [pwMsg, setPwMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pwBusy, setPwBusy] = useState(false);
 
-  const [rows, setRows] = useState<Lesson[]>(schedule.length ? schedule : DEFAULT_SCHEDULE);
+  const [rows, setRows] = useState<Lesson[]>([]);
   const [savedMsg, setSavedMsg] = useState(false);
+
+  // Naloži urnik izbrane šole (in ob nalaganju iz shrambe)
+  useEffect(() => { setRows(getSchedule(selectedSchool)); }, [selectedSchool, getSchedule]);
 
   const handleEmail = async () => {
     setEmailMsg(null);
@@ -61,7 +74,7 @@ export default function SettingsPage() {
   const removeRow = (i: number) => { setRows(prev => prev.filter((_, j) => j !== i)); setSavedMsg(false); };
   const saveSchedule = () => {
     const clean = rows.filter(r => r.start && r.end);
-    setSchedule(clean);
+    setSchedule(selectedSchool, clean);
     setRows(clean);
     setSavedMsg(true);
   };
@@ -122,7 +135,32 @@ export default function SettingsPage() {
           <div style={{ ...label, marginBottom: '4px' }}>Urnik šolskih ur</div>
           <p style={{ fontSize: '11px', color: 'var(--muted)', marginBottom: '14px', lineHeight: 1.5 }}>
             Ime, začetek in konec vsake ure. To poganja odštevalnik do konca / začetka ure.
+            {schools.length > 1 && ' Vsaka šola (podnaslov predmeta) ima svoj urnik.'}
           </p>
+
+          {schools.length > 1 && (
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '16px' }}>
+              {schools.map(s => {
+                const active = s === selectedSchool;
+                return (
+                  <button
+                    key={s || '__default__'}
+                    onClick={() => { setSelectedSchool(s); setSavedMsg(false); }}
+                    style={{
+                      fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: active ? 600 : 500,
+                      color: active ? '#fff' : 'var(--forest)',
+                      background: active ? 'var(--forest)' : 'transparent',
+                      border: `1px solid ${active ? 'var(--forest)' : 'var(--hairline)'}`,
+                      borderRadius: 'var(--r-sm)', padding: '6px 14px', cursor: 'pointer',
+                    }}
+                  >
+                    {s || 'Privzeto'}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {rows.map((r, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>

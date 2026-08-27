@@ -895,7 +895,7 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
                   {predmet.naslov}
                 </h1>
               </div>
-              <Countdown />
+              <Countdown school={subtitle} />
             </div>
             {classBar}
           </div>

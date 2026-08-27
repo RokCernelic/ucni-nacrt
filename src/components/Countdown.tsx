@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSchedule, toMinutes } from '@/hooks/useSchedule';
+import { useSchedules, schoolKey, toMinutes } from '@/hooks/useSchedule';
 
-export default function Countdown() {
-  const { schedule } = useSchedule();
+export default function Countdown({ school }: { school?: string }) {
+  const { getSchedule } = useSchedules();
+  const schedule = getSchedule(schoolKey(school));
   const [now, setNow] = useState<Date | null>(null);
 
   useEffect(() => {
