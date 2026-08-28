@@ -60,6 +60,7 @@ export function useEnotaOrder(storageKey = 'ucni-nacrt-enote-order') {
       localStorage.setItem(storageKey, JSON.stringify(s));
       return s;
     });
+    window.dispatchEvent(new Event('ucni-nacrt-changed'));
   }, [storageKey]);
 
   const reorder = useCallback((poglavjeKey: string, from: number, to: number, currIds: string[]) => {
@@ -73,6 +74,7 @@ export function useEnotaOrder(storageKey = 'ucni-nacrt-enote-order') {
       localStorage.setItem(storageKey, JSON.stringify(s));
       return s;
     });
+    window.dispatchEvent(new Event('ucni-nacrt-changed'));
   }, [storageKey]);
 
   const toggleCustom = useCallback((poglavjeKey: string, id: string) => {
@@ -83,6 +85,7 @@ export function useEnotaOrder(storageKey = 'ucni-nacrt-enote-order') {
       localStorage.setItem(storageKey, JSON.stringify(s));
       return s;
     });
+    window.dispatchEvent(new Event('ucni-nacrt-changed'));
   }, [storageKey]);
 
   const removeEnota = useCallback((poglavjeKey: string, id: string) => {
@@ -93,6 +96,7 @@ export function useEnotaOrder(storageKey = 'ucni-nacrt-enote-order') {
       localStorage.setItem(storageKey, JSON.stringify(s));
       return s;
     });
+    window.dispatchEvent(new Event('ucni-nacrt-changed'));
   }, [storageKey]);
 
   const countCustom = useCallback((poglavjeKeys: string[]) =>

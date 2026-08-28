@@ -34,6 +34,7 @@ export function useHours(storageKey = 'ucni-nacrt-hours') {
       localStorage.setItem(storageKey, JSON.stringify(updated));
       return updated;
     });
+    window.dispatchEvent(new Event('ucni-nacrt-changed'));
   }, [storageKey]);
 
   return { getHours, change };

@@ -9,6 +9,11 @@ function loadClasses(key: string): SchoolClass[] {
   try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch { return []; }
 }
 
+/** Obvesti sinhronizacijo v oblak, da so se lokalni podatki spremenili. */
+function emitChange() {
+  window.dispatchEvent(new Event('ucni-nacrt-changed'));
+}
+
 /**
  * Razredi so ločeni po predmetih (vsak predmet ima svoj nabor razredov).
  * predmetId določa ločen prostor v localStorage.
@@ -60,6 +65,7 @@ export function useClasses(predmetId: string) {
     });
     setActiveId(id);
     localStorage.setItem(ACTIVE_KEY, id);
+    emitChange();
   }, [CLASSES_KEY, ACTIVE_KEY]);
 
   const renameClass = useCallback((id: string, name: string) => {
@@ -68,6 +74,7 @@ export function useClasses(predmetId: string) {
       localStorage.setItem(CLASSES_KEY, JSON.stringify(next));
       return next;
     });
+    emitChange();
   }, [CLASSES_KEY]);
 
   const removeClass = useCallback((id: string) => {
@@ -75,7 +82,7 @@ export function useClasses(predmetId: string) {
     setClasses(prev => {
       const next = prev.filter(c => c.id !== id);
       localStorage.setItem(CLASSES_KEY, JSON.stringify(next));
-      ['progress', 'hours', 'enote-order', 'open-chapters'].forEach(k =>
+      ['progress', 'hours', 'enote-order', 'open-chapters', 'notes'].forEach(k =>
         localStorage.removeItem(`ucni-nacrt-${k}-${id}`)
       );
       nextActive = next[0]?.id ?? null;
@@ -87,11 +94,13 @@ export function useClasses(predmetId: string) {
       else localStorage.removeItem(ACTIVE_KEY);
       return nextActive;
     });
+    emitChange();
   }, [CLASSES_KEY, ACTIVE_KEY]);
 
   const selectClass = useCallback((id: string) => {
     setActiveId(id);
     localStorage.setItem(ACTIVE_KEY, id);
+    emitChange();
   }, [ACTIVE_KEY]);
 
   const reorderClasses = useCallback((fromIndex: number, toIndex: number) => {
@@ -102,6 +111,7 @@ export function useClasses(predmetId: string) {
       localStorage.setItem(CLASSES_KEY, JSON.stringify(next));
       return next;
     });
+    emitChange();
   }, [CLASSES_KEY]);
 
   const activeClass = classes.find(c => c.id === activeId) ?? null;

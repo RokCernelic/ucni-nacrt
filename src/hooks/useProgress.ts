@@ -26,6 +26,7 @@ export function useProgress(storageKey = 'ucni-nacrt-progress') {
       localStorage.setItem(storageKey, JSON.stringify(next));
       return next;
     });
+    window.dispatchEvent(new Event('ucni-nacrt-changed'));
   }, [storageKey]);
 
   const reset = useCallback((predmetId: string, allIds: string[]) => {
@@ -35,6 +36,7 @@ export function useProgress(storageKey = 'ucni-nacrt-progress') {
       localStorage.setItem(storageKey, JSON.stringify(next));
       return next;
     });
+    window.dispatchEvent(new Event('ucni-nacrt-changed'));
   }, [storageKey]);
 
   return { checked, toggle, reset };
