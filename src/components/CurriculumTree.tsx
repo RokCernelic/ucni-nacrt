@@ -361,13 +361,19 @@ function CiljRow({ tip, text }: { tip: 'O' | 'I'; text: string }) {
 
 // ── Custom enota row ───────────────────────────────────────
 
-function CustomEnotaRow({ item, onToggle, onDragStart, onDragEnd }: {
+function CustomEnotaRow({ item, onToggle, onDragStart, onDragEnd, onRename }: {
   item: ResolvedEnotaItem & { kind: 'custom' };
   onToggle: () => void;
   onDragStart: () => void;
   onDragEnd: () => void;
+  onRename: (label: string) => void;
 }) {
   const headerRef = useRef<HTMLDivElement>(null);
+  const [editing, setEditing] = useState(false);
+  const [label, setLabel] = useState(item.type);
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
+  const commit = () => { const t = label.trim(); if (t && t !== item.type) onRename(t); else setLabel(item.type); setEditing(false); };
   return (
     <div style={{ borderBottom: '1px solid var(--hairline)', background: item.checked ? '#f4fbf4' : 'var(--canvas)', transition: 'background 0.2s' }}>
       <div ref={headerRef} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '11px 20px' }}>
@@ -398,14 +404,28 @@ function CustomEnotaRow({ item, onToggle, onDragStart, onDragEnd }: {
         >
           {item.checked && <CheckIcon />}
         </button>
-        <span style={{
-          flex: 1, fontSize: '13px', fontStyle: 'italic',
-          color: item.checked ? 'var(--green-ok)' : item.color,
-          textDecoration: 'none',
-          opacity: item.checked ? 0.7 : 1,
-        }}>
-          {item.type}
-        </span>
+        {editing ? (
+          <input
+            ref={inputRef}
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setLabel(item.type); setEditing(false); } }}
+            style={{ flex: 1, fontSize: '13px', fontStyle: 'italic', color: item.color, background: 'transparent', border: 'none', borderBottom: `1px solid ${item.color}`, outline: 'none', padding: '1px 0' }}
+          />
+        ) : (
+          <span
+            onDoubleClick={() => { setLabel(item.type); setEditing(true); }}
+            title="Dvoklik za preimenovanje"
+            style={{
+              flex: 1, fontSize: '13px', fontStyle: 'italic',
+              color: item.checked ? 'var(--green-ok)' : item.color,
+              textDecoration: 'none',
+              opacity: item.checked ? 0.7 : 1,
+            }}>
+            {item.type}
+          </span>
+        )}
         <span style={{ fontSize: '12px', color: 'var(--muted)', flexShrink: 0 }}>ur: 1</span>
       </div>
     </div>
@@ -595,7 +615,7 @@ function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, 
 
 // ── Poglavje row ──────────────────────────────────────────
 
-function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, onToggleOpen, getHours, onHourChange, remaining, resolve, addEnota, reorder, removeEnota, toggleCustom, isAnonymous, listMode, getNote, onNoteChange, onDragStart, onDragEnd }: {
+function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, onToggleOpen, getHours, onHourChange, remaining, resolve, addEnota, reorder, removeEnota, toggleCustom, renameCustom, isAnonymous, listMode, getNote, onNoteChange, onDragStart, onDragEnd }: {
   poglavje: import('@/types/curriculum').Poglavje;
   index: number;
   predmetId: string;
@@ -611,6 +631,7 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
   reorder: (key: string, from: number, to: number, currIds: string[]) => void;
   removeEnota: (key: string, id: string) => void;
   toggleCustom: (key: string, id: string) => void;
+  renameCustom: (key: string, id: string, label: string) => void;
   isAnonymous?: boolean;
   listMode?: boolean;
   getNote: (key: string) => string;
@@ -733,6 +754,7 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
                       <CustomEnotaRow
                         item={item}
                         onToggle={() => toggleCustom(poglavjeKey, item.id)}
+                        onRename={(label) => renameCustom(poglavjeKey, item.id, label)}
                         onDragStart={() => { dragDroppedRef.current = false; dragFromRef.current = idx; setIsDraggingCustom(true); }}
                         onDragEnd={() => {
                           if (!dragDroppedRef.current && dragFromRef.current !== null) {
@@ -800,7 +822,7 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
   const { checked, toggle } = useProgress(classId ? `ucni-nacrt-progress-${classId}` : undefined);
   const { getHours, change } = useHours(classId ? `ucni-nacrt-hours-${classId}` : undefined);
   const { getNote, setNote } = useNotes(classId ? `ucni-nacrt-notes-${classId}` : undefined);
-  const { resolve, addEnota, reorder, removeEnota, toggleCustom, countCustom, countCheckedCustom } = useEnotaOrder(classId ? `ucni-nacrt-enote-order-${classId}` : undefined);
+  const { resolve, addEnota, reorder, removeEnota, toggleCustom, renameCustom, countCustom, countCheckedCustom } = useEnotaOrder(classId ? `ucni-nacrt-enote-order-${classId}` : undefined);
   const { openChapters, toggle: toggleChapter, expandAll, collapseAll } = useOpenChapters(classId ? `ucni-nacrt-open-chapters-${classId}` : undefined);
   const { resolveOrder, reorderChapters } = useChapterOrder(classId ? `ucni-nacrt-chapter-order-${classId}` : undefined);
   const [paletteDrag, setPaletteDrag] = useState<PaletteDrag | null>(null);
@@ -984,6 +1006,7 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
                               reorder={reorder}
                               removeEnota={removeEnota}
                               toggleCustom={toggleCustom}
+                              renameCustom={renameCustom}
                               isAnonymous={isAnonymous}
                               listMode={listMode}
                               getNote={getNote}
