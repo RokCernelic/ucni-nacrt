@@ -44,6 +44,7 @@ export default function SubjectClient({ predmet, gradeTargets, scopeId, subtitle
       isAnonymous={isAnonymous}
       gradeTargets={gradeTargets}
       subtitle={subtitle}
+      fullscreenHref={scopeId ? `/predmet/${scopeId}/ura` : undefined}
     />
   );
 }
