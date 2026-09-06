@@ -89,18 +89,8 @@ export default function SeatingChart() {
   return (
     <div>
       {/* Izbrana učilnica (izbira je v zgornjem meniju) */}
-      <div style={{ fontFamily: 'var(--font-serif)', fontSize: '22px', color: 'var(--ink)', marginBottom: '4px' }}>
-        {currentClass ? currentClass.className : ''}
-        {currentClass && (currentClass.subjectName || currentClass.subtitle) && (
-          <span style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--muted)', marginLeft: '10px' }}>
-            {[currentClass.subjectName, currentClass.subtitle].filter(Boolean).join(' · ')}
-          </span>
-        )}
-      </div>
-      <p style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '16px' }}>Učilnico izbereš v zgornjem meniju (Sedežni red).</p>
-
       {/* Orodja */}
-      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '18px' }}>
+      <div className="no-print" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '18px' }}>
         <button onClick={shuffle} style={{ ...btn(false), fontWeight: 600, color: '#fff', background: 'var(--forest)', border: 'none' }}>Premešaj</button>
         <button onClick={() => setEditSeats(v => !v)} style={btn(editSeats)}>{editSeats ? 'Končaj urejanje klopi' : 'Uredi klopi'}</button>
         <button onClick={clearAssign} style={btn(false)}>Počisti razpored</button>
@@ -118,21 +108,29 @@ export default function SeatingChart() {
       </div>
 
       {editSeats && (
-        <p style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '10px' }}>
+        <p className="no-print" style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '10px' }}>
           Klikni celico, da vključiš/izključiš klop (sedež). Izključene celice ostanejo prazne.
         </p>
       )}
 
-      {/* Tabla */}
-      <div style={{ textAlign: 'center', margin: '0 auto 14px', maxWidth: '640px', background: 'var(--forest)', color: '#fff', borderRadius: 'var(--r-sm)', padding: '8px', fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, letterSpacing: '0.2em', textTransform: 'uppercase' }}>
-        Tabla
-      </div>
+      {/* Tiskalno območje: samo sedežni red (Ctrl+P) */}
+      <div className="print-seating">
+        {/* Ime razreda (za natis) */}
+        <div style={{ fontFamily: 'var(--font-serif)', fontSize: '20px', color: 'var(--ink)', marginBottom: '12px' }}>
+          {currentClass ? currentClass.className : ''}
+          {currentClass && (currentClass.subjectName || currentClass.subtitle) && (
+            <span style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--muted)', marginLeft: '10px' }}>
+              {[currentClass.subjectName, currentClass.subtitle].filter(Boolean).join(' · ')}
+            </span>
+          )}
+        </div>
 
-      {/* Mreža klopi */}
-      <div style={{ overflowX: 'auto' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${seating.cols}, minmax(84px, 1fr))`, gap: '10px', minWidth: `${seating.cols * 94}px`, maxWidth: '760px', margin: '0 auto' }}>
-          {Array.from({ length: seating.rows }).flatMap((_, r) =>
-            Array.from({ length: seating.cols }).map((_, c) => {
+        {/* Mreža klopi (prva vrsta spodaj, bližje tabli) */}
+        <div className="seating-scroll" style={{ overflowX: 'auto' }}>
+          <div className="seating-grid" style={{ display: 'grid', gridTemplateColumns: `repeat(${seating.cols}, minmax(84px, 1fr))`, gap: '10px', minWidth: `${seating.cols * 94}px`, maxWidth: '760px', margin: '0 auto' }}>
+          {Array.from({ length: seating.rows }).flatMap((_, ri) => {
+            const r = seating.rows - 1 - ri; // obrni: zadnja vrsta zgoraj, prva spodaj
+            return Array.from({ length: seating.cols }).map((_, c) => {
               const k = cellKey(r, c);
               const isSeat = !disabled.has(k);
               const stud: Student | undefined = isSeat ? studentById.get(seating.assign[k]) : undefined;
@@ -164,14 +162,20 @@ export default function SeatingChart() {
                   {stud ? stud.name : ''}
                 </div>
               );
-            })
-          )}
+            });
+          })}
+          </div>
+        </div>
+
+        {/* Tabla spodaj (spredaj v učilnici) */}
+        <div style={{ textAlign: 'center', margin: '14px auto 0', maxWidth: '640px', background: 'var(--forest)', color: '#fff', borderRadius: 'var(--r-sm)', padding: '8px', fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, letterSpacing: '0.2em', textTransform: 'uppercase' }}>
+          Tabla
         </div>
       </div>
 
       {/* Nerazporejeni učenci */}
       {pool.length > 0 && (
-        <div onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); dropOnPool(); }}
+        <div className="no-print" onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); dropOnPool(); }}
           style={{ marginTop: '24px', padding: '14px', border: '1px dashed var(--hairline)', borderRadius: 'var(--r-md)' }}>
           <div style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: '10px' }}>
             Nerazporejeni ({pool.length}) — povleci na sedež

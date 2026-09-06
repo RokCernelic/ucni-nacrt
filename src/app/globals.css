@@ -4,6 +4,22 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 
+/* ── Tisk (Ctrl+P): natisne se samo sedežni red ── */
+@media print {
+  @page { size: landscape; margin: 10mm; }
+  body { background: #fff !important; }
+  body * { visibility: hidden !important; }
+  .no-print { display: none !important; }
+  .print-seating, .print-seating * { visibility: visible !important; }
+  .print-seating {
+    position: absolute; left: 0; top: 0; width: 100%;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  /* mreža naj se prilagodi strani (brez vodoravnega drsenja) */
+  .print-seating .seating-scroll { overflow: visible !important; }
+  .print-seating .seating-grid { min-width: 0 !important; max-width: 100% !important; }
+}
+
 body {
   font-family: 'Inter', -apple-system, sans-serif;
   font-size: 14px;

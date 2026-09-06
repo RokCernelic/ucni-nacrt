@@ -4,8 +4,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useSubjects } from '@/hooks/useSubjects';
-import { useAllClasses } from '@/hooks/useAllClasses';
-import { useSelectedClass } from '@/hooks/useSelectedClass';
 import { getCurriculum } from '@/data/registry';
 import type { CSSProperties } from 'react';
 
@@ -47,8 +45,6 @@ export default function Nav() {
   const path = usePathname();
   const { user, loading, signOut } = useAuth();
   const { subjects } = useSubjects();
-  const classes = useAllClasses();
-  const [selectedClass, setSelectedClass] = useSelectedClass();
 
   const onSeating = path.startsWith('/sedezni-red');
   const ucniActive = !onSeating;
@@ -84,26 +80,10 @@ export default function Nav() {
             )}
           </div>
 
-          {/* Vrsta 2: Sedežni red + učilnice (samo prijavljeni) */}
+          {/* Vrsta 2: Sedežni red (samo prijavljeni); učilnice se izberejo na strani */}
           {!loading && user && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
               <Link href="/sedezni-red" style={sectionTitle(onSeating)}>Sedežni red</Link>
-              {onSeating && classes.length > 0 && (
-                <div style={{ display: 'flex', gap: '4px', overflowX: 'auto' }}>
-                  {classes.map((c) => (
-                    <Link
-                      key={c.classId}
-                      href="/sedezni-red"
-                      onClick={() => setSelectedClass(c.classId)}
-                      title={c.label}
-                      style={pill(selectedClass === c.classId)}
-                    >
-                      {c.className}
-                      <span style={{ fontSize: '11px', opacity: 0.55, fontWeight: 400 }}>{[c.subjectName, c.subtitle].filter(Boolean).join(' · ')}</span>
-                    </Link>
-                  ))}
-                </div>
-              )}
             </div>
           )}
         </div>
