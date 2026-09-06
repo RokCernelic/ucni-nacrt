@@ -1,21 +1,21 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
-import { useAllClasses } from '@/hooks/useAllClasses';
-import { useSelectedClass } from '@/hooks/useSelectedClass';
-import SeatingChart from '@/components/SeatingChart';
+import { useSubjects } from '@/hooks/useSubjects';
 
-export default function SedezniRedPage() {
+export default function SedezniRedIndex() {
+  const router = useRouter();
   const { user, loading } = useAuth();
-  const isAnon = !loading && !user;
-  const classes = useAllClasses();
-  const [selected, setSelected] = useSelectedClass();
+  const { subjects, loaded } = useSubjects();
 
   useEffect(() => {
-    if (classes.length && !classes.find(c => c.classId === selected)) setSelected(classes[0].classId);
-  }, [classes, selected, setSelected]);
+    if (loaded && user && subjects.length) router.replace(`/sedezni-red/${subjects[0].id}`);
+  }, [loaded, user, subjects, router]);
+
+  const isAnon = !loading && !user;
 
   return (
     <div>
@@ -25,44 +25,18 @@ export default function SedezniRedPage() {
           <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(32px,4vw,48px)', fontWeight: 300, color: '#fff', lineHeight: 1, margin: '10px 0 0' }}>
             Sedežni red
           </h1>
-
-          {!isAnon && classes.length > 0 && (
-            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '18px' }}>
-              {classes.map(c => {
-                const active = c.classId === selected;
-                return (
-                  <button
-                    key={c.classId}
-                    onClick={() => setSelected(c.classId)}
-                    title={c.label}
-                    style={{
-                      display: 'inline-flex', alignItems: 'baseline', gap: '6px',
-                      fontFamily: 'var(--font-sans)', fontSize: '14px', fontWeight: active ? 700 : 500,
-                      padding: '6px 14px', borderRadius: '6px', cursor: 'pointer',
-                      background: active ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.07)',
-                      border: `1px solid ${active ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.18)'}`,
-                      color: active ? '#fff' : 'rgba(255,255,255,0.65)',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {c.className}
-                    <span style={{ fontSize: '11px', opacity: 0.55, fontWeight: 400 }}>{[c.subjectName, c.subtitle].filter(Boolean).join(' · ')}</span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
         </div>
       </div>
-
       <div style={{ width: '100%', maxWidth: '900px', margin: '0 auto', padding: '32px' }}>
         {isAnon ? (
           <p style={{ fontSize: '14px', color: 'var(--muted)' }}>
             Za sedežni red se <Link href="/login" style={{ color: 'var(--forest)', fontWeight: 500 }}>prijavite</Link>.
           </p>
-        ) : (
-          <SeatingChart />
-        )}
+        ) : loaded && subjects.length === 0 ? (
+          <p style={{ fontSize: '14px', color: 'var(--muted)' }}>
+            Najprej <Link href="/" style={{ color: 'var(--forest)', fontWeight: 500 }}>dodaj predmet</Link>, nato izberi razrede za sedežni red.
+          </p>
+        ) : null}
       </div>
     </div>
   );

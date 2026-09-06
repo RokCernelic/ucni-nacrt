@@ -52,9 +52,9 @@ export default function Nav() {
   const subjectItems = subjects
     .map((s) => {
       const entry = getCurriculum(s.curriculum);
-      return entry ? { href: `/predmet/${s.id}`, label: entry.predmet.naslov, subtitle: s.subtitle } : null;
+      return entry ? { id: s.id, label: entry.predmet.naslov, subtitle: s.subtitle } : null;
     })
-    .filter((x): x is { href: string; label: string; subtitle: string } => x !== null);
+    .filter((x): x is { id: string; label: string; subtitle: string } => x !== null);
 
   return (
     <nav style={{
@@ -71,7 +71,7 @@ export default function Nav() {
             {ucniActive && subjectItems.length > 0 && (
               <div style={{ display: 'flex', gap: '4px', overflowX: 'auto' }}>
                 {subjectItems.map((s) => (
-                  <Link key={s.href} href={s.href} title={s.subtitle || s.label} style={pill(path === s.href)}>
+                  <Link key={s.id} href={`/predmet/${s.id}`} title={s.subtitle || s.label} style={pill(path === `/predmet/${s.id}`)}>
                     {s.label}
                     {s.subtitle && <span style={{ fontSize: '11px', opacity: 0.55, fontWeight: 400 }}>{s.subtitle}</span>}
                   </Link>
@@ -80,10 +80,20 @@ export default function Nav() {
             )}
           </div>
 
-          {/* Vrsta 2: Sedežni red (samo prijavljeni); učilnice se izberejo na strani */}
+          {/* Vrsta 2: Sedežni red + predmeti (samo prijavljeni) */}
           {!loading && user && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
               <Link href="/sedezni-red" style={sectionTitle(onSeating)}>Sedežni red</Link>
+              {onSeating && subjectItems.length > 0 && (
+                <div style={{ display: 'flex', gap: '4px', overflowX: 'auto' }}>
+                  {subjectItems.map((s) => (
+                    <Link key={s.id} href={`/sedezni-red/${s.id}`} title={s.subtitle || s.label} style={pill(path === `/sedezni-red/${s.id}`)}>
+                      {s.label}
+                      {s.subtitle && <span style={{ fontSize: '11px', opacity: 0.55, fontWeight: 400 }}>{s.subtitle}</span>}
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

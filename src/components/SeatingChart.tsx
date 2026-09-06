@@ -1,8 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { useAllClasses } from '@/hooks/useAllClasses';
-import { useSelectedClass } from '@/hooks/useSelectedClass';
+import { useState, useRef } from 'react';
 import { useRoster, type Student } from '@/hooks/useRoster';
 import { useSeating, cellKey, activeSeats, shuffleInto, type Seating } from '@/hooks/useSeating';
 
@@ -14,16 +12,13 @@ function genderStyle(g: string) {
 
 type Drag = { from: 'seat'; cell: string } | { from: 'pool'; studentId: string } | null;
 
-export default function SeatingChart() {
-  const classes = useAllClasses();
-  const [classId, setClassId] = useSelectedClass();
-  useEffect(() => {
-    if (classes.length && !classes.find(c => c.classId === classId)) setClassId(classes[0].classId);
-  }, [classes, classId, setClassId]);
-
+export default function SeatingChart({ classId, className, contextLabel }: {
+  classId: string;
+  className: string;
+  contextLabel?: string;
+}) {
   const { students } = useRoster(classId || undefined);
   const { seating, setSeating } = useSeating(classId || undefined);
-  const currentClass = classes.find(c => c.classId === classId);
   const [editSeats, setEditSeats] = useState(false);
   const dragRef = useRef<Drag>(null);
 
@@ -32,10 +27,6 @@ export default function SeatingChart() {
   const seatedIds = new Set(Object.values(seating.assign));
   const pool = students.filter(s => !seatedIds.has(s.id));
   const seatCount = activeSeats(seating).length;
-
-  if (classes.length === 0) {
-    return <p style={{ color: 'var(--muted)', fontSize: '14px' }}>Najprej ustvari razrede pri predmetih in dodaj učence v Nastavitvah → Učenci.</p>;
-  }
 
   const update = (patch: Partial<Seating>) => setSeating({ ...seating, ...patch });
 
@@ -117,10 +108,10 @@ export default function SeatingChart() {
       <div className="print-seating">
         {/* Ime razreda (za natis) */}
         <div style={{ fontFamily: 'var(--font-serif)', fontSize: '20px', color: 'var(--ink)', marginBottom: '12px' }}>
-          {currentClass ? currentClass.className : ''}
-          {currentClass && (currentClass.subjectName || currentClass.subtitle) && (
+          {className}
+          {contextLabel && (
             <span style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--muted)', marginLeft: '10px' }}>
-              {[currentClass.subjectName, currentClass.subtitle].filter(Boolean).join(' · ')}
+              {contextLabel}
             </span>
           )}
         </div>
