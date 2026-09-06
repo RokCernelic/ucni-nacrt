@@ -20,6 +20,7 @@ import { useNotes } from '@/hooks/useNotes';
 import { useOpenChapters } from '@/hooks/useOpenChapters';
 import { useChapterOrder } from '@/hooks/useChapterOrder';
 import { usePalette } from '@/hooks/usePalette';
+import { useListMode } from '@/hooks/useListMode';
 import Countdown from '@/components/Countdown';
 import { useEnotaOrder, type ResolvedEnotaItem } from '@/hooks/useEnotaOrder';
 
@@ -827,7 +828,7 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
   const { openChapters, toggle: toggleChapter, expandAll, collapseAll } = useOpenChapters(classId ? `ucni-nacrt-open-chapters-${classId}` : undefined);
   const { resolveOrder, reorderChapters } = useChapterOrder(classId ? `ucni-nacrt-chapter-order-${classId}` : undefined);
   const [paletteDrag, setPaletteDrag] = useState<PaletteDrag | null>(null);
-  const [listMode, setListMode] = useState(false);
+  const [listMode, setListMode] = useListMode(classId);
   const [chapterDragging, setChapterDragging] = useState(false);
   const chapterDragFrom = useRef<number | null>(null);
 
@@ -888,12 +889,10 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
 
   const handleExpandAll = useCallback(() => { setListMode(false); expandAll(filteredPoglavja.map(p => p.id)); }, [expandAll, filteredPoglavja]);
   const handleExpandList = useCallback(() => {
-    setListMode(prev => {
-      if (prev) return false;            // izklop – vrni podroben pogled
-      expandAll(filteredPoglavja.map(p => p.id));
-      return true;                       // vklop – razširi kot seznam
-    });
-  }, [expandAll, filteredPoglavja]);
+    if (listMode) { setListMode(false); return; }   // izklop – vrni podroben pogled
+    expandAll(filteredPoglavja.map(p => p.id));      // vklop – razširi kot seznam
+    setListMode(true);
+  }, [listMode, setListMode, expandAll, filteredPoglavja]);
   const handleCollapseAll = useCallback(() => { setListMode(false); collapseAll(); }, [collapseAll]);
 
   const handleHourChange = useCallback((unitKey: string, delta: number, razred: number) => {
