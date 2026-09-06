@@ -7,6 +7,7 @@ import { useSchedules, schoolKey, toMinutes, type Lesson } from '@/hooks/useSche
 import { useSubjects } from '@/hooks/useSubjects';
 import { CURRICULA } from '@/data/registry';
 import { curriculumToText, downloadText } from '@/lib/exportCurriculum';
+import GradebookSection from '@/components/GradebookSection';
 
 export default function SettingsPage() {
   const { user, loading, updateEmail, updatePassword } = useAuth();
@@ -191,6 +192,18 @@ export default function SettingsPage() {
                 {savedMsg && <span style={{ fontSize: '12px', color: 'var(--green-ok)' }}>Shranjeno ✓</span>}
               </div>
             </>
+          )}
+        </div>
+
+        {/* Učenci / redovalnica */}
+        <div style={card}>
+          <div style={{ ...label, marginBottom: '10px' }}>Učenci (redovalnica)</div>
+          {isAnon ? (
+            <p style={{ fontSize: '13px', color: 'var(--muted)' }}>
+              Za urejanje učencev se <Link href="/login" style={{ color: 'var(--forest)', fontWeight: 500 }}>prijavite</Link>.
+            </p>
+          ) : (
+            <GradebookSection />
           )}
         </div>
 

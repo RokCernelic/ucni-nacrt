@@ -71,6 +71,23 @@ export default function Nav() {
           })}
         </div>
 
+        {/* Sedežni red — samo za prijavljene */}
+        {!loading && user && (
+          <Link
+            href="/sedezni-red"
+            style={{
+              fontFamily: 'var(--font-serif)', fontSize: '17px', fontWeight: 400,
+              letterSpacing: '0.03em', whiteSpace: 'nowrap', flexShrink: 0,
+              color: path === '/sedezni-red' ? '#fff' : 'rgba(255,255,255,0.8)',
+              background: path === '/sedezni-red' ? 'rgba(255,255,255,0.15)' : 'transparent',
+              borderRadius: 'var(--r-sm)', padding: '4px 12px', textDecoration: 'none',
+              marginLeft: '8px',
+            }}
+          >
+            Sedežni red
+          </Link>
+        )}
+
         {/* Auth controls */}
         {!loading && (
           user ? (
