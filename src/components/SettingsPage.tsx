@@ -197,10 +197,10 @@ export default function SettingsPage() {
 
         {/* Učenci / redovalnica */}
         <div style={card}>
-          <div style={{ ...label, marginBottom: '10px' }}>Učenci (redovalnica)</div>
+          <div style={{ ...label, marginBottom: '10px' }}>Razredi in učenci</div>
           {isAnon ? (
             <p style={{ fontSize: '13px', color: 'var(--muted)' }}>
-              Za urejanje učencev se <Link href="/login" style={{ color: 'var(--forest)', fontWeight: 500 }}>prijavite</Link>.
+              Za urejanje razredov se <Link href="/login" style={{ color: 'var(--forest)', fontWeight: 500 }}>prijavite</Link>.
             </p>
           ) : (
             <GradebookSection />

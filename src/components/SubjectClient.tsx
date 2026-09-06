@@ -1,8 +1,10 @@
 'use client';
 
-import { useClasses } from '@/hooks/useClasses';
+import Link from 'next/link';
+import { useMasterClasses } from '@/hooks/useMasterClasses';
+import { useViewClasses } from '@/hooks/useViewClasses';
 import { useAuth } from '@/hooks/useAuth';
-import ClassTabs from '@/components/ClassTabs';
+import ViewClassTabs from '@/components/ViewClassTabs';
 import CurriculumTree from '@/components/CurriculumTree';
 import type { Predmet } from '@/types/curriculum';
 
@@ -14,37 +16,47 @@ function getRazredFilter(name: string): number | null {
 export default function SubjectClient({ predmet, gradeTargets, scopeId, subtitle }: {
   predmet: Predmet;
   gradeTargets: Record<number, number>;
-  /** ločen prostor za oddelke (id instance predmeta); privzeto id kurikula */
   scopeId?: string;
   subtitle?: string;
 }) {
-  const { classes, activeId, addClass, renameClass, removeClass, selectClass, reorderClasses, activeClass } = useClasses(scopeId ?? predmet.id);
+  const subjectId = scopeId ?? predmet.id;
+  const { classes: master } = useMasterClasses();
+  const { ids, activeId, setActive, addToView, removeFromView } = useViewClasses('ucni', subjectId);
   const { user, loading } = useAuth();
   const isAnonymous = !loading && !user;
+
+  const activeClass = master.find(m => m.id === activeId) ?? null;
   const razredFilter = activeClass ? getRazredFilter(activeClass.name) : null;
-  const classBar = (
-    <ClassTabs
-      classes={classes}
+  const scope = activeId ? `${subjectId}::${activeId}` : undefined;
+
+  const classBar = isAnonymous ? (
+    <div style={{ marginTop: '18px' }}>
+      <Link href="/login" style={{ background: 'rgba(255,255,255,0.07)', border: '1px dashed rgba(255,255,255,0.25)', borderRadius: '6px', color: 'rgba(255,255,255,0.5)', fontFamily: 'var(--font-sans)', fontSize: '12px', padding: '5px 12px', textDecoration: 'none' }}>
+        + Prijava za razrede
+      </Link>
+    </div>
+  ) : (
+    <ViewClassTabs
+      master={master}
+      ids={ids}
       activeId={activeId}
-      onSelect={selectClass}
-      onAdd={addClass}
-      onRename={renameClass}
-      onDelete={removeClass}
-      onReorder={reorderClasses}
-      isAnonymous={isAnonymous}
+      onSelect={setActive}
+      onAdd={addToView}
+      onRemove={removeFromView}
     />
   );
+
   return (
     <CurriculumTree
-      key={activeId ?? 'default'}
+      key={scope ?? 'default'}
       predmet={predmet}
-      classId={activeId ?? undefined}
+      classId={scope}
       razredFilter={razredFilter}
       classBar={classBar}
       isAnonymous={isAnonymous}
       gradeTargets={gradeTargets}
       subtitle={subtitle}
-      fullscreenHref={scopeId ? `/predmet/${scopeId}/ura` : undefined}
+      fullscreenHref={`/predmet/${subjectId}/ura`}
     />
   );
 }

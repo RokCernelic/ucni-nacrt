@@ -5,8 +5,9 @@ import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { useSubjects } from '@/hooks/useSubjects';
 import { getCurriculum } from '@/data/registry';
-import { useClasses } from '@/hooks/useClasses';
-import ClassTabs from '@/components/ClassTabs';
+import { useMasterClasses } from '@/hooks/useMasterClasses';
+import { useViewClasses } from '@/hooks/useViewClasses';
+import ViewClassTabs from '@/components/ViewClassTabs';
 import SeatingChart from '@/components/SeatingChart';
 
 export default function SedezniRedSubjectPage() {
@@ -14,14 +15,15 @@ export default function SedezniRedSubjectPage() {
   const id = (Array.isArray(params.id) ? params.id[0] : params.id) ?? '';
   const { user, loading } = useAuth();
   const { subjects, loaded } = useSubjects();
-  const { classes, activeId, activeClass, addClass, renameClass, removeClass, selectClass, reorderClasses } = useClasses(id);
+  const { classes: master } = useMasterClasses();
+  const { ids, activeId, setActive, addToView, removeFromView } = useViewClasses('sedez', id);
 
   if (loading || !loaded) return null;
 
   const subject = subjects.find(s => s.id === id);
   const entry = subject ? getCurriculum(subject.curriculum) : null;
-
-  const context = entry ? [entry.predmet.naslov, subject!.subtitle].filter(Boolean).join(' · ') : '';
+  const activeClass = master.find(m => m.id === activeId) ?? null;
+  const context = entry && activeClass ? [entry.predmet.naslov, activeClass.school].filter(Boolean).join(' · ') : entry?.predmet.naslov ?? '';
 
   return (
     <div>
@@ -34,17 +36,8 @@ export default function SedezniRedSubjectPage() {
           <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(32px,4vw,48px)', fontWeight: 300, color: '#fff', lineHeight: 1 }}>
             {entry ? entry.predmet.naslov : 'Sedežni red'}
           </h1>
-          {!user ? null : !subject || !entry ? null : (
-            <ClassTabs
-              classes={classes}
-              activeId={activeId}
-              onSelect={selectClass}
-              onAdd={addClass}
-              onRename={renameClass}
-              onDelete={removeClass}
-              onReorder={reorderClasses}
-              isAnonymous={false}
-            />
+          {user && subject && entry && (
+            <ViewClassTabs master={master} ids={ids} activeId={activeId} onSelect={setActive} onAdd={addToView} onRemove={removeFromView} />
           )}
         </div>
       </div>
@@ -57,7 +50,9 @@ export default function SedezniRedSubjectPage() {
         ) : !subject || !entry ? (
           <p style={{ fontSize: '14px', color: 'var(--muted)' }}>Predmet ne obstaja. <Link href="/" style={{ color: 'var(--forest)' }}>Nazaj</Link></p>
         ) : !activeClass ? (
-          <p style={{ fontSize: '14px', color: 'var(--muted)' }}>Dodaj razred zgoraj (gumb +), da začneš s sedežnim redom.</p>
+          <p style={{ fontSize: '14px', color: 'var(--muted)' }}>
+            Dodaj razred z gumbom <b>+</b> zgoraj (razrede ustvariš v <Link href="/nastavitve" style={{ color: 'var(--forest)' }}>Nastavitve → Razredi</Link>).
+          </p>
         ) : (
           <SeatingChart classId={activeId!} className={activeClass.name} contextLabel={context} />
         )}
