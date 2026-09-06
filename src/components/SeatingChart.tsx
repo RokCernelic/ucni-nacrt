@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useAllClasses } from '@/hooks/useAllClasses';
+import { useSelectedClass } from '@/hooks/useSelectedClass';
 import { useRoster, type Student } from '@/hooks/useRoster';
 import { useSeating, cellKey, activeSeats, shuffleInto, type Seating } from '@/hooks/useSeating';
 
@@ -15,13 +16,14 @@ type Drag = { from: 'seat'; cell: string } | { from: 'pool'; studentId: string }
 
 export default function SeatingChart() {
   const classes = useAllClasses();
-  const [classId, setClassId] = useState<string | null>(null);
+  const [classId, setClassId] = useSelectedClass();
   useEffect(() => {
     if (classes.length && !classes.find(c => c.classId === classId)) setClassId(classes[0].classId);
-  }, [classes, classId]);
+  }, [classes, classId, setClassId]);
 
-  const { students } = useRoster(classId ?? undefined);
-  const { seating, setSeating } = useSeating(classId ?? undefined);
+  const { students } = useRoster(classId || undefined);
+  const { seating, setSeating } = useSeating(classId || undefined);
+  const currentClass = classes.find(c => c.classId === classId);
   const [editSeats, setEditSeats] = useState(false);
   const dragRef = useRef<Drag>(null);
 
@@ -86,14 +88,16 @@ export default function SeatingChart() {
 
   return (
     <div>
-      {/* Razred */}
-      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '16px' }}>
-        {classes.map(c => (
-          <button key={c.classId} onClick={() => setClassId(c.classId)} title={c.label} style={btn(c.classId === classId)}>
-            {c.label}
-          </button>
-        ))}
+      {/* Izbrana učilnica (izbira je v zgornjem meniju) */}
+      <div style={{ fontFamily: 'var(--font-serif)', fontSize: '22px', color: 'var(--ink)', marginBottom: '4px' }}>
+        {currentClass ? currentClass.className : ''}
+        {currentClass && (currentClass.subjectName || currentClass.subtitle) && (
+          <span style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--muted)', marginLeft: '10px' }}>
+            {[currentClass.subjectName, currentClass.subtitle].filter(Boolean).join(' · ')}
+          </span>
+        )}
       </div>
+      <p style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '16px' }}>Učilnico izbereš v zgornjem meniju (Sedežni red).</p>
 
       {/* Orodja */}
       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '18px' }}>
