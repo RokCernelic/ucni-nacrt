@@ -4,6 +4,15 @@ import { useState, useEffect, useCallback } from 'react';
 import type { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 
+// Baza za e-poštne povezave (potrditev, ponastavitev gesla).
+// Prednost ima NEXT_PUBLIC_SITE_URL (npr. produkcijski URL), sicer trenutni origin.
+function siteOrigin(): string {
+  const env = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '');
+  if (env) return env;
+  if (typeof window !== 'undefined') return window.location.origin;
+  return '';
+}
+
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -41,7 +50,7 @@ export function useAuth() {
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      options: { emailRedirectTo: `${siteOrigin()}/auth/callback` },
     });
     return error;
   }, []);
@@ -67,7 +76,7 @@ export function useAuth() {
   const resetPassword = useCallback(async (email: string) => {
     const supabase = getSupabaseBrowserClient();
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset-password`,
+      redirectTo: `${siteOrigin()}/auth/callback?next=/auth/reset-password`,
     });
     return error;
   }, []);
@@ -82,7 +91,7 @@ export function useAuth() {
     const supabase = getSupabaseBrowserClient();
     const { error } = await supabase.auth.updateUser(
       { email },
-      { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      { emailRedirectTo: `${siteOrigin()}/auth/callback` },
     );
     return error;
   }, []);
