@@ -8,6 +8,8 @@ export interface Student {
   id: string;
   name: string;
   gender: Gender;
+  /** vedno v prvi vrsti (pri tabli) — sedežni red ga premeša samo znotraj prve vrste */
+  frontRow?: boolean;
 }
 
 function normGender(s: string): Gender {

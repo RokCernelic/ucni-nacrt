@@ -46,7 +46,7 @@ export default function SeatingChart({ classId, className, contextLabel }: {
     update({ rows, cols, disabled: seating.disabled.filter(inGrid), assign });
   };
 
-  const shuffle = () => update({ assign: shuffleInto(seating, students.map(s => s.id)) });
+  const shuffle = () => update({ assign: shuffleInto(seating, students.map(s => s.id), students.filter(s => s.frontRow).map(s => s.id)) });
   const clearAssign = () => update({ assign: {} });
 
   const dropOnSeat = (target: string) => {
@@ -146,10 +146,13 @@ export default function SeatingChart({ classId, className, contextLabel }: {
                   onDragStart={() => { if (stud) dragRef.current = { from: 'seat', cell: k }; }}
                   onDragOver={e => e.preventDefault()}
                   onDrop={e => { e.preventDefault(); dropOnSeat(k); }}
-                  style={{ height: '58px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '4px 6px',
+                  style={{ position: 'relative', height: '58px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '4px 6px',
                     border: `1.5px solid ${gs.border}`, background: gs.bg, color: gs.color,
                     fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500, lineHeight: 1.2,
                     cursor: stud ? 'grab' : 'default', boxSizing: 'border-box' }}>
+                  {stud?.frontRow && (
+                    <span title="Vedno v prvi vrsti" style={{ position: 'absolute', top: '3px', left: '4px', fontSize: '9px', fontWeight: 700, letterSpacing: '0.03em', color: gs.color, opacity: 0.6 }}>1↓</span>
+                  )}
                   {stud ? stud.name : ''}
                 </div>
               );
@@ -177,6 +180,7 @@ export default function SeatingChart({ classId, className, contextLabel }: {
               return (
                 <div key={s.id} draggable onDragStart={() => { dragRef.current = { from: 'pool', studentId: s.id }; }}
                   style={{ padding: '6px 12px', borderRadius: '8px', border: `1.5px solid ${gs.border}`, background: gs.bg, color: gs.color, fontSize: '12px', fontWeight: 500, cursor: 'grab' }}>
+                  {s.frontRow && <span title="Vedno v prvi vrsti" style={{ fontSize: '9px', fontWeight: 700, opacity: 0.6, marginRight: '4px' }}>1↓</span>}
                   {s.name}
                 </div>
               );

@@ -50,15 +50,45 @@ export function activeSeats(s: Seating): string[] {
   return out;
 }
 
-/** Naključno razporedi dane učence po aktivnih sedežih. */
-export function shuffleInto(s: Seating, studentIds: string[]): Record<string, string> {
-  const seats = activeSeats(s);
-  const ids = [...studentIds];
-  for (let i = ids.length - 1; i > 0; i--) {
+function shuffled<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [ids[i], ids[j]] = [ids[j], ids[i]];
+    [a[i], a[j]] = [a[j], a[i]];
   }
+  return a;
+}
+
+const rowOf = (k: string) => Number(k.split('-')[0]);
+
+/**
+ * Naključno razporedi dane učence po aktivnih sedežih.
+ * Učenci v `frontIds` se premešajo samo znotraj prve vrste (vrsta 0, pri tabli).
+ * Če jih je več kot sedežev v prvi vrsti, ostanek pade med ostale sedeže (rezerva).
+ */
+export function shuffleInto(s: Seating, studentIds: string[], frontIds: string[] = []): Record<string, string> {
+  const seats = activeSeats(s);
+  const frontSet = new Set(frontIds);
+
+  const frontSeats = shuffled(seats.filter(k => rowOf(k) === 0));
+  const otherSeats = shuffled(seats.filter(k => rowOf(k) !== 0));
+
+  const frontStudents = shuffled(studentIds.filter(id => frontSet.has(id)));
+  const restStudents = shuffled(studentIds.filter(id => !frontSet.has(id)));
+
   const assign: Record<string, string> = {};
-  seats.forEach((seat, i) => { if (i < ids.length) assign[seat] = ids[i]; });
+
+  // 1) prednostni učenci v sedeže prve vrste
+  let fi = 0;
+  for (const seat of frontSeats) {
+    if (fi < frontStudents.length) assign[seat] = frontStudents[fi++];
+  }
+
+  // 2) preostali sedeži (najprej prazni v prvi vrsti, nato ostali) dobijo ostale učence
+  const leftoverFrontSeats = frontSeats.filter(k => !(k in assign));
+  const remainingSeats = [...leftoverFrontSeats, ...otherSeats];
+  const remainingStudents = [...frontStudents.slice(fi), ...restStudents];
+  remainingSeats.forEach((seat, i) => { if (i < remainingStudents.length) assign[seat] = remainingStudents[i]; });
+
   return assign;
 }

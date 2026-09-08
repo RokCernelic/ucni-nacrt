@@ -15,6 +15,21 @@ function RosterEditor({ classId }: { classId: string }) {
   const m = parsed.filter(s => s.gender === 'M').length;
   const z = parsed.filter(s => s.gender === 'Ž').length;
 
+  // Ob shranjevanju iz besedila ohrani id in oznako »prva vrsta« za učence,
+  // ki že obstajajo (ujemanje po imenu) — tako ostanejo tudi razporedi sedežev.
+  const handleSave = () => {
+    const prevByName = new Map(students.map(s => [s.name.trim().toLowerCase(), s]));
+    const merged = parseRoster(text).map(p => {
+      const prev = prevByName.get(p.name.trim().toLowerCase());
+      return prev ? { ...p, id: prev.id, frontRow: prev.frontRow } : p;
+    });
+    save(merged);
+    setSaved(true);
+  };
+
+  const toggleFront = (id: string) =>
+    save(students.map(s => (s.id === id ? { ...s, frontRow: !s.frontRow } : s)));
+
   return (
     <div>
       <p style={{ fontSize: '11px', color: 'var(--muted)', margin: '14px 0 8px', lineHeight: 1.5 }}>
@@ -29,7 +44,7 @@ function RosterEditor({ classId }: { classId: string }) {
       />
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '10px' }}>
         <button
-          onClick={() => { save(parseRoster(text)); setSaved(true); }}
+          onClick={handleSave}
           style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 600, color: '#fff', background: 'var(--forest)', border: 'none', borderRadius: 'var(--r-sm)', padding: '8px 16px', cursor: 'pointer' }}>
           Shrani učence
         </button>
@@ -38,6 +53,37 @@ function RosterEditor({ classId }: { classId: string }) {
         </span>
         {saved && <span style={{ fontSize: '12px', color: 'var(--green-ok)' }}>Shranjeno ✓</span>}
       </div>
+
+      {/* Seznam shranjenih učencev z oznako »prva vrsta« */}
+      {students.length > 0 && (
+        <div style={{ marginTop: '18px', borderTop: '1px solid var(--hairline)', paddingTop: '14px' }}>
+          <p style={{ fontSize: '11px', color: 'var(--muted)', margin: '0 0 10px', lineHeight: 1.5 }}>
+            Klikni <b>1↓ Prva vrsta</b>, da učenca vedno postaviš v prvo vrsto (pri tabli). Sedežni red ga bo še vedno naključno premešal — a le znotraj prve vrste.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            {students.map(s => (
+              <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '4px 0' }}>
+                <span style={{ flex: 1, fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--ink)' }}>
+                  {s.name}
+                  {s.gender && <span style={{ fontSize: '11px', color: 'var(--muted)', marginLeft: '6px' }}>{s.gender}</span>}
+                </span>
+                <button
+                  onClick={() => toggleFront(s.id)}
+                  title="Vedno v prvi vrsti (pri tabli)"
+                  style={{
+                    fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600,
+                    color: s.frontRow ? '#fff' : 'var(--forest)',
+                    background: s.frontRow ? 'var(--forest)' : 'transparent',
+                    border: `1px solid ${s.frontRow ? 'var(--forest)' : 'var(--hairline)'}`,
+                    borderRadius: 'var(--r-sm)', padding: '5px 10px', cursor: 'pointer', whiteSpace: 'nowrap',
+                  }}>
+                  1↓ Prva vrsta
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
