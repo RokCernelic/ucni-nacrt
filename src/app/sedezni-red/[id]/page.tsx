@@ -9,6 +9,7 @@ import { useMasterClasses } from '@/hooks/useMasterClasses';
 import { useViewClasses } from '@/hooks/useViewClasses';
 import ViewClassTabs from '@/components/ViewClassTabs';
 import SeatingChart from '@/components/SeatingChart';
+import { lessonsFor, canonLabel } from '@/data/timetable';
 
 export default function SedezniRedSubjectPage() {
   const params = useParams();
@@ -24,6 +25,9 @@ export default function SedezniRedSubjectPage() {
   const entry = subject ? getCurriculum(subject.curriculum) : null;
   const activeClass = master.find(m => m.id === activeId) ?? null;
   const context = entry && activeClass ? [entry.predmet.naslov, activeClass.school].filter(Boolean).join(' · ') : entry?.predmet.naslov ?? '';
+  const lessons = activeClass
+    ? lessonsFor(canonLabel(activeClass.name), `${activeClass.name} ${activeClass.school}`, subject?.curriculum ?? null)
+    : [];
 
   return (
     <div>
@@ -54,7 +58,7 @@ export default function SedezniRedSubjectPage() {
             Dodaj razred z gumbom <b>+</b> zgoraj (razrede ustvariš v <Link href="/nastavitve" style={{ color: 'var(--forest)' }}>Nastavitve → Razredi</Link>).
           </p>
         ) : (
-          <SeatingChart classId={activeId!} className={activeClass.name} contextLabel={context} />
+          <SeatingChart classId={activeId!} className={activeClass.name} contextLabel={context} lessons={lessons} subjectLabel={entry.predmet.naslov} />
         )}
       </div>
     </div>

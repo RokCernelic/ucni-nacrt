@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRoster, type Student } from '@/hooks/useRoster';
-import { useSeating, cellKey, activeSeats, shuffleInto, type Seating } from '@/hooks/useSeating';
+import { useSeating, cellKey, activeSeats, shuffleInto, makeRng, type Seating } from '@/hooks/useSeating';
+import { formatLessonDate, type Lesson } from '@/data/timetable';
 
 function genderStyle(g: string) {
   if (g === 'Ž') return { bg: '#fbe7ef', border: '#e589ac', color: '#a61e4d' };
@@ -11,63 +12,136 @@ function genderStyle(g: string) {
 }
 
 type Drag = { from: 'seat'; cell: string } | { from: 'pool'; studentId: string } | null;
+type DayMap = Record<string, Record<string, string>>;
 
-export default function SeatingChart({ classId, className, contextLabel }: {
+/** Ročni razporedi po dnevih (prepiši samodejnega); shranjeno ločeno od postavitve klopi. */
+function useDayOverrides(classId?: string) {
+  const key = classId ? `ucni-nacrt-seatdays-${classId}` : undefined;
+  const [map, setMap] = useState<DayMap>({});
+
+  useEffect(() => {
+    if (!key) { setMap({}); return; }
+    try { const r = localStorage.getItem(key); setMap(r ? JSON.parse(r) : {}); }
+    catch { setMap({}); }
+  }, [key]);
+
+  const setDay = (date: string, assign: Record<string, string> | null) => {
+    setMap(prev => {
+      const next = { ...prev };
+      if (assign === null) delete next[date]; else next[date] = assign;
+      if (key) { localStorage.setItem(key, JSON.stringify(next)); window.dispatchEvent(new Event('ucni-nacrt-changed')); }
+      return next;
+    });
+  };
+
+  return { map, setDay };
+}
+
+export default function SeatingChart({ classId, className, contextLabel, lessons = [], subjectLabel }: {
   classId: string;
   className: string;
   contextLabel?: string;
+  lessons?: Lesson[];
+  subjectLabel?: string;
 }) {
   const { students } = useRoster(classId || undefined);
   const { seating, setSeating } = useSeating(classId || undefined);
+  const { map: dayMap, setDay } = useDayOverrides(classId || undefined);
   const [editSeats, setEditSeats] = useState(false);
+  const [dayIndex, setDayIndex] = useState(0);
   const dragRef = useRef<Drag>(null);
+
+  const hasDays = lessons.length > 0;
+
+  // Ob menjavi razreda/urnika skoči na današnjo (ali najbližjo prihodnjo) uro.
+  useEffect(() => {
+    if (!hasDays) return;
+    const today = new Date().toISOString().slice(0, 10);
+    let idx = lessons.findIndex(l => l.d >= today);
+    if (idx < 0) idx = lessons.length - 1;
+    setDayIndex(idx);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [classId, hasDays, lessons.length]);
+
+  const lesson = hasDays ? lessons[Math.min(dayIndex, lessons.length - 1)] : null;
+
+  // Tipki levo/desno premikata med dnevi.
+  useEffect(() => {
+    if (!hasDays) return;
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (editSeats || tag === 'INPUT' || tag === 'TEXTAREA') return;
+      if (e.key === 'ArrowLeft') { e.preventDefault(); setDayIndex(i => Math.max(0, i - 1)); }
+      else if (e.key === 'ArrowRight') { e.preventDefault(); setDayIndex(i => Math.min(lessons.length - 1, i + 1)); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [hasDays, lessons.length, editSeats]);
 
   const studentById = new Map(students.map(s => [s.id, s]));
   const disabled = new Set(seating.disabled);
-  const seatedIds = new Set(Object.values(seating.assign));
-  const pool = students.filter(s => !seatedIds.has(s.id));
+  const allIds = students.map(s => s.id);
+  const frontIds = students.filter(s => s.frontRow).map(s => s.id);
   const seatCount = activeSeats(seating).length;
 
-  const update = (patch: Partial<Seating>) => setSeating({ ...seating, ...patch });
+  // Razpored za trenutni pogled: dan (ročni prepis ali samodejni seed) ali klasični enkratni razpored.
+  const hasOverride = !!(lesson && dayMap[lesson.d]);
+  const assign: Record<string, string> = hasDays
+    ? (lesson && dayMap[lesson.d]
+        ? dayMap[lesson.d]
+        : shuffleInto(seating, allIds, frontIds, makeRng(`${classId}|${lesson?.d ?? ''}`)))
+    : seating.assign;
+
+  const seatedIds = new Set(Object.values(assign));
+  const pool = students.filter(s => !seatedIds.has(s.id));
+
+  const updateLayout = (patch: Partial<Seating>) => setSeating({ ...seating, ...patch });
+  // Zapiši razpored: v dnevnem načinu kot ročni prepis dneva, sicer v postavitev.
+  const commitAssign = (next: Record<string, string>) => {
+    if (hasDays && lesson) setDay(lesson.d, next);
+    else updateLayout({ assign: next });
+  };
 
   const toggleSeat = (k: string) => {
-    if (disabled.has(k)) { update({ disabled: seating.disabled.filter(x => x !== k) }); }
+    if (disabled.has(k)) { updateLayout({ disabled: seating.disabled.filter(x => x !== k) }); }
     else {
-      const assign = { ...seating.assign }; delete assign[k];
-      update({ disabled: [...seating.disabled, k], assign });
+      updateLayout({ disabled: [...seating.disabled, k] });
+      if (assign[k]) { const a = { ...assign }; delete a[k]; commitAssign(a); }
     }
   };
 
   const setGrid = (rows: number, cols: number) => {
-    // odstrani razporede/onemogočene izven nove mreže
     const inGrid = (k: string) => { const [r, c] = k.split('-').map(Number); return r < rows && c < cols; };
-    const assign: Record<string, string> = {};
-    for (const [k, v] of Object.entries(seating.assign)) if (inGrid(k)) assign[k] = v;
-    update({ rows, cols, disabled: seating.disabled.filter(inGrid), assign });
+    updateLayout({ rows, cols, disabled: seating.disabled.filter(inGrid) });
+    if (!hasDays) {
+      const a: Record<string, string> = {};
+      for (const [k, v] of Object.entries(seating.assign)) if (inGrid(k)) a[k] = v;
+      updateLayout({ rows, cols, disabled: seating.disabled.filter(inGrid), assign: a });
+    }
   };
 
-  const shuffle = () => update({ assign: shuffleInto(seating, students.map(s => s.id), students.filter(s => s.frontRow).map(s => s.id)) });
-  const clearAssign = () => update({ assign: {} });
+  const shuffle = () => commitAssign(shuffleInto(seating, allIds, frontIds));
+  const clearAssign = () => commitAssign({});
+  const resetToAuto = () => { if (lesson) setDay(lesson.d, null); };
 
   const dropOnSeat = (target: string) => {
     const d = dragRef.current; dragRef.current = null;
     if (!d || disabled.has(target)) return;
-    const assign = { ...seating.assign };
+    const a = { ...assign };
     if (d.from === 'seat') {
-      const a = assign[d.cell], b = assign[target];
-      if (b) assign[d.cell] = b; else delete assign[d.cell];
-      if (a) assign[target] = a; else delete assign[target];
+      const x = a[d.cell], y = a[target];
+      if (y) a[d.cell] = y; else delete a[d.cell];
+      if (x) a[target] = x; else delete a[target];
     } else {
-      // iz bazena na sedež (če je zaseden, prejšnji gre v bazen)
-      assign[target] = d.studentId;
+      a[target] = d.studentId;
     }
-    update({ assign });
+    commitAssign(a);
   };
   const dropOnPool = () => {
     const d = dragRef.current; dragRef.current = null;
     if (!d || d.from !== 'seat') return;
-    const assign = { ...seating.assign }; delete assign[d.cell];
-    update({ assign });
+    const a = { ...assign }; delete a[d.cell];
+    commitAssign(a);
   };
 
   const btn = (active: boolean): React.CSSProperties => ({
@@ -76,15 +150,47 @@ export default function SeatingChart({ classId, className, contextLabel }: {
     border: `1px solid ${active ? 'var(--forest)' : 'var(--hairline)'}`, borderRadius: 'var(--r-sm)',
     padding: '7px 14px', cursor: 'pointer',
   });
+  const navBtn = (disabledBtn: boolean): React.CSSProperties => ({
+    fontFamily: 'var(--font-sans)', fontSize: '18px', lineHeight: 1, fontWeight: 600,
+    color: disabledBtn ? 'var(--hairline)' : 'var(--forest)', background: 'transparent',
+    border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', width: '34px', height: '34px',
+    cursor: disabledBtn ? 'default' : 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+  });
 
   return (
     <div>
-      {/* Izbrana učilnica (izbira je v zgornjem meniju) */}
+      {/* Pomikanje med dnevi */}
+      {hasDays && lesson && (
+        <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px', flexWrap: 'wrap' }}>
+          <button onClick={() => setDayIndex(i => Math.max(0, i - 1))} disabled={dayIndex === 0} style={navBtn(dayIndex === 0)} title="Prejšnja ura (←)">‹</button>
+          <button onClick={() => setDayIndex(i => Math.min(lessons.length - 1, i + 1))} disabled={dayIndex === lessons.length - 1} style={navBtn(dayIndex === lessons.length - 1)} title="Naslednja ura (→)">›</button>
+          <div style={{ lineHeight: 1.3 }}>
+            <div style={{ fontFamily: 'var(--font-sans)', fontSize: '14px', fontWeight: 600, color: 'var(--ink)', textTransform: 'capitalize' }}>
+              {formatLessonDate(lesson.d)}
+            </div>
+            <div style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--muted)' }}>
+              {dayIndex + 1}. ura{subjectLabel ? ` · ${subjectLabel}` : ''} · učilnica {lesson.r}
+              {hasOverride && <span style={{ color: 'var(--forest)', fontWeight: 600 }}> · ročno</span>}
+            </div>
+          </div>
+          <button onClick={() => {
+            const today = new Date().toISOString().slice(0, 10);
+            let idx = lessons.findIndex(l => l.d >= today);
+            if (idx < 0) idx = lessons.length - 1;
+            setDayIndex(idx);
+          }} style={{ ...btn(false), marginLeft: '4px', fontSize: '11px', padding: '5px 10px' }}>Danes</button>
+        </div>
+      )}
+
       {/* Orodja */}
       <div className="no-print" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '18px' }}>
-        <button onClick={shuffle} style={{ ...btn(false), fontWeight: 600, color: '#fff', background: 'var(--forest)', border: 'none' }}>Premešaj</button>
+        <button onClick={shuffle} style={{ ...btn(false), fontWeight: 600, color: '#fff', background: 'var(--forest)', border: 'none' }}>
+          {hasDays ? 'Premešaj ta dan' : 'Premešaj'}
+        </button>
         <button onClick={() => setEditSeats(v => !v)} style={btn(editSeats)}>{editSeats ? 'Končaj urejanje klopi' : 'Uredi klopi'}</button>
-        <button onClick={clearAssign} style={btn(false)}>Počisti razpored</button>
+        {hasDays
+          ? hasOverride && <button onClick={resetToAuto} style={btn(false)} title="Odstrani ročni razpored za ta dan (nazaj na samodejnega)">↩︎ Samodejno</button>
+          : <button onClick={clearAssign} style={btn(false)}>Počisti razpored</button>}
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--muted)', marginLeft: '4px' }}>
           vrste
           <input type="number" min={1} max={12} value={seating.rows} onChange={e => setGrid(Math.max(1, Math.min(12, +e.target.value || 1)), seating.cols)}
@@ -106,13 +212,20 @@ export default function SeatingChart({ classId, className, contextLabel }: {
 
       {/* Tiskalno območje: samo sedežni red (Ctrl+P) */}
       <div className="print-seating">
-        {/* Ime razreda (za natis) */}
-        <div style={{ fontFamily: 'var(--font-serif)', fontSize: '20px', color: 'var(--ink)', marginBottom: '12px' }}>
-          {className}
-          {contextLabel && (
-            <span style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--muted)', marginLeft: '10px' }}>
-              {contextLabel}
-            </span>
+        {/* Ime razreda + metapodatki (za natis) */}
+        <div style={{ marginBottom: '12px' }}>
+          <div style={{ fontFamily: 'var(--font-serif)', fontSize: '20px', color: 'var(--ink)' }}>
+            {className}
+            {contextLabel && (
+              <span style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--muted)', marginLeft: '10px' }}>
+                {contextLabel}
+              </span>
+            )}
+          </div>
+          {hasDays && lesson && (
+            <div style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--muted)', marginTop: '4px' }}>
+              <span style={{ textTransform: 'capitalize' }}>{formatLessonDate(lesson.d)}</span> · {dayIndex + 1}. ura{subjectLabel ? ` · ${subjectLabel}` : ''} · učilnica {lesson.r}
+            </div>
           )}
         </div>
 
@@ -124,7 +237,7 @@ export default function SeatingChart({ classId, className, contextLabel }: {
             return Array.from({ length: seating.cols }).map((_, c) => {
               const k = cellKey(r, c);
               const isSeat = !disabled.has(k);
-              const stud: Student | undefined = isSeat ? studentById.get(seating.assign[k]) : undefined;
+              const stud: Student | undefined = isSeat ? studentById.get(assign[k]) : undefined;
 
               if (editSeats) {
                 return (
