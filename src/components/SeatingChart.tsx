@@ -37,12 +37,13 @@ function useDayOverrides(classId?: string) {
   return { map, setDay };
 }
 
-export default function SeatingChart({ classId, className, contextLabel, lessons = [], subjectLabel }: {
+export default function SeatingChart({ classId, className, contextLabel, lessons = [], totalHours }: {
   classId: string;
   className: string;
   contextLabel?: string;
   lessons?: Lesson[];
-  subjectLabel?: string;
+  /** skupno število predvidenih ur za ta razred (iz učnega načrta) — za prikaz »N/skupaj« */
+  totalHours?: number;
 }) {
   const { students } = useRoster(classId || undefined);
   const { seating, setSeating } = useSeating(classId || undefined);
@@ -169,7 +170,7 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
               {formatLessonDate(lesson.d)}
             </div>
             <div style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--muted)' }}>
-              {dayIndex + 1}. ura{subjectLabel ? ` · ${subjectLabel}` : ''} · učilnica {lesson.r}
+              {totalHours ? `${dayIndex + 1}/${totalHours}` : `${dayIndex + 1}. ura`} · učilnica {lesson.r}
               {hasOverride && <span style={{ color: 'var(--forest)', fontWeight: 600 }}> · ročno</span>}
             </div>
           </div>
@@ -224,7 +225,7 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
           </div>
           {hasDays && lesson && (
             <div style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--muted)', marginTop: '4px' }}>
-              <span style={{ textTransform: 'capitalize' }}>{formatLessonDate(lesson.d)}</span> · {dayIndex + 1}. ura{subjectLabel ? ` · ${subjectLabel}` : ''} · učilnica {lesson.r}
+              <span style={{ textTransform: 'capitalize' }}>{formatLessonDate(lesson.d)}</span> · {totalHours ? `${dayIndex + 1}/${totalHours}` : `${dayIndex + 1}. ura`} · učilnica {lesson.r}
             </div>
           )}
         </div>

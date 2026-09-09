@@ -74,37 +74,23 @@ function shuffled<T>(arr: T[], rng: Rng = Math.random): T[] {
   return a;
 }
 
-const rowOf = (k: string) => Number(k.split('-')[0]);
-
 /**
- * Naključno razporedi dane učence po aktivnih sedežih.
- * Učenci v `frontIds` se premešajo samo znotraj prve vrste (vrsta 0, pri tabli).
- * Če jih je več kot sedežev v prvi vrsti, ostanek pade med ostale sedeže (rezerva).
+ * Naključno razporedi dane učence po aktivnih sedežih z "gravitacijo":
+ * sedeži se polnijo po vrstah od prve (vrsta 0, pri tabli) naprej, tako da
+ * prosta mesta ostanejo vedno samo v zadnjih vrstah.
+ * Učenci v `frontIds` se razporedijo v prvo vrsto (napolnijo jo prvi).
  * `rng` omogoča determinističen razpored (npr. za samodejni razpored dneva).
  */
 export function shuffleInto(s: Seating, studentIds: string[], frontIds: string[] = [], rng: Rng = Math.random): Record<string, string> {
-  const seats = activeSeats(s);
+  const seats = activeSeats(s); // urejeni po vrsticah: vrsta 0 (pri tabli) najprej
   const frontSet = new Set(frontIds);
-
-  const frontSeats = shuffled(seats.filter(k => rowOf(k) === 0), rng);
-  const otherSeats = shuffled(seats.filter(k => rowOf(k) !== 0), rng);
 
   const frontStudents = shuffled(studentIds.filter(id => frontSet.has(id)), rng);
   const restStudents = shuffled(studentIds.filter(id => !frontSet.has(id)), rng);
+  // pripeti v prvo vrsto pridejo prvi → zasedejo prvo vrsto, nato ostali polnijo naprej
+  const ordered = [...frontStudents, ...restStudents];
 
   const assign: Record<string, string> = {};
-
-  // 1) prednostni učenci v sedeže prve vrste
-  let fi = 0;
-  for (const seat of frontSeats) {
-    if (fi < frontStudents.length) assign[seat] = frontStudents[fi++];
-  }
-
-  // 2) preostali sedeži (najprej prazni v prvi vrsti, nato ostali) dobijo ostale učence
-  const leftoverFrontSeats = frontSeats.filter(k => !(k in assign));
-  const remainingSeats = [...leftoverFrontSeats, ...otherSeats];
-  const remainingStudents = [...frontStudents.slice(fi), ...restStudents];
-  remainingSeats.forEach((seat, i) => { if (i < remainingStudents.length) assign[seat] = remainingStudents[i]; });
-
+  seats.forEach((seat, i) => { if (i < ordered.length) assign[seat] = ordered[i]; });
   return assign;
 }

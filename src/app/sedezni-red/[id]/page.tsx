@@ -28,6 +28,8 @@ export default function SedezniRedSubjectPage() {
   const lessons = activeClass
     ? lessonsFor(canonLabel(activeClass.name), `${activeClass.name} ${activeClass.school}`, subject?.curriculum ?? null)
     : [];
+  const grade = activeClass ? Number((activeClass.name.match(/[6-9]/) ?? [])[0]) : NaN;
+  const totalHours = entry && Number.isFinite(grade) ? entry.gradeTargets[grade] : undefined;
 
   return (
     <div>
@@ -58,7 +60,7 @@ export default function SedezniRedSubjectPage() {
             Dodaj razred z gumbom <b>+</b> zgoraj (razrede ustvariš v <Link href="/nastavitve" style={{ color: 'var(--forest)' }}>Nastavitve → Razredi</Link>).
           </p>
         ) : (
-          <SeatingChart classId={activeId!} className={activeClass.name} contextLabel={context} lessons={lessons} subjectLabel={entry.predmet.naslov} />
+          <SeatingChart classId={activeId!} className={activeClass.name} contextLabel={context} lessons={lessons} totalHours={totalHours} />
         )}
       </div>
     </div>
