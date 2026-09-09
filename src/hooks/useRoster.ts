@@ -10,6 +10,8 @@ export interface Student {
   gender: Gender;
   /** vedno v prvi vrsti (pri tabli) — sedežni red ga premeša samo znotraj prve vrste */
   frontRow?: boolean;
+  /** mora vedno sedeti ob fantu (vsaj en vodoravni sosed je fant) */
+  nextToBoy?: boolean;
 }
 
 function normGender(s: string): Gender {

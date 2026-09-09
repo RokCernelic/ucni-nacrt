@@ -29,6 +29,8 @@ function RosterEditor({ classId }: { classId: string }) {
 
   const toggleFront = (id: string) =>
     save(students.map(s => (s.id === id ? { ...s, frontRow: !s.frontRow } : s)));
+  const toggleNextToBoy = (id: string) =>
+    save(students.map(s => (s.id === id ? { ...s, nextToBoy: !s.nextToBoy } : s)));
 
   return (
     <div>
@@ -58,7 +60,8 @@ function RosterEditor({ classId }: { classId: string }) {
       {students.length > 0 && (
         <div style={{ marginTop: '18px', borderTop: '1px solid var(--hairline)', paddingTop: '14px' }}>
           <p style={{ fontSize: '11px', color: 'var(--muted)', margin: '0 0 10px', lineHeight: 1.5 }}>
-            Klikni <b>1↓ Prva vrsta</b>, da učenca vedno postaviš v prvo vrsto (pri tabli). Sedežni red ga bo še vedno naključno premešal — a le znotraj prve vrste.
+            <b>1↓ Prva vrsta</b> — učenec vedno sedi v prvi vrsti (pri tabli), a naključno premešan znotraj nje.
+            <br /><b>👦 Ob fantu</b> — učenec ima vedno vsaj enega soseda fanta.
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             {students.map(s => (
@@ -67,6 +70,18 @@ function RosterEditor({ classId }: { classId: string }) {
                   {s.name}
                   {s.gender && <span style={{ fontSize: '11px', color: 'var(--muted)', marginLeft: '6px' }}>{s.gender}</span>}
                 </span>
+                <button
+                  onClick={() => toggleNextToBoy(s.id)}
+                  title="Vedno sedi ob fantu"
+                  style={{
+                    fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600,
+                    color: s.nextToBoy ? '#fff' : 'var(--forest)',
+                    background: s.nextToBoy ? 'var(--forest)' : 'transparent',
+                    border: `1px solid ${s.nextToBoy ? 'var(--forest)' : 'var(--hairline)'}`,
+                    borderRadius: 'var(--r-sm)', padding: '5px 10px', cursor: 'pointer', whiteSpace: 'nowrap',
+                  }}>
+                  👦 Ob fantu
+                </button>
                 <button
                   onClick={() => toggleFront(s.id)}
                   title="Vedno v prvi vrsti (pri tabli)"

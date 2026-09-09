@@ -26,7 +26,7 @@ export default function SedezniRedSubjectPage() {
   const activeClass = master.find(m => m.id === activeId) ?? null;
   const context = entry && activeClass ? [entry.predmet.naslov, activeClass.school].filter(Boolean).join(' · ') : entry?.predmet.naslov ?? '';
   const lessons = activeClass
-    ? lessonsFor(canonLabel(activeClass.name), `${activeClass.name} ${activeClass.school}`, subject?.curriculum ?? null)
+    ? lessonsFor(canonLabel(activeClass.name), `${activeClass.name} ${activeClass.school}`)
     : [];
   const grade = activeClass ? Number((activeClass.name.match(/[6-9]/) ?? [])[0]) : NaN;
   const totalHours = entry && Number.isFinite(grade) ? entry.gradeTargets[grade] : undefined;

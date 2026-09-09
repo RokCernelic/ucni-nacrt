@@ -660,21 +660,18 @@ export function canonLabel(name: string): string {
 }
 
 /**
- * Ure danega razreda (po kanonični oznaki), urejene po datumu.
- * `hintText` (ime + šola) loči isto oznako med šolama, `subjectSlug` omeji na predmet
- * (če za ta predmet ni ur, vrne vse ure razreda).
+ * VSE ure danega razreda (po kanonični oznaki), urejene po datumu.
+ * `hintText` (ime + šola) loči isto oznako med šolama (npr. 8A Brežice vs 8A Cerklje).
+ * Namenoma NE filtriramo po predmetu — sedežni red je fizičen (isti učenci), zato
+ * upoštevamo cel urnik razreda (npr. ponedeljek FIZ + četrtek MAT2), učilnica se prikaže za vsak dan posebej.
  */
-export function lessonsFor(classLabel: string, hintText?: string, subjectSlug?: string | null): Lesson[] {
+export function lessonsFor(classLabel: string, hintText?: string): Lesson[] {
   let cands = TIMETABLE.filter(l => l.c === classLabel);
   const schools = Array.from(new Set(cands.map(l => l.s)));
   if (schools.length > 1 && hintText) {
     const t = hintText.toLowerCase();
     const want: 'B' | 'C' | null = /bre[žz]/.test(t) ? 'B' : /cerk/.test(t) ? 'C' : null;
     if (want) cands = cands.filter(l => l.s === want);
-  }
-  if (subjectSlug) {
-    const sub = cands.filter(l => l.u === subjectSlug);
-    if (sub.length) cands = sub;
   }
   return [...cands].sort((a, b) => (a.d + a.t).localeCompare(b.d + b.t));
 }

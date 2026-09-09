@@ -74,14 +74,26 @@ function shuffled<T>(arr: T[], rng: Rng = Math.random): T[] {
   return a;
 }
 
+const rowOf = (k: string) => Number(k.split('-')[0]);
+const colOf = (k: string) => Number(k.split('-')[1]);
+const seatOf = (a: Record<string, string>, id: string) => Object.keys(a).find(k => a[k] === id);
+
+export interface ShuffleOpts {
+  /** id-ji fantov (za pravilo »sedi ob fantu«) */
+  boyIds?: string[];
+  /** id-ji učencev, ki morajo imeti soseda fanta */
+  pairIds?: string[];
+}
+
 /**
  * Naključno razporedi dane učence po aktivnih sedežih z "gravitacijo":
  * sedeži se polnijo po vrstah od prve (vrsta 0, pri tabli) naprej, tako da
  * prosta mesta ostanejo vedno samo v zadnjih vrstah.
- * Učenci v `frontIds` se razporedijo v prvo vrsto (napolnijo jo prvi).
+ * Učenci v `frontIds` sedijo v prvi vrsti, a naključno premešani znotraj nje
+ * (nimajo fiksnega mesta). `pairIds` dobijo za soseda fanta.
  * `rng` omogoča determinističen razpored (npr. za samodejni razpored dneva).
  */
-export function shuffleInto(s: Seating, studentIds: string[], frontIds: string[] = [], rng: Rng = Math.random): Record<string, string> {
+export function shuffleInto(s: Seating, studentIds: string[], frontIds: string[] = [], rng: Rng = Math.random, opts: ShuffleOpts = {}): Record<string, string> {
   const seats = activeSeats(s); // urejeni po vrsticah: vrsta 0 (pri tabli) najprej
   const frontSet = new Set(frontIds);
 
@@ -92,5 +104,56 @@ export function shuffleInto(s: Seating, studentIds: string[], frontIds: string[]
 
   const assign: Record<string, string> = {};
   seats.forEach((seat, i) => { if (i < ordered.length) assign[seat] = ordered[i]; });
+
+  // Premešaj učence znotraj prve vrste, da pripeti nimajo vedno istega stolpca.
+  const row0 = seats.filter(k => rowOf(k) === 0 && (k in assign));
+  const row0ids = shuffled(row0.map(k => assign[k]), rng);
+  row0.forEach((k, i) => { assign[k] = row0ids[i]; });
+
+  // Pravilo »sedi ob fantu« (npr. Tai): zagotovi vsaj enega soseda fanta.
+  const boySet = new Set(opts.boyIds ?? []);
+  for (const pid of opts.pairIds ?? []) ensureBoyNeighbor(assign, s, pid, boySet, frontSet, rng);
+
   return assign;
+}
+
+/** Poskrbi, da ima `pairId` vsaj enega vodoravnega soseda iz `boySet` (best-effort, brez rušenja gravitacije/prve vrste). */
+function ensureBoyNeighbor(assign: Record<string, string>, s: Seating, pairId: string, boySet: Set<string>, frontSet: Set<string>, rng: Rng): void {
+  const pk = seatOf(assign, pairId);
+  if (!pk) return;
+  const r = rowOf(pk), c = colOf(pk);
+  const active = new Set(activeSeats(s));
+  const isBoy = (id: string) => boySet.has(id);
+  const neighbors = [`${r}-${c - 1}`, `${r}-${c + 1}`].filter(k => active.has(k));
+  if (neighbors.some(k => assign[k] && isBoy(assign[k]))) return; // že zadovoljeno
+
+  const nonBoyNeighbors = neighbors.filter(k => assign[k] && !isBoy(assign[k]));
+
+  // 1) zamenjava v isti vrsti (ne premakne nikogar med vrstami → nič se ne poruši)
+  for (const gk of nonBoyNeighbors) {
+    const rowBoyKeys = shuffled(Object.keys(assign).filter(k => rowOf(k) === r && isBoy(assign[k]) && assign[k] !== pairId && k !== gk), rng);
+    if (rowBoyKeys.length) { const bk = rowBoyKeys[0]; const g = assign[gk]; assign[gk] = assign[bk]; assign[bk] = g; return; }
+  }
+  // 2) zamenjava med vrstami (ohrani pripete v prvi vrsti)
+  for (const gk of nonBoyNeighbors) {
+    const gId = assign[gk], gFront = frontSet.has(gId), gkRow = rowOf(gk);
+    for (const bk of shuffled(Object.keys(assign).filter(k => isBoy(assign[k]) && assign[k] !== pairId && k !== gk), rng)) {
+      const bId = assign[bk], bFront = frontSet.has(bId), bkRow = rowOf(bk);
+      if (bFront && gkRow !== 0) continue;
+      if (gFront && bkRow !== 0) continue;
+      assign[gk] = bId; assign[bk] = gId; return;
+    }
+  }
+  // 3) če so sosedje prazni: premakni pairId k obstoječemu fantu (zamenjaj z njegovim sosedom)
+  const pairFront = frontSet.has(pairId);
+  for (const bk of shuffled(Object.keys(assign).filter(k => isBoy(assign[k]) && assign[k] !== pairId), rng)) {
+    const br = rowOf(bk), bc = colOf(bk);
+    for (const sk of [`${br}-${bc - 1}`, `${br}-${bc + 1}`].filter(k => active.has(k) && k !== pk)) {
+      const occ = assign[sk];
+      if (!occ) continue; // le zamenjava zasedenih (ohrani gravitacijo)
+      if (pairFront && br !== 0) continue;
+      if (frontSet.has(occ) && r !== 0) continue;
+      assign[sk] = pairId; assign[pk] = occ; return;
+    }
+  }
 }

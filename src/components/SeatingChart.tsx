@@ -83,6 +83,9 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
   const disabled = new Set(seating.disabled);
   const allIds = students.map(s => s.id);
   const frontIds = students.filter(s => s.frontRow).map(s => s.id);
+  const boyIds = students.filter(s => s.gender === 'M').map(s => s.id);
+  const pairIds = students.filter(s => s.nextToBoy).map(s => s.id);
+  const shuffleOpts = { boyIds, pairIds };
   const seatCount = activeSeats(seating).length;
 
   // Razpored za trenutni pogled: dan (ročni prepis ali samodejni seed) ali klasični enkratni razpored.
@@ -90,7 +93,7 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
   const assign: Record<string, string> = hasDays
     ? (lesson && dayMap[lesson.d]
         ? dayMap[lesson.d]
-        : shuffleInto(seating, allIds, frontIds, makeRng(`${classId}|${lesson?.d ?? ''}`)))
+        : shuffleInto(seating, allIds, frontIds, makeRng(`${classId}|${lesson?.d ?? ''}`), shuffleOpts))
     : seating.assign;
 
   const seatedIds = new Set(Object.values(assign));
@@ -121,7 +124,7 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
     }
   };
 
-  const shuffle = () => commitAssign(shuffleInto(seating, allIds, frontIds));
+  const shuffle = () => commitAssign(shuffleInto(seating, allIds, frontIds, Math.random, shuffleOpts));
   const clearAssign = () => commitAssign({});
   const resetToAuto = () => { if (lesson) setDay(lesson.d, null); };
 
