@@ -83,6 +83,8 @@ export interface ShuffleOpts {
   boyIds?: string[];
   /** id-ji učencev, ki morajo imeti soseda fanta */
   pairIds?: string[];
+  /** pripeti sedeži: ključ celice "r-c" -> id učenca (učenec vedno sedi točno tu) */
+  fixed?: Record<string, string>;
 }
 
 /**
@@ -94,61 +96,75 @@ export interface ShuffleOpts {
  * `rng` omogoča determinističen razpored (npr. za samodejni razpored dneva).
  */
 export function shuffleInto(s: Seating, studentIds: string[], frontIds: string[] = [], rng: Rng = Math.random, opts: ShuffleOpts = {}): Record<string, string> {
-  const seats = activeSeats(s); // urejeni po vrsticah: vrsta 0 (pri tabli) najprej
+  const allSeats = activeSeats(s); // urejeni po vrsticah: vrsta 0 (pri tabli) najprej
+  const activeSet = new Set(allSeats);
+  const studentSet = new Set(studentIds);
   const frontSet = new Set(frontIds);
 
-  const frontStudents = shuffled(studentIds.filter(id => frontSet.has(id)), rng);
-  const restStudents = shuffled(studentIds.filter(id => !frontSet.has(id)), rng);
+  // Veljavni pripeti sedeži (aktiven sedež + obstoječ učenec; en učenec = en sedež).
+  const fixedMap: Record<string, string> = {};
+  const fixedStudents = new Set<string>();
+  for (const [cell, id] of Object.entries(opts.fixed ?? {})) {
+    if (!activeSet.has(cell) || !studentSet.has(id) || fixedStudents.has(id) || (cell in fixedMap)) continue;
+    fixedMap[cell] = id; fixedStudents.add(id);
+  }
+  const fixedCells = new Set(Object.keys(fixedMap));
+  const seats = allSeats.filter(k => !fixedCells.has(k)); // proste za razporeditev ostalih
+
+  const pool = studentIds.filter(id => !fixedStudents.has(id));
+  const frontStudents = shuffled(pool.filter(id => frontSet.has(id)), rng);
+  const restStudents = shuffled(pool.filter(id => !frontSet.has(id)), rng);
   // pripeti v prvo vrsto pridejo prvi → zasedejo prvo vrsto, nato ostali polnijo naprej
   const ordered = [...frontStudents, ...restStudents];
 
-  const assign: Record<string, string> = {};
+  const assign: Record<string, string> = { ...fixedMap };
   seats.forEach((seat, i) => { if (i < ordered.length) assign[seat] = ordered[i]; });
 
-  // Premešaj učence znotraj prve vrste, da pripeti nimajo vedno istega stolpca.
+  // Premešaj učence znotraj prve vrste (brez pripetih), da pripeti-v-prvo-vrsto nimajo vedno istega stolpca.
   const row0 = seats.filter(k => rowOf(k) === 0 && (k in assign));
   const row0ids = shuffled(row0.map(k => assign[k]), rng);
   row0.forEach((k, i) => { assign[k] = row0ids[i]; });
 
-  // Pravilo »sedi ob fantu« (npr. Tai): zagotovi vsaj enega soseda fanta.
+  // Pravilo »sedi ob fantu« (npr. Tai): zagotovi vsaj enega soseda fanta (ne premika pripetih).
   const boySet = new Set(opts.boyIds ?? []);
-  for (const pid of opts.pairIds ?? []) ensureBoyNeighbor(assign, s, pid, boySet, frontSet, rng);
+  for (const pid of opts.pairIds ?? []) ensureBoyNeighbor(assign, s, pid, boySet, frontSet, rng, fixedCells);
 
   return assign;
 }
 
-/** Poskrbi, da ima `pairId` vsaj enega vodoravnega soseda iz `boySet` (best-effort, brez rušenja gravitacije/prve vrste). */
-function ensureBoyNeighbor(assign: Record<string, string>, s: Seating, pairId: string, boySet: Set<string>, frontSet: Set<string>, rng: Rng): void {
+/** Poskrbi, da ima `pairId` vsaj enega vodoravnega soseda iz `boySet` (best-effort, brez rušenja gravitacije/prve vrste/pripetih). */
+function ensureBoyNeighbor(assign: Record<string, string>, s: Seating, pairId: string, boySet: Set<string>, frontSet: Set<string>, rng: Rng, locked: Set<string> = new Set()): void {
   const pk = seatOf(assign, pairId);
-  if (!pk) return;
+  if (!pk || locked.has(pk)) return; // pripetega ne premikamo
   const r = rowOf(pk), c = colOf(pk);
   const active = new Set(activeSeats(s));
   const isBoy = (id: string) => boySet.has(id);
   const neighbors = [`${r}-${c - 1}`, `${r}-${c + 1}`].filter(k => active.has(k));
   if (neighbors.some(k => assign[k] && isBoy(assign[k]))) return; // že zadovoljeno
 
-  const nonBoyNeighbors = neighbors.filter(k => assign[k] && !isBoy(assign[k]));
+  // soseda, ki ga smemo zamenjati (zaseden, ni fant, ni pripet)
+  const nonBoyNeighbors = neighbors.filter(k => assign[k] && !isBoy(assign[k]) && !locked.has(k));
 
   // 1) zamenjava v isti vrsti (ne premakne nikogar med vrstami → nič se ne poruši)
   for (const gk of nonBoyNeighbors) {
-    const rowBoyKeys = shuffled(Object.keys(assign).filter(k => rowOf(k) === r && isBoy(assign[k]) && assign[k] !== pairId && k !== gk), rng);
+    const rowBoyKeys = shuffled(Object.keys(assign).filter(k => rowOf(k) === r && isBoy(assign[k]) && assign[k] !== pairId && k !== gk && !locked.has(k)), rng);
     if (rowBoyKeys.length) { const bk = rowBoyKeys[0]; const g = assign[gk]; assign[gk] = assign[bk]; assign[bk] = g; return; }
   }
   // 2) zamenjava med vrstami (ohrani pripete v prvi vrsti)
   for (const gk of nonBoyNeighbors) {
     const gId = assign[gk], gFront = frontSet.has(gId), gkRow = rowOf(gk);
-    for (const bk of shuffled(Object.keys(assign).filter(k => isBoy(assign[k]) && assign[k] !== pairId && k !== gk), rng)) {
+    for (const bk of shuffled(Object.keys(assign).filter(k => isBoy(assign[k]) && assign[k] !== pairId && k !== gk && !locked.has(k)), rng)) {
       const bId = assign[bk], bFront = frontSet.has(bId), bkRow = rowOf(bk);
       if (bFront && gkRow !== 0) continue;
       if (gFront && bkRow !== 0) continue;
       assign[gk] = bId; assign[bk] = gId; return;
     }
   }
-  // 3) če so sosedje prazni: premakni pairId k obstoječemu fantu (zamenjaj z njegovim sosedom)
+  // 3) če so sosedje prazni/pripeti: premakni pairId k obstoječemu fantu (zamenjaj z njegovim sosedom)
   const pairFront = frontSet.has(pairId);
   for (const bk of shuffled(Object.keys(assign).filter(k => isBoy(assign[k]) && assign[k] !== pairId), rng)) {
     const br = rowOf(bk), bc = colOf(bk);
-    for (const sk of [`${br}-${bc - 1}`, `${br}-${bc + 1}`].filter(k => active.has(k) && k !== pk)) {
+    for (const sk of [`${br}-${bc - 1}`, `${br}-${bc + 1}`].filter(k => active.has(k) && k !== pk && !locked.has(k))) {
       const occ = assign[sk];
       if (!occ) continue; // le zamenjava zasedenih (ohrani gravitacijo)
       if (pairFront && br !== 0) continue;

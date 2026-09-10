@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRoster, type Student } from '@/hooks/useRoster';
 import { useSeating, cellKey, activeSeats, shuffleInto, makeRng, type Seating } from '@/hooks/useSeating';
+import { useFixedSeats, fixedMapForDate } from '@/hooks/useFixedSeats';
 import { formatLessonDate, type Lesson } from '@/data/timetable';
 
 function genderStyle(g: string) {
@@ -48,6 +49,7 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
   const { students } = useRoster(classId || undefined);
   const { seating, setSeating } = useSeating(classId || undefined);
   const { map: dayMap, setDay } = useDayOverrides(classId || undefined);
+  const { fixed, setFix, unfix } = useFixedSeats(classId || undefined);
   const [editSeats, setEditSeats] = useState(false);
   const [dayIndex, setDayIndex] = useState(0);
   const dragRef = useRef<Drag>(null);
@@ -85,8 +87,12 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
   const frontIds = students.filter(s => s.frontRow).map(s => s.id);
   const boyIds = students.filter(s => s.gender === 'M').map(s => s.id);
   const pairIds = students.filter(s => s.nextToBoy).map(s => s.id);
-  const shuffleOpts = { boyIds, pairIds };
   const seatCount = activeSeats(seating).length;
+
+  // Pripeti sedeži, veljavni na trenutni dan (od `from` naprej; za pretekle dni ne veljajo).
+  const curDate = lesson?.d ?? new Date().toISOString().slice(0, 10);
+  const fixedMap = fixedMapForDate(fixed, curDate);
+  const shuffleOpts = { boyIds, pairIds, fixed: fixedMap };
 
   // Razpored za trenutni pogled: dan (ročni prepis ali samodejni seed) ali klasični enkratni razpored.
   const hasOverride = !!(lesson && dayMap[lesson.d]);
@@ -127,6 +133,14 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
   const shuffle = () => commitAssign(shuffleInto(seating, allIds, frontIds, Math.random, shuffleOpts));
   const clearAssign = () => commitAssign({});
   const resetToAuto = () => { if (lesson) setDay(lesson.d, null); };
+
+  // Pripni/odpni učenca na sedež (velja od tega dne naprej, za pretekle dni ne).
+  const toggleFix = (studentId: string, cell: string) => {
+    // Zamrzni trenutni dan kot ročni razpored, da se ostali učenci ob pripenjanju ne premešajo.
+    if (hasDays && lesson && !dayMap[lesson.d]) setDay(lesson.d, assign);
+    if (fixedMap[cell] === studentId) unfix(studentId);
+    else setFix(studentId, cell, curDate);
+  };
 
   const dropOnSeat = (target: string) => {
     const d = dragRef.current; dragRef.current = null;
@@ -213,6 +227,11 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
           Klikni celico, da vključiš/izključiš klop (sedež). Izključene celice ostanejo prazne.
         </p>
       )}
+      {hasDays && !editSeats && (
+        <p className="no-print" style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '10px' }}>
+          Povleci učenca na želeni sedež, nato klikni krogec <span style={{ display: 'inline-flex', width: '13px', height: '13px', borderRadius: '50%', border: '1.5px solid var(--forest)', verticalAlign: 'middle' }} /> v kotu, da ga <b>pripneš</b> na ta sedež — velja za ta in vse prihodnje dneve (preteklih ne spremeni).
+        </p>
+      )}
 
       {/* Tiskalno območje: samo sedežni red (Ctrl+P) */}
       <div className="print-seating">
@@ -269,6 +288,21 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
                     cursor: stud ? 'grab' : 'default', boxSizing: 'border-box' }}>
                   {stud?.frontRow && (
                     <span title="Vedno v prvi vrsti" style={{ position: 'absolute', top: '3px', left: '4px', fontSize: '9px', fontWeight: 700, letterSpacing: '0.03em', color: gs.color, opacity: 0.6 }}>1↓</span>
+                  )}
+                  {stud && hasDays && !editSeats && (
+                    <button
+                      className="no-print"
+                      draggable={false}
+                      onMouseDown={e => e.stopPropagation()}
+                      onClick={e => { e.stopPropagation(); toggleFix(stud.id, k); }}
+                      title={fixedMap[k] === stud.id ? 'Pripeto na ta sedež — klik odpne' : 'Pripni učenca na ta sedež (velja za naprej)'}
+                      style={{ position: 'absolute', top: '2px', right: '2px', width: '16px', height: '16px', borderRadius: '50%', padding: 0, cursor: 'pointer',
+                        border: `1.5px solid ${fixedMap[k] === stud.id ? 'var(--forest)' : gs.border}`,
+                        background: fixedMap[k] === stud.id ? 'var(--forest)' : 'rgba(255,255,255,0.5)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: '9px', lineHeight: 1, opacity: fixedMap[k] === stud.id ? 1 : 0.5 }}>
+                      {fixedMap[k] === stud.id ? '📌' : ''}
+                    </button>
                   )}
                   {stud ? stud.name : ''}
                 </div>
