@@ -15,7 +15,7 @@ export const fizika: Predmet = {
       podpoglavja: [
         {
           id: 'vesolje-1',
-          privzeteUre: 1,
+          privzeteUre: 0,
           naslov: 'Telesa v vesolju',
           cilji: [
             { id: 'c1', tip: 'O', text: 'pozna različna telesa v vesolju;' },
@@ -32,7 +32,7 @@ export const fizika: Predmet = {
         },
         {
           id: 'vesolje-2',
-          privzeteUre: 2,
+          privzeteUre: 3,
           naslov: 'Sončni sistem (osončje)',
           cilji: [
             { id: 'c1', tip: 'O', text: 'usvoji, da se telesa v vesolju gibljejo drugo glede na drugega in pozna osnovna gibanja;' },
@@ -50,7 +50,7 @@ export const fizika: Predmet = {
         },
         {
           id: 'vesolje-3',
-          privzeteUre: 3,
+          privzeteUre: 2,
           naslov: 'Zemlja in Luna',
           cilji: [
             { id: 'c1', tip: 'O', text: 'opazuje dnevno in nočno nebo ter poveže spremembe v legi objektov na nebu z vrtenjem in kroženjem Zemlje;' },
@@ -74,6 +74,7 @@ export const fizika: Predmet = {
           naslov: 'Zvezde (orientacija na nebu)',
           cilji: [
             { id: 'c1', tip: 'O', text: 'se orientira s pomočjo zvezd;' },
+            { id: 'c2', tip: 'O', text: 'se zaveda vpliva svetlobnega onesnaženja; (SC 1.2.2.1, SC 1.2.5.1, SC 2.2.1.2)' },
           ],
           standardi: [
             { id: 's1', text: 'razloži, da so nekatere zvezde nad-/podobzorniške;', izbirni: true },
@@ -92,7 +93,6 @@ export const fizika: Predmet = {
           naslov: 'Zvezdna karta',
           cilji: [
             { id: 'c1', tip: 'O', text: 'uporablja zvezdno karto in različne aplikacije za orientacijo na nebu; (SC 1.1.4.1, SC 5.1.1.1)' },
-            { id: 'c2', tip: 'O', text: 'se zaveda vpliva svetlobnega onesnaženja; (SC 1.2.2.1, SC 1.2.5.1, SC 2.2.1.2)' },
           ],
           standardi: [
             { id: 's1', text: 'z uporabo zvezdne karte poišče ozvezdja, ki so na določen dan in ob določeni uri na nebu;' },
