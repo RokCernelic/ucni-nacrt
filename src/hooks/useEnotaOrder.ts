@@ -43,12 +43,18 @@ export function useEnotaOrder(storageKey = 'ucni-nacrt-enote-order') {
   const resolve = useCallback((poglavjeKey: string, currIds: string[]): ResolvedEnotaItem[] => {
     const currSet = new Set(currIds);
     const stored = store[poglavjeKey] ?? currIds.map(id => ({ k: 'c' as const, id }));
-    return stored.flatMap((item): ResolvedEnotaItem[] => {
+    const seen = new Set<string>();
+    const out = stored.flatMap((item): ResolvedEnotaItem[] => {
       if (item.k === 'c') {
-        return currSet.has(item.id) ? [{ kind: 'curriculum', id: item.id }] : [];
+        if (!currSet.has(item.id)) return [];
+        seen.add(item.id);
+        return [{ kind: 'curriculum', id: item.id }];
       }
       return [{ kind: 'custom', id: item.id, type: item.type, checked: item.checked, color: item.color ?? PALETTE_COLORS[item.type] ?? '#666' }];
     });
+    // Nova poglavja/podpoglavja iz učnega načrta (npr. po prestrukturiranju), ki jih ni v shranjenem vrstnem redu, dodaj na konec.
+    for (const id of currIds) if (!seen.has(id)) out.push({ kind: 'curriculum', id });
+    return out;
   }, [store]);
 
   const addEnota = useCallback((poglavjeKey: string, type: string, color: string, atIndex: number, currIds: string[]) => {
