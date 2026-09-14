@@ -682,3 +682,6 @@ export function formatLessonDate(d: string): string {
   const wd = SLO_WEEKDAYS[new Date(y, m - 1, day).getDay()];
   return `${wd}, ${day}. ${m}. ${y}`;
 }
+
+/** Vse učilnice iz urnika (za nastavljanje tlorisov). */
+export const ALL_ROOMS: string[] = Array.from(new Set(TIMETABLE.map(l => l.r))).sort((a, b) => a.localeCompare(b, 'sl'));

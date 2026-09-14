@@ -8,6 +8,7 @@ import { useSubjects } from '@/hooks/useSubjects';
 import { CURRICULA } from '@/data/registry';
 import { curriculumToText, downloadText } from '@/lib/exportCurriculum';
 import GradebookSection from '@/components/GradebookSection';
+import RoomPlansSection from '@/components/RoomPlansSection';
 
 export default function SettingsPage() {
   const { user, loading, updateEmail, updatePassword } = useAuth();
@@ -204,6 +205,18 @@ export default function SettingsPage() {
             </p>
           ) : (
             <GradebookSection />
+          )}
+        </div>
+
+        {/* Tlorisi učilnic */}
+        <div style={card}>
+          <div style={{ ...label, marginBottom: '10px' }}>Tlorisi učilnic</div>
+          {isAnon ? (
+            <p style={{ fontSize: '13px', color: 'var(--muted)' }}>
+              Za urejanje tlorisov se <Link href="/login" style={{ color: 'var(--forest)', fontWeight: 500 }}>prijavite</Link>.
+            </p>
+          ) : (
+            <RoomPlansSection />
           )}
         </div>
 

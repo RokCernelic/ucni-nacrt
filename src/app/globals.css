@@ -11,14 +11,21 @@ html { scroll-behavior: smooth; }
   body * { visibility: hidden !important; }
   .no-print { display: none !important; }
   .print-seating, .print-seating * { visibility: visible !important; }
-  .print-seating {
+  /* vse tiskalne strani v enem vsebniku na vrhu lista */
+  .print-root {
     position: absolute; left: 0; top: 0; width: 100%;
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
+  .print-seating { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  /* naslednji dan na svojo (drugo) stran */
+  .print-next { display: block !important; break-before: page; page-break-before: always; }
   /* mreža naj se prilagodi strani (brez vodoravnega drsenja) */
   .print-seating .seating-scroll { overflow: visible !important; }
   .print-seating .seating-grid { min-width: 0 !important; max-width: 100% !important; }
 }
+
+/* naslednji dan je samo za tisk */
+.print-next { display: none; }
 
 body {
   font-family: 'Inter', -apple-system, sans-serif;
