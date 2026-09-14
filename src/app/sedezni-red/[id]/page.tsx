@@ -9,6 +9,7 @@ import { useMasterClasses } from '@/hooks/useMasterClasses';
 import { useViewClasses } from '@/hooks/useViewClasses';
 import ViewClassTabs from '@/components/ViewClassTabs';
 import SeatingChart from '@/components/SeatingChart';
+import Countdown from '@/components/Countdown';
 import { lessonsFor, canonLabel } from '@/data/timetable';
 
 export default function SedezniRedSubjectPage() {
@@ -36,12 +37,17 @@ export default function SedezniRedSubjectPage() {
       <div style={{ background: 'var(--forest)', padding: '32px 32px 28px' }}>
         <div style={{ maxWidth: '900px', margin: '0 auto', width: '100%' }}>
           <Link href="/" style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'rgba(255,255,255,0.6)', textDecoration: 'none' }}>← Nazaj</Link>
-          <p style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', margin: '12px 0 6px' }}>
-            Sedežni red{subject?.subtitle ? ` · ${subject.subtitle}` : ''}
-          </p>
-          <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(32px,4vw,48px)', fontWeight: 300, color: '#fff', lineHeight: 1 }}>
-            {entry ? entry.predmet.naslov : 'Sedežni red'}
-          </h1>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '24px', flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 auto', minWidth: 0 }}>
+              <p style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', margin: '12px 0 6px' }}>
+                Sedežni red{subject?.subtitle ? ` · ${subject.subtitle}` : ''}
+              </p>
+              <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(32px,4vw,48px)', fontWeight: 300, color: '#fff', lineHeight: 1 }}>
+                {entry ? entry.predmet.naslov : 'Sedežni red'}
+              </h1>
+            </div>
+            <Countdown school={subject?.subtitle} />
+          </div>
           {user && subject && entry && (
             <ViewClassTabs master={master} ids={ids} activeId={activeId} onSelect={setActive} onAdd={addToView} onRemove={removeFromView} />
           )}
