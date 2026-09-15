@@ -267,6 +267,12 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
             <span style={{ color: status === 'error' ? '#f5b7b1' : 'rgba(255,255,255,0.5)' }}>
               {status === 'saving' ? 'Shranjujem …' : status === 'error' ? 'Ni shranjeno' : 'Shranjeno ✓'}
             </span>
+            {draft.lastUsedAt && (
+              <Link href={`/kvizi/${draft.id}/zgodovina`} title="Pretekle seje in primerjava med razredi"
+                style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500, color: 'rgba(255,255,255,0.75)', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 'var(--r-sm)', padding: '6px 12px', textDecoration: 'none' }}>
+                Zgodovina
+              </Link>
+            )}
             <button disabled={incomplete > 0 || draft.questions.length === 0}
               title={incomplete > 0 ? 'Najprej dokončaj vsa vprašanja' : 'Zaženi sejo z razredom'}
               onClick={() => { flush(); setStarting(true); }}

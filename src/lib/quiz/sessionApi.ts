@@ -117,6 +117,62 @@ export async function loadSession(id: string) {
   };
 }
 
+/**
+ * Vse pretekle (in tekoče) seje danega kviza, z učenci in odgovori v enem
+ * bloku — za zgodovino kviza / primerjavo med razredi. Ena seja je lahko
+ * lažja (samo `sessions`), zato za rezultate uporabi `answersBySession`/`studentsBySession`.
+ */
+export async function loadQuizHistory(quizId: string) {
+  const sb = getSupabaseBrowserClient();
+  const { data, error } = await sb.from('quiz_sessions').select('*').eq('quiz_id', quizId).order('created_at', { ascending: false });
+  if (error) throw new Error(error.message);
+  const sessions = (data ?? []) as QuizSession[];
+  const ids = sessions.map(s => s.id);
+  if (ids.length === 0) return { sessions: [] as QuizSession[], studentsBySession: new Map<string, SessionStudent[]>(), answersBySession: new Map<string, SessionAnswer[]>() };
+
+  const [st, a] = await Promise.all([
+    sb.from('quiz_session_students').select('*').in('session_id', ids),
+    sb.from('quiz_answers').select('*').in('session_id', ids),
+  ]);
+  const studentsBySession = new Map<string, SessionStudent[]>();
+  for (const s of (st.data ?? []) as SessionStudent[]) studentsBySession.set(s.session_id, [...(studentsBySession.get(s.session_id) ?? []), s]);
+  const answersBySession = new Map<string, SessionAnswer[]>();
+  for (const a2 of (a.data ?? []) as SessionAnswer[]) answersBySession.set(a2.session_id, [...(answersBySession.get(a2.session_id) ?? []), a2]);
+  return { sessions, studentsBySession, answersBySession };
+}
+
+export interface StudentHistoryEntry {
+  session: QuizSession;
+  student: SessionStudent;
+  answers: SessionAnswer[];
+}
+
+/**
+ * Zgodovina enega učenca skozi vse kvize (znotraj enega razreda — `student_id`
+ * je id iz razrednega seznama, kopiran ob vsakem zagonu seje). Vrne le seje,
+ * ki so se že končale.
+ */
+export async function loadStudentHistory(studentId: string): Promise<StudentHistoryEntry[]> {
+  const sb = getSupabaseBrowserClient();
+  const { data, error } = await sb
+    .from('quiz_session_students')
+    .select('*, quiz_sessions!inner(*)')
+    .eq('student_id', studentId)
+    .eq('quiz_sessions.status', 'ended')
+    .order('created_at', { referencedTable: 'quiz_sessions', ascending: false });
+  if (error) throw new Error(error.message);
+  const rows = (data ?? []) as (SessionStudent & { quiz_sessions: QuizSession })[];
+  if (rows.length === 0) return [];
+
+  const ids = rows.map(r => r.session_id);
+  const { data: allAnswers, error: aErr } = await sb.from('quiz_answers').select('*').in('session_id', ids).eq('student_id', studentId);
+  if (aErr) throw new Error(aErr.message);
+  const answersBySession = new Map<string, SessionAnswer[]>();
+  for (const a of (allAnswers ?? []) as SessionAnswer[]) answersBySession.set(a.session_id, [...(answersBySession.get(a.session_id) ?? []), a]);
+
+  return rows.map(r => ({ session: r.quiz_sessions, student: r, answers: answersBySession.get(r.session_id) ?? [] }));
+}
+
 export async function updateSession(id: string, patch: Partial<Pick<QuizSession, 'phase' | 'current_index' | 'status' | 'ended_at'>>) {
   const sb = getSupabaseBrowserClient();
   const { error } = await sb.from('quiz_sessions')

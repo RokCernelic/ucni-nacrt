@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useMasterClasses } from '@/hooks/useMasterClasses';
 import { useRoster, parseRoster, rosterToText } from '@/hooks/useRoster';
+import StudentHistoryDialog from '@/components/quiz/StudentHistoryDialog';
 
 function RosterEditor({ classId, className }: { classId: string; className: string }) {
   const { students, save } = useRoster(classId);
@@ -28,6 +29,7 @@ function RosterEditor({ classId, className }: { classId: string; className: stri
   };
 
   const missingPins = students.some(s => !s.pin);
+  const [historyFor, setHistoryFor] = useState<{ id: string; name: string } | null>(null);
 
   // Popravek imena na mestu: ohrani id, PIN in vse oznake (besedilno polje bi ga obravnavalo kot novega učenca).
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -128,6 +130,12 @@ function RosterEditor({ classId, className }: { classId: string; className: stri
                 <span title="PIN za kviz" style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600, fontVariantNumeric: 'tabular-nums', letterSpacing: '0.06em', color: s.pin ? 'var(--ink)' : 'var(--muted)', minWidth: '44px', textAlign: 'right' }}>
                   {s.pin ?? '—'}
                 </span>
+                {s.pin && (
+                  <button onClick={() => setHistoryFor({ id: s.id, name: s.name })} title="Zgodovina kvizov"
+                    style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 500, color: 'var(--forest)', background: 'transparent', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', padding: '5px 8px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    📊
+                  </button>
+                )}
                 <button
                   onClick={() => toggleNextToBoy(s.id)}
                   title="Vedno sedi ob fantu"
@@ -157,6 +165,7 @@ function RosterEditor({ classId, className }: { classId: string; className: stri
           </div>
         </div>
       )}
+      {historyFor && <StudentHistoryDialog studentId={historyFor.id} studentName={historyFor.name} onClose={() => setHistoryFor(null)} />}
     </div>
   );
 }

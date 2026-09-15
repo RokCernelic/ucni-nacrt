@@ -22,7 +22,7 @@ const btn = (kind: 'primary' | 'ghost' | 'danger' = 'ghost'): React.CSSPropertie
     : { background: 'transparent', color: 'var(--forest)', border: '1px solid var(--hairline)' }),
 });
 
-function JoinPanel({ code, compact }: { code: string; compact: boolean }) {
+export function JoinPanel({ code, compact }: { code: string; compact: boolean }) {
   const [qr, setQr] = useState<string | null>(null);
   const url = typeof window !== 'undefined' ? `${window.location.origin}/k/${code}` : '';
   const host = typeof window !== 'undefined' ? `${window.location.host}/k` : '';
@@ -42,7 +42,7 @@ function JoinPanel({ code, compact }: { code: string; compact: boolean }) {
   );
 }
 
-function QuestionView({ q, index, total, revealed, counts, answeredCount }: {
+export function QuestionView({ q, index, total, revealed, counts, answeredCount }: {
   q: Question; index: number; total: number; revealed: boolean; counts: Map<string, number>; answeredCount: number;
 }) {
   return (
@@ -390,9 +390,17 @@ export default function LiveSession({ sessionId }: { sessionId: string }) {
           <div style={{ textAlign: 'right', fontFamily: 'var(--font-sans)', color: '#fff' }}>
             <div style={{ fontSize: showJoin ? '44px' : '26px', fontWeight: 700, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{joined.length}<span style={{ opacity: 0.5, fontSize: '0.6em' }}> / {students.length}</span></div>
             <div style={{ fontSize: '12px', opacity: 0.6, marginTop: '4px' }}>povezanih · {session.class_name}</div>
-            <button onClick={() => setShowJoin(v => !v)} style={{ marginTop: '8px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.25)', color: '#fff', borderRadius: 'var(--r-sm)', padding: '4px 10px', fontSize: '12px', cursor: 'pointer' }}>
-              {showJoin ? 'Skrči kodo' : 'Pokaži kodo'}
-            </button>
+            <div style={{ display: 'flex', gap: '6px', marginTop: '8px', justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowJoin(v => !v)} style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.25)', color: '#fff', borderRadius: 'var(--r-sm)', padding: '4px 10px', fontSize: '12px', cursor: 'pointer' }}>
+                {showJoin ? 'Skrči kodo' : 'Pokaži kodo'}
+              </button>
+              <button
+                onClick={() => window.open(`/kvizi/seja/${session.id}/predavatelj`, 'predavatelj', 'noopener,noreferrer')}
+                title="Odpri ločeno okno za projektor/drug zaslon (brez upravljanja)"
+                style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.25)', color: '#fff', borderRadius: 'var(--r-sm)', padding: '4px 10px', fontSize: '12px', cursor: 'pointer' }}>
+                ⤢ Okno predavatelja
+              </button>
+            </div>
           </div>
         </div>
       </div>
