@@ -78,6 +78,54 @@ const rowOf = (k: string) => Number(k.split('-')[0]);
 const colOf = (k: string) => Number(k.split('-')[1]);
 const seatOf = (a: Record<string, string>, id: string) => Object.keys(a).find(k => a[k] === id);
 
+// ───────────────────────── pravičnost skozi čas (manj pogosto isti sedež / isti sosed) ─────────────────────────
+
+export interface SeatHistory {
+  /** id učenca -> ključ celice -> kolikokrat je do zdaj sedel na tem sedežu */
+  seatUsage: Record<string, Record<string, number>>;
+  /** id učenca -> id soseda -> kolikokrat sta bila doslej vodoravna soseda */
+  neighborUsage: Record<string, Record<string, number>>;
+}
+
+export const emptyHistory = (): SeatHistory => ({ seatUsage: {}, neighborUsage: {} });
+
+function bump(map: Record<string, Record<string, number>>, a: string, b: string) {
+  if (!map[a]) map[a] = {};
+  map[a][b] = (map[a][b] ?? 0) + 1;
+}
+
+/** Vpiše en dejanski razpored v zgodovino (mutira `history` — za zaporedno gradnjo skozi dneve). */
+export function bumpHistory(history: SeatHistory, assign: Record<string, string>): void {
+  for (const [cell, studentId] of Object.entries(assign)) bump(history.seatUsage, studentId, cell);
+  for (const cell of Object.keys(assign)) {
+    const rightKey = `${rowOf(cell)}-${colOf(cell) + 1}`;
+    if (assign[rightKey]) {
+      bump(history.neighborUsage, assign[cell], assign[rightKey]);
+      bump(history.neighborUsage, assign[rightKey], assign[cell]);
+    }
+  }
+}
+
+/**
+ * Uteženo razporedi `students` na `seats` (brez ponavljanja): sedeži, na katerih je
+ * učenec doslej sedel redkeje, imajo večjo verjetnost. Brez zgodovine je enakovredno
+ * navadnemu naključnemu razporedu.
+ */
+function weightedAssignSeats(students: string[], seats: string[], seatUsage: Record<string, Record<string, number>> | undefined, rng: Rng): Record<string, string> {
+  const assign: Record<string, string> = {};
+  const remaining = [...seats];
+  for (const student of shuffled(students, rng)) {
+    if (remaining.length === 0) break;
+    const weights = remaining.map(seat => 1 / (1 + (seatUsage?.[student]?.[seat] ?? 0)) ** 3);
+    const total = weights.reduce((a, b) => a + b, 0);
+    let r = rng() * total;
+    let idx = remaining.length - 1;
+    for (let i = 0; i < weights.length; i++) { r -= weights[i]; if (r <= 1e-9) { idx = i; break; } }
+    assign[remaining.splice(idx, 1)[0]] = student;
+  }
+  return assign;
+}
+
 export interface ShuffleOpts {
   /** id-ji fantov (za pravilo »sedi ob fantu«) */
   boyIds?: string[];
@@ -85,6 +133,8 @@ export interface ShuffleOpts {
   pairIds?: string[];
   /** pripeti sedeži: ključ celice "r-c" -> id učenca (učenec vedno sedi točno tu) */
   fixed?: Record<string, string>;
+  /** dosedanja zasedenost sedežev/sosedov — za pravičnejšo (manj ponavljajočo se) razporeditev */
+  history?: SeatHistory;
 }
 
 /**
@@ -93,6 +143,8 @@ export interface ShuffleOpts {
  * prosta mesta ostanejo vedno samo v zadnjih vrstah.
  * Učenci v `frontIds` sedijo v prvi vrsti, a naključno premešani znotraj nje
  * (nimajo fiksnega mesta). `pairIds` dobijo za soseda fanta.
+ * Če je podana `opts.history`, se razporeditev (sedež in sosedje) nagiba proti
+ * manj pogosto uporabljenim kombinacijam za posameznega učenca (best-effort).
  * `rng` omogoča determinističen razpored (npr. za samodejni razpored dneva).
  */
 export function shuffleInto(s: Seating, studentIds: string[], frontIds: string[] = [], rng: Rng = Math.random, opts: ShuffleOpts = {}): Record<string, string> {
@@ -100,6 +152,7 @@ export function shuffleInto(s: Seating, studentIds: string[], frontIds: string[]
   const activeSet = new Set(allSeats);
   const studentSet = new Set(studentIds);
   const frontSet = new Set(frontIds);
+  const seatUsage = opts.history?.seatUsage;
 
   // Veljavni pripeti sedeži (aktiven sedež + obstoječ učenec; en učenec = en sedež).
   const fixedMap: Record<string, string> = {};
@@ -112,22 +165,31 @@ export function shuffleInto(s: Seating, studentIds: string[], frontIds: string[]
   const seats = allSeats.filter(k => !fixedCells.has(k)); // proste za razporeditev ostalih
 
   const pool = studentIds.filter(id => !fixedStudents.has(id));
-  const frontStudents = shuffled(pool.filter(id => frontSet.has(id)), rng);
-  const restStudents = shuffled(pool.filter(id => !frontSet.has(id)), rng);
-  // pripeti v prvo vrsto pridejo prvi → zasedejo prvo vrsto, nato ostali polnijo naprej
-  const ordered = [...frontStudents, ...restStudents];
+  const frontStudents = pool.filter(id => frontSet.has(id));
+  const restStudents = pool.filter(id => !frontSet.has(id));
+  // pripeti v prvo vrsto pridejo prvi → zasedejo prve sedeže (gravitacija), nato ostali polnijo naprej
+  const frontTargetSeats = seats.slice(0, frontStudents.length);
+  const restTargetSeats = seats.slice(frontStudents.length, frontStudents.length + restStudents.length);
 
-  const assign: Record<string, string> = { ...fixedMap };
-  seats.forEach((seat, i) => { if (i < ordered.length) assign[seat] = ordered[i]; });
+  const assign: Record<string, string> = {
+    ...fixedMap,
+    ...weightedAssignSeats(frontStudents, frontTargetSeats, seatUsage, rng),
+    ...weightedAssignSeats(restStudents, restTargetSeats, seatUsage, rng),
+  };
 
-  // Premešaj učence znotraj prve vrste (brez pripetih), da pripeti-v-prvo-vrsto nimajo vedno istega stolpca.
+  // Znotraj prve vrste (vsi njeni zasedeni sedeži, ne le pripeti-v-prvo-vrsto — gravitacija lahko vanjo
+  // spusti tudi druge) še enkrat pravično premešaj stolpce, da isti učenec nima vedno istega mesta.
   const row0 = seats.filter(k => rowOf(k) === 0 && (k in assign));
-  const row0ids = shuffled(row0.map(k => assign[k]), rng);
-  row0.forEach((k, i) => { assign[k] = row0ids[i]; });
+  const row0Reassigned = weightedAssignSeats(row0.map(k => assign[k]), row0, seatUsage, rng);
+  Object.assign(assign, row0Reassigned);
 
-  // Pravilo »sedi ob fantu« (npr. Tai): zagotovi vsaj enega soseda fanta (ne premika pripetih).
+  // Pravilo »sedi ob fantu« (npr. Tai): zagotovi vsaj enega soseda fanta (trdo pravilo, ne premika pripetih).
   const boySet = new Set(opts.boyIds ?? []);
-  for (const pid of opts.pairIds ?? []) ensureBoyNeighbor(assign, s, pid, boySet, frontSet, rng, fixedCells);
+  const pairIds = opts.pairIds ?? [];
+  for (const pid of pairIds) ensureBoyNeighbor(assign, s, pid, boySet, frontSet, rng, fixedCells);
+
+  // Pravičnost pri sosedih: poskusi zmanjšati pogosto ponavljajoče se pare (best-effort, ne krši zgornjih pravil).
+  if (opts.history) reduceRepeatNeighbors(assign, s, opts.history, frontSet, boySet, new Set(pairIds), fixedCells, rng);
 
   return assign;
 }
@@ -172,4 +234,102 @@ function ensureBoyNeighbor(assign: Record<string, string>, s: Seating, pairId: s
       assign[sk] = pairId; assign[pk] = occ; return;
     }
   }
+}
+
+/** Ali ima `pairId` (po trenutnem `assign`) vsaj enega vodoravnega soseda iz `boySet`? (velja tudi, če ni razporejen.) */
+function hasBoyNeighbor(assign: Record<string, string>, active: Set<string>, pairId: string, boySet: Set<string>): boolean {
+  const pk = seatOf(assign, pairId);
+  if (!pk) return true;
+  const r = rowOf(pk), c = colOf(pk);
+  const neighbors = [`${r}-${c - 1}`, `${r}-${c + 1}`].filter(k => active.has(k));
+  return neighbors.some(k => assign[k] && boySet.has(assign[k]));
+}
+
+/**
+ * Best-effort naključno iskanje (omejeno število poskusov): zamenjaj dva (nepripeta) sedeža,
+ * če to zmanjša skupno "težo" pogosto ponavljajočih se sosedskih parov — brez kršenja prve
+ * vrste ali pravila »sedi ob fantu« za `pairSet`. Ne poruši gravitacije (menjava dveh zasedenih
+ * sedežev ne spremeni, kateri sedeži so zasedeni).
+ */
+function reduceRepeatNeighbors(
+  assign: Record<string, string>, s: Seating, history: SeatHistory,
+  frontSet: Set<string>, boySet: Set<string>, pairSet: Set<string>, locked: Set<string>, rng: Rng, iterations = 80,
+): void {
+  const active = new Set(activeSeats(s));
+  const neighborCount = (a: string, b: string) => history.neighborUsage[a]?.[b] ?? 0;
+
+  const badnessAt = (cell: string): number => {
+    const rightKey = `${rowOf(cell)}-${colOf(cell) + 1}`;
+    const leftKey = `${rowOf(cell)}-${colOf(cell) - 1}`;
+    const id = assign[cell];
+    if (!id) return 0;
+    let sum = 0;
+    if (assign[rightKey]) sum += neighborCount(id, assign[rightKey]) ** 2;
+    if (assign[leftKey]) sum += neighborCount(id, assign[leftKey]) ** 2;
+    return sum;
+  };
+
+  const movable = Object.keys(assign).filter(k => !locked.has(k));
+  if (movable.length < 2) return;
+
+  for (let it = 0; it < iterations; it++) {
+    const k1 = movable[Math.floor(rng() * movable.length)];
+    const k2 = movable[Math.floor(rng() * movable.length)];
+    if (k1 === k2) continue;
+    const s1 = assign[k1], s2 = assign[k2];
+    if (!s1 || !s2) continue;
+    const r1front = frontSet.has(s1), r2front = frontSet.has(s2);
+    const row1 = rowOf(k1), row2 = rowOf(k2);
+    if (r1front && row2 !== 0) continue; // prva vrsta se ne sme kršiti z menjavo
+    if (r2front && row1 !== 0) continue;
+
+    const before = badnessAt(k1) + badnessAt(k2);
+    assign[k1] = s2; assign[k2] = s1;
+    const after = badnessAt(k1) + badnessAt(k2);
+
+    // Preveri VSE učence s pravilom »ob fantu«, ki bi jih ta zamenjava lahko prizadela — ne le s1/s2
+    // samih, temveč tudi koga tretjega, ki sedi tik ob k1/k2 (menjava mu je pravkar zamenjala soseda).
+    const affectedPairIds = pairSet.size
+      ? [...pairSet].filter(pid => {
+          const pk = seatOf(assign, pid);
+          if (!pk) return false;
+          return pk === k1 || pk === k2 || rowOf(pk) === rowOf(k1) && Math.abs(colOf(pk) - colOf(k1)) <= 1
+            || rowOf(pk) === rowOf(k2) && Math.abs(colOf(pk) - colOf(k2)) <= 1;
+        })
+      : [];
+    const breaksBoyRule = affectedPairIds.some(pid => !hasBoyNeighbor(assign, active, pid, boySet));
+
+    if (breaksBoyRule || after >= before) { assign[k1] = s1; assign[k2] = s2; } // razveljavi
+  }
+}
+
+/** En dan iz urnika za namene gradnje zgodovine: tloris in fiksni sedeži, veljavni na ta dan. */
+export interface HistoryDay {
+  date: string;
+  layout: Seating;
+  fixed: Record<string, string>;
+}
+
+/**
+ * Zgradi statistiko zasedenosti sedežev/sosedov iz preteklih dni (v kronološkem vrstnem redu).
+ * Za dneve z ročnim prepisom (`overrides[date]`) uporabi tega kot resnico; za samodejne dneve
+ * izračuna razpored z isto pravično metodo, na podlagi zgodovine, nakopičene do TEGA dne —
+ * s čimer je izračun dosleden in ponovljiv (enak seed kot pri prikazu tistega dne).
+ */
+export function buildSeatHistory(
+  days: HistoryDay[],
+  overrides: Record<string, Record<string, string>>,
+  studentIds: string[],
+  frontIds: string[],
+  boyIds: string[],
+  pairIds: string[],
+  seedFor: (date: string) => Rng,
+): SeatHistory {
+  const history = emptyHistory();
+  for (const day of days) {
+    const assign = overrides[day.date]
+      ?? shuffleInto(day.layout, studentIds, frontIds, seedFor(day.date), { boyIds, pairIds, fixed: day.fixed, history });
+    bumpHistory(history, assign);
+  }
+  return history;
 }

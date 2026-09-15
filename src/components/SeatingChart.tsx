@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useRoster, type Student } from '@/hooks/useRoster';
-import { useSeating, activeSeats, shuffleInto, makeRng, type Seating } from '@/hooks/useSeating';
+import { useSeating, activeSeats, shuffleInto, makeRng, emptyHistory, bumpHistory, type Seating } from '@/hooks/useSeating';
 import { useRooms, type RoomPlan } from '@/hooks/useRooms';
 import { useFixedSeats, fixedMapForDate } from '@/hooks/useFixedSeats';
 import { formatLessonDate, type Lesson } from '@/data/timetable';
@@ -162,10 +162,31 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
 
   const hasOverride = !!(lesson && dayMap[lesson.d]);
   const hasLayoutOverride = !!(lesson && dayLayoutMap[lesson.d]);
+
+  // Razporedi vseh ur po vrsti: vsak samodejni dan upošteva, kje in s kom je kdo sedel na vseh
+  // prejšnjih urah (ročni razporedi štejejo kot dejanski), da se sedeži in sosedje čim manj ponavljajo.
+  const lessonsKey = lessons.map(l => `${l.d}@${l.r}`).join('|');
+  const dayAssigns = useMemo(() => {
+    if (!hasDays) return [];
+    const history = emptyHistory();
+    return lessons.map(l => {
+      const lp = dayLayoutMap[l.d] ?? getPlan(l.r) ?? { rows: seating.rows, cols: seating.cols, disabled: seating.disabled };
+      const lS: Seating = { rows: lp.rows, cols: lp.cols, disabled: lp.disabled, assign: {} };
+      const ids = students.map(s => s.id);
+      const actual = dayMap[l.d] ?? shuffleInto(lS, ids, students.filter(s => s.frontRow).map(s => s.id), makeRng(`${classId}|${l.d}`), {
+        boyIds: students.filter(s => s.gender === 'M').map(s => s.id),
+        pairIds: students.filter(s => s.nextToBoy).map(s => s.id),
+        fixed: fixedMapForDate(fixed, l.d),
+        history,
+      });
+      bumpHistory(history, actual);
+      return actual;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasDays, lessonsKey, dayMap, dayLayoutMap, getPlan, seating.rows, seating.cols, seating.disabled, fixed, students, classId]);
+
   const assign: Record<string, string> = hasDays
-    ? (lesson && dayMap[lesson.d]
-        ? dayMap[lesson.d]
-        : shuffleInto(layoutS, allIds, frontIds, makeRng(`${classId}|${lesson?.d ?? ''}`), shuffleOpts))
+    ? (dayAssigns[Math.min(dayIndex, lessons.length - 1)] ?? {})
     : seating.assign;
 
   const seatedIds = new Set(Object.values(assign));
@@ -173,14 +194,9 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
 
   // Tisk naslednjega dne (druga stran).
   const nextLesson = hasDays && dayIndex < lessons.length - 1 ? lessons[dayIndex + 1] : null;
-  const nextData = (() => {
-    if (!nextLesson) return null;
-    const nl = resolveLayout(nextLesson.d, nextLesson.r);
-    const nlS: Seating = { rows: nl.rows, cols: nl.cols, disabled: nl.disabled, assign: {} };
-    const nFixed = fixedMapForDate(fixed, nextLesson.d);
-    const nAssign = dayMap[nextLesson.d] ?? shuffleInto(nlS, allIds, frontIds, makeRng(`${classId}|${nextLesson.d}`), { boyIds, pairIds, fixed: nFixed });
-    return { lesson: nextLesson, layout: nl, assign: nAssign, index: dayIndex + 1 };
-  })();
+  const nextData = nextLesson
+    ? { lesson: nextLesson, layout: resolveLayout(nextLesson.d, nextLesson.r), assign: dayAssigns[dayIndex + 1], index: dayIndex + 1 }
+    : null;
 
   const metaLine = (idx: number, room: string) => `${totalHours ? `${idx + 1}/${totalHours}` : `${idx + 1}. ura`} · učilnica ${room}`;
 
@@ -215,7 +231,11 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
     }
   };
 
-  const shuffle = () => commitAssign(shuffleInto(layoutS, allIds, frontIds, Math.random, shuffleOpts));
+  const shuffle = () => {
+    const history = emptyHistory();
+    if (hasDays) for (let i = 0; i < dayIndex; i++) bumpHistory(history, dayAssigns[i]);
+    commitAssign(shuffleInto(layoutS, allIds, frontIds, Math.random, { ...shuffleOpts, history }));
+  };
   const clearAssign = () => commitAssign({});
   const resetToAuto = () => { if (lesson) setDay(lesson.d, null); };
   const resetDayLayout = () => { if (lesson) setDayLayout(lesson.d, null); };
