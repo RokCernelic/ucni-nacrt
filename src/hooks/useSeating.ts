@@ -78,6 +78,17 @@ const rowOf = (k: string) => Number(k.split('-')[0]);
 const colOf = (k: string) => Number(k.split('-')[1]);
 const seatOf = (a: Record<string, string>, id: string) => Object.keys(a).find(k => a[k] === id);
 
+/** Vrste ostanejo po vrsti, znotraj vrste pa od sredine navzven — delno zasedena vrsta ima prosta mesta enakomerno levo in desno. */
+function centerOutByRow(seats: string[]): string[] {
+  const byRow = new Map<number, string[]>();
+  for (const k of seats) byRow.set(rowOf(k), [...(byRow.get(rowOf(k)) ?? []), k]);
+  return [...byRow.keys()].sort((a, b) => a - b).flatMap(r => {
+    const row = byRow.get(r)!.sort((a, b) => colOf(a) - colOf(b));
+    const mid = (row.length - 1) / 2;
+    return row.map((k, i) => ({ k, d: Math.abs(i - mid), i })).sort((a, b) => a.d - b.d || a.i - b.i).map(x => x.k);
+  });
+}
+
 // ───────────────────────── pravičnost skozi čas (manj pogosto isti sedež / isti sosed) ─────────────────────────
 
 export interface SeatHistory {
@@ -162,7 +173,7 @@ export function shuffleInto(s: Seating, studentIds: string[], frontIds: string[]
     fixedMap[cell] = id; fixedStudents.add(id);
   }
   const fixedCells = new Set(Object.keys(fixedMap));
-  const seats = allSeats.filter(k => !fixedCells.has(k)); // proste za razporeditev ostalih
+  const seats = centerOutByRow(allSeats).filter(k => !fixedCells.has(k)); // proste za razporeditev ostalih
 
   const pool = studentIds.filter(id => !fixedStudents.has(id));
   const frontStudents = pool.filter(id => frontSet.has(id));
