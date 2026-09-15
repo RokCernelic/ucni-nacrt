@@ -46,6 +46,9 @@ export default function Nav() {
   const { user, loading, signOut } = useAuth();
   const { subjects } = useSubjects();
 
+  // učenčev iPad (/k, /k/KODA) — brez menija aplikacije
+  if (path === '/k' || path.startsWith('/k/')) return null;
+
   const onSeating = path.startsWith('/sedezni-red');
   const onQuizzes = path.startsWith('/kvizi');
   const ucniActive = !onSeating && !onQuizzes;

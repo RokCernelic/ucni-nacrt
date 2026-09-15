@@ -11,6 +11,7 @@ import { questionProblems, parseNumber } from '@/lib/quiz/scoring';
 import { downscaleImage } from '@/lib/quiz/image';
 import { questionsLabel, pointsLabel, formatNumber } from '@/lib/quiz/format';
 import type { Quiz, Question, McQuestion, NumericQuestion, QuizFolder } from '@/lib/quiz/types';
+import StartSessionDialog from '@/components/quiz/StartSessionDialog';
 
 const LETTERS = 'ABCDEF';
 const MAX_OPTIONS = 6;
@@ -180,6 +181,7 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
   const [draft, setDraft] = useState<Quiz | null>(null);
   const [status, setStatus] = useState<'saved' | 'saving' | 'error'>('saved');
   const [error, setError] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pending = useRef<Quiz | null>(null);
 
@@ -265,6 +267,12 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
             <span style={{ color: status === 'error' ? '#f5b7b1' : 'rgba(255,255,255,0.5)' }}>
               {status === 'saving' ? 'Shranjujem …' : status === 'error' ? 'Ni shranjeno' : 'Shranjeno ✓'}
             </span>
+            <button disabled={incomplete > 0 || draft.questions.length === 0}
+              title={incomplete > 0 ? 'Najprej dokončaj vsa vprašanja' : 'Zaženi sejo z razredom'}
+              onClick={() => { flush(); setStarting(true); }}
+              style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 600, background: '#fff', color: 'var(--forest)', border: 'none', borderRadius: 'var(--r-sm)', padding: '6px 12px', cursor: incomplete > 0 ? 'not-allowed' : 'pointer', opacity: incomplete > 0 ? 0.5 : 1 }}>
+              ▶ Zaženi
+            </button>
           </div>
         </div>
       </div>
@@ -290,6 +298,7 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
           <button style={btn()} onClick={() => setQuestions([...draft.questions, newNumericQuestion()])}>+ Številsko</button>
         </div>
       </div>
+      {starting && <StartSessionDialog quiz={draft} onClose={() => setStarting(false)} />}
     </div>
   );
 }

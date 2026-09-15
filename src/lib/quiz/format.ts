@@ -8,6 +8,9 @@ export function plural(n: number, one: string, two: string, few: string, many: s
 }
 
 export const questionsLabel = (n: number) => `${n} ${plural(n, 'vprašanje', 'vprašanji', 'vprašanja', 'vprašanj')}`;
+export const studentsLabel = (n: number) => `${n} ${plural(n, 'učenec', 'učenca', 'učenci', 'učencev')}`;
+/** »nima / nimata / nimajo / nima« — glagol v skladu s številom */
+export const hasNotVerb = (n: number) => plural(n, 'nima', 'nimata', 'nimajo', 'nima');
 export const pointsLabel = (n: number) => `${formatNumber(n)} ${Number.isInteger(n) ? plural(n, 'točka', 'točki', 'točke', 'točk') : 'točke'}`;
 
 /** Število s slovensko decimalno vejico, brez odvečnih ničel (9.760000001 → »9,76«). */

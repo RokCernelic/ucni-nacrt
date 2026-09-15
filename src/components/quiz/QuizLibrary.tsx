@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useQuizLibrary, folderPath, QuizStorageFullError } from '@/hooks/useQuizLibrary';
 import { questionProblems } from '@/lib/quiz/scoring';
 import { questionsLabel, pointsLabel } from '@/lib/quiz/format';
+import StartSessionDialog from '@/components/quiz/StartSessionDialog';
 import type { QuizFolder } from '@/lib/quiz/types';
 
 const FOLDER_KEY = 'kvizi-trenutna-mapa'; // sessionStorage (ne sinhronizira v oblak)
@@ -45,6 +46,7 @@ export default function QuizLibrary() {
   const [current, setCurrent] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [starting, setStarting] = useState<string | null>(null);
 
   useEffect(() => {
     try { const v = sessionStorage.getItem(FOLDER_KEY); if (v) setCurrent(v); } catch { /* ignore */ }
@@ -167,6 +169,8 @@ export default function QuizLibrary() {
                         <option value="">📁 Vsi kvizi (koren)</option>
                         {allFolders.map(({ f, depth }) => <option key={f.id} value={f.id}>{'  '.repeat(depth)}📁 {f.name}</option>)}
                       </select>
+                      <button style={btn(true)} disabled={incomplete > 0} title={incomplete > 0 ? 'Najprej dokončaj vsa vprašanja' : 'Zaženi sejo z razredom'}
+                        onClick={() => setStarting(q.id)}>▶ Zaženi</button>
                       <Link href={`/kvizi/${q.id}`} style={{ ...btn(), textDecoration: 'none' }}>Uredi</Link>
                       <button style={btn()} onClick={() => guard(() => lib.duplicateQuiz(q.id))}>Podvoji</button>
                       <button style={{ ...btn(), color: '#c0392b', borderColor: '#e0b4ae' }}
@@ -179,6 +183,9 @@ export default function QuizLibrary() {
           </>
         )}
       </div>
+      {starting && lib.quizzes.find(x => x.id === starting) && (
+        <StartSessionDialog quiz={lib.quizzes.find(x => x.id === starting)!} onClose={() => setStarting(null)} />
+      )}
     </div>
   );
 }
