@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { withPins } from '@/lib/quiz/pins';
 
 export type Gender = 'Ž' | 'M' | '';
 
@@ -12,6 +13,8 @@ export interface Student {
   frontRow?: boolean;
   /** mora vedno sedeti ob fantu (vsaj en vodoravni sosed je fant) */
   nextToBoy?: boolean;
+  /** 4-mestni PIN za prijavo v kviz; dodeli se enkrat in se nikoli ne spremeni */
+  pin?: string;
 }
 
 function normGender(s: string): Gender {
@@ -53,7 +56,9 @@ export function useRoster(classId?: string) {
     catch { setStudents([]); }
   }, [key]);
 
-  const save = useCallback((next: Student[]) => {
+  const save = useCallback((list: Student[]) => {
+    // vsak učenec dobi PIN za kvize (obstoječi PIN-i ostanejo nespremenjeni)
+    const next = withPins(list);
     setStudents(next);
     if (key) {
       localStorage.setItem(key, JSON.stringify(next));

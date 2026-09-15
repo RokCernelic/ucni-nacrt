@@ -47,7 +47,8 @@ export default function Nav() {
   const { subjects } = useSubjects();
 
   const onSeating = path.startsWith('/sedezni-red');
-  const ucniActive = !onSeating;
+  const onQuizzes = path.startsWith('/kvizi');
+  const ucniActive = !onSeating && !onQuizzes;
 
   const subjectItems = subjects
     .map((s) => {
@@ -94,6 +95,13 @@ export default function Nav() {
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Vrsta 3: Kvizi (samo prijavljeni) — ena globalna knjižnica */}
+          {!loading && user && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
+              <Link href="/kvizi" style={sectionTitle(onQuizzes)}>Kvizi</Link>
             </div>
           )}
         </div>

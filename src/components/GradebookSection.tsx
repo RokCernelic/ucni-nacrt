@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useMasterClasses } from '@/hooks/useMasterClasses';
 import { useRoster, parseRoster, rosterToText } from '@/hooks/useRoster';
 
-function RosterEditor({ classId }: { classId: string }) {
+function RosterEditor({ classId, className }: { classId: string; className: string }) {
   const { students, save } = useRoster(classId);
   const [text, setText] = useState('');
   const [saved, setSaved] = useState(false);
@@ -15,16 +15,47 @@ function RosterEditor({ classId }: { classId: string }) {
   const m = parsed.filter(s => s.gender === 'M').length;
   const z = parsed.filter(s => s.gender === 'Ž').length;
 
-  // Ob shranjevanju iz besedila ohrani id in oznako »prva vrsta« za učence,
-  // ki že obstajajo (ujemanje po imenu) — tako ostanejo tudi razporedi sedežev.
+  // Ob shranjevanju iz besedila ohrani vse podatke obstoječih učencev (id, PIN, oznake)
+  // — ujemanje po imenu; spremenita se le ime in spol. Tako ostanejo razporedi in PIN-i.
   const handleSave = () => {
     const prevByName = new Map(students.map(s => [s.name.trim().toLowerCase(), s]));
     const merged = parseRoster(text).map(p => {
       const prev = prevByName.get(p.name.trim().toLowerCase());
-      return prev ? { ...p, id: prev.id, frontRow: prev.frontRow } : p;
+      return prev ? { ...prev, name: p.name, gender: p.gender } : p;
     });
     save(merged);
     setSaved(true);
+  };
+
+  const missingPins = students.some(s => !s.pin);
+
+  // Popravek imena na mestu: ohrani id, PIN in vse oznake (besedilno polje bi ga obravnavalo kot novega učenca).
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const renameStudent = (id: string, name: string) => {
+    const clean = name.trim();
+    if (!clean) return;
+    save(students.map(s => (s.id === id ? { ...s, name: clean } : s)));
+  };
+
+  // Natisni listke s PIN-i (ločeno okno, da ne vpliva na tisk sedežnega reda)
+  const printPins = () => {
+    const esc = (x: string) => x.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
+    const slips = students.map(s => `<div class="slip"><div class="cls">${esc(className)}</div><div class="name">${esc(s.name)}</div><div class="pin">${esc(s.pin ?? '—')}</div><div class="hint">PIN za kviz</div></div>`).join('');
+    const w = window.open('', '_blank');
+    if (!w) return;
+    w.document.write(`<!doctype html><html lang="sl"><head><meta charset="utf-8"><title>PIN-i — ${esc(className)}</title><style>
+      body{font-family:-apple-system,Inter,sans-serif;margin:12mm;color:#222}
+      h1{font-size:16px;margin:0 0 8mm}
+      .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:0}
+      .slip{border:1px dashed #999;padding:5mm 4mm;text-align:center;break-inside:avoid}
+      .cls{font-size:10px;color:#777;letter-spacing:.08em;text-transform:uppercase}
+      .name{font-size:14px;font-weight:600;margin:2mm 0}
+      .pin{font-size:30px;font-weight:700;letter-spacing:.12em;font-variant-numeric:tabular-nums}
+      .hint{font-size:9px;color:#999;margin-top:1mm}
+      @media print{h1{display:none}body{margin:8mm}}
+    </style></head><body><h1>PIN-i za kvize — ${esc(className)} (izreži po črtkanih črtah)</h1><div class="grid">${slips}</div>
+    <script>window.onload=()=>setTimeout(()=>window.print(),200)</script></body></html>`);
+    w.document.close();
   };
 
   const toggleFront = (id: string) =>
@@ -62,13 +93,40 @@ function RosterEditor({ classId }: { classId: string }) {
           <p style={{ fontSize: '11px', color: 'var(--muted)', margin: '0 0 10px', lineHeight: 1.5 }}>
             <b>1↓ Prva vrsta</b> — učenec vedno sedi v prvi vrsti (pri tabli), a naključno premešan znotraj nje.
             <br /><b>👦 Ob fantu</b> — učenec ima vedno vsaj enega soseda fanta.
+            <br /><b>PIN</b> — 4-mestna številka, s katero se učenec prijavi v kviz na iPadu. Dodeli se enkrat in se ne spreminja.
+            <br /><b>✎</b> — tipkarske napake v imenu popravi tukaj, ne v besedilnem polju zgoraj (tam bi učenec dobil nov PIN).
           </p>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap' }}>
+            {missingPins ? (
+              <button onClick={() => save(students)}
+                style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 600, color: '#fff', background: 'var(--forest)', border: 'none', borderRadius: 'var(--r-sm)', padding: '7px 14px', cursor: 'pointer' }}>
+                Dodeli PIN-e za kvize
+              </button>
+            ) : (
+              <button onClick={printPins}
+                style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500, color: 'var(--forest)', background: 'transparent', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', padding: '7px 14px', cursor: 'pointer' }}>
+                🖨 Natisni PIN-e (listki)
+              </button>
+            )}
+          </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             {students.map(s => (
               <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '4px 0' }}>
-                <span style={{ flex: 1, fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--ink)' }}>
-                  {s.name}
-                  {s.gender && <span style={{ fontSize: '11px', color: 'var(--muted)', marginLeft: '6px' }}>{s.gender}</span>}
+                {renamingId === s.id ? (
+                  <input autoFocus defaultValue={s.name}
+                    onBlur={e => { renameStudent(s.id, e.currentTarget.value); setRenamingId(null); }}
+                    onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') setRenamingId(null); }}
+                    style={{ flex: 1, minWidth: 0, fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--ink)', border: '1px solid var(--forest)', borderRadius: 'var(--r-sm)', padding: '4px 8px' }} />
+                ) : (
+                  <span style={{ flex: 1, fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--ink)' }}>
+                    {s.name}
+                    {s.gender && <span style={{ fontSize: '11px', color: 'var(--muted)', marginLeft: '6px' }}>{s.gender}</span>}
+                    <button onClick={() => setRenamingId(s.id)} title="Popravi ime (PIN, sedežni red in napredek ostanejo)"
+                      style={{ marginLeft: '6px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: '12px', padding: '0 2px' }}>✎</button>
+                  </span>
+                )}
+                <span title="PIN za kviz" style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600, fontVariantNumeric: 'tabular-nums', letterSpacing: '0.06em', color: s.pin ? 'var(--ink)' : 'var(--muted)', minWidth: '44px', textAlign: 'right' }}>
+                  {s.pin ?? '—'}
                 </span>
                 <button
                   onClick={() => toggleNextToBoy(s.id)}
@@ -160,7 +218,7 @@ export default function GradebookSection() {
               Izbriši razred
             </button>
           </div>
-          <RosterEditor key={cur.id} classId={cur.id} />
+          <RosterEditor key={cur.id} classId={cur.id} className={[cur.name, cur.school].filter(Boolean).join(' · ')} />
         </div>
       )}
     </>
