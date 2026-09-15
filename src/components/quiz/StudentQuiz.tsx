@@ -8,6 +8,7 @@ import {
 } from '@/lib/quiz/sessionApi';
 import { seededOrder } from '@/lib/quiz/shuffle';
 import { formatNumber } from '@/lib/quiz/format';
+import { useAutoFullscreen } from '@/hooks/useAutoFullscreen';
 
 const LETTERS = 'ABCDEF';
 const page: React.CSSProperties = { minHeight: '100vh', background: '#f4f2ee', fontFamily: 'var(--font-sans)', color: 'var(--ink)', display: 'flex', flexDirection: 'column' };
@@ -22,6 +23,7 @@ function Centered({ children }: { children: React.ReactNode }) {
 export function CodeEntry() {
   const router = useRouter();
   const [code, setCode] = useState('');
+  useAutoFullscreen();
   return (
     <Centered>
       <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '34px', fontWeight: 400, margin: '0 0 8px' }}>Kviz</h1>
@@ -160,6 +162,7 @@ function QuestionBody({ code, q, selected, locked, shuffleSeed, onPick, onNumeri
 
 export default function StudentQuiz({ code: rawCode }: { code: string }) {
   const code = rawCode.toUpperCase();
+  useAutoFullscreen();
   const [state, setState] = useState<DeviceState | null>(null);
   const router = useRouter();
   const [net, setNet] = useState<'ok' | 'offline' | 'not_installed'>('ok');
