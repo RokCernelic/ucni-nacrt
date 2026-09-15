@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# supabase CLI local cache (project ref, org id, service versions — not
+# secrets, but local/ephemeral state that has no business in version control)
+supabase/.temp/

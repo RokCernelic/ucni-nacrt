@@ -8,8 +8,9 @@ import {
   loadSession, updateSession, resolveDevice, joinChannel, isLive,
   type QuizSession, type SessionStudent, type SessionAnswer,
 } from '@/lib/quiz/sessionApi';
-import { isCorrect, scoreAnswers, parseNumber } from '@/lib/quiz/scoring';
-import { formatNumber, pointsLabel } from '@/lib/quiz/format';
+import { isCorrect, answerStatus, scoreAnswers, parseNumber } from '@/lib/quiz/scoring';
+import { formatNumber, pointsLabel, studentsLabel } from '@/lib/quiz/format';
+import { sessionResultsCsv, downloadCsv, safeFilename } from '@/lib/quiz/csv';
 import type { Question } from '@/lib/quiz/types';
 
 const LETTERS = 'ABCDEF';
@@ -88,6 +89,176 @@ function QuestionView({ q, index, total, revealed, counts, answeredCount }: {
         </div>
       ) : (
         <p style={{ marginTop: '20px', fontFamily: 'var(--font-sans)', fontSize: '18px', color: 'var(--muted)' }}>Učenci vpišejo številski odgovor.</p>
+      )}
+    </div>
+  );
+}
+
+/** Statistika enega vprašanja: % pravilno + porazdelitev odgovorov. */
+function QuestionStats({ q, index, answers, totalStudents }: { q: Question; index: number; answers: SessionAnswer[]; totalStudents: number }) {
+  const relevant = answers.filter(a => a.question_id === q.id);
+  const answeredCount = relevant.length;
+  const correctCount = relevant.filter(a => isCorrect(q, a.value)).length;
+  const pct = answeredCount ? Math.round((correctCount / answeredCount) * 100) : 0;
+  const pctColor = answeredCount === 0 ? 'var(--muted)' : pct >= 70 ? 'var(--green-ok)' : pct >= 40 ? '#b7791f' : '#c0392b';
+
+  const counts = new Map<string, number>();
+  for (const a of relevant) {
+    const key = q.kind === 'numeric' ? formatNumber(parseNumber(a.value) ?? NaN).replace('NaN', a.value) : a.value;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+
+  return (
+    <div style={{ border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', padding: '16px 18px', background: 'var(--canvas)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '12px', marginBottom: '10px' }}>
+        <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--ink)' }}>{index + 1}. {q.prompt || '(brez besedila)'}</div>
+        <div style={{ fontSize: '15px', fontWeight: 700, color: pctColor, whiteSpace: 'nowrap' }}>
+          {answeredCount ? `${pct} % pravilno` : 'brez odgovorov'}
+        </div>
+      </div>
+
+      {q.kind === 'mc' ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          {q.options.map((o, oi) => {
+            const n = counts.get(o.id) ?? 0;
+            const barPct = answeredCount ? (n / answeredCount) * 100 : 0;
+            const right = o.id === q.correct;
+            return (
+              <div key={o.id} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ width: '18px', fontSize: '12px', fontWeight: 700, color: right ? 'var(--green-ok)' : 'var(--muted)' }}>{LETTERS[oi]}</span>
+                <div style={{ flex: 1, position: 'relative', height: '22px', background: '#00000010', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div style={{ position: 'absolute', inset: 0, width: `${barPct}%`, background: right ? 'rgba(60,140,80,0.35)' : 'rgba(0,0,0,0.14)', transition: 'width .3s' }} />
+                  <span style={{ position: 'relative', display: 'block', fontSize: '12px', color: 'var(--ink)', padding: '0 8px', lineHeight: '22px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.text || '(prazna možnost)'}</span>
+                </div>
+                <span style={{ fontSize: '12px', color: 'var(--muted)', minWidth: '52px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{n} · {Math.round(barPct)} %</span>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {[...counts.entries()].sort((a, b) => b[1] - a[1]).map(([v, n]) => {
+            const ok = isCorrect(q, v);
+            return (
+              <span key={v} style={{ padding: '4px 10px', borderRadius: '999px', fontSize: '13px', fontWeight: 600, fontVariantNumeric: 'tabular-nums', border: `1.5px solid ${ok ? 'var(--green-ok)' : 'var(--hairline)'}`, color: ok ? 'var(--green-ok)' : 'var(--ink)' }}>
+                {v} <span style={{ opacity: 0.6, fontWeight: 400 }}>× {n}</span>
+              </span>
+            );
+          })}
+          {answeredCount === 0 && <span style={{ fontSize: '13px', color: 'var(--muted)' }}>Nihče ni odgovoril.</span>}
+        </div>
+      )}
+      <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '10px' }}>{answeredCount} / {totalStudents} odgovorilo</div>
+    </div>
+  );
+}
+
+/** Podrobna stran rezultatov: tabela učencev, statistika po vprašanjih, mreža učenec × vprašanje, CSV. */
+function SessionResults({ session, students, answers }: { session: QuizSession; students: SessionStudent[]; answers: SessionAnswer[] }) {
+  const [sortBy, setSortBy] = useState<'name' | 'points'>('name');
+  const questions = session.quiz.questions;
+  const joinedCount = students.filter(s => s.device_id).length;
+
+  const answersByStudent = useMemo(() => {
+    const m = new Map<string, Record<string, string>>();
+    for (const a of answers) {
+      const rec = m.get(a.student_id) ?? {};
+      rec[a.question_id] = a.value;
+      m.set(a.student_id, rec);
+    }
+    return m;
+  }, [answers]);
+
+  const rows = useMemo(() => {
+    const withScore = students.map(s => ({ s, ans: answersByStudent.get(s.student_id) ?? {}, sc: scoreAnswers(session.quiz, answersByStudent.get(s.student_id) ?? {}) }));
+    return withScore.sort((a, b) => sortBy === 'points' ? b.sc.points - a.sc.points || a.s.name.localeCompare(b.s.name, 'sl') : a.s.name.localeCompare(b.s.name, 'sl'));
+  }, [students, answersByStudent, session.quiz, sortBy]);
+
+  const avgPct = rows.length ? Math.round(rows.reduce((s, r) => s + r.sc.percent, 0) / rows.length) : 0;
+
+  const exportCsv = () => {
+    const csv = sessionResultsCsv(session.quiz, students.map(s => ({ name: s.name, participated: !!s.device_id, answers: answersByStudent.get(s.student_id) ?? {} })));
+    const date = new Date(session.ended_at ?? session.created_at).toISOString().slice(0, 10);
+    downloadCsv(`${safeFilename(session.quiz_title, session.class_name, date)}.csv`, csv);
+  };
+
+  const sortBtn = (active: boolean): React.CSSProperties => ({
+    fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: active ? 700 : 500,
+    color: active ? 'var(--forest)' : 'var(--muted)', background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px 4px',
+  });
+
+  return (
+    <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '32px', fontFamily: 'var(--font-sans)' }}>
+      <Link href="/kvizi" style={{ fontSize: '13px', color: 'var(--forest)', textDecoration: 'none' }}>← Kvizi</Link>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap', marginTop: '10px' }}>
+        <div>
+          <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '36px', fontWeight: 300, margin: '0 0 4px', color: 'var(--ink)' }}>{session.quiz_title}</h1>
+          <p style={{ color: 'var(--muted)', margin: 0 }}>
+            {session.class_name} · seja končana · {studentsLabel(joinedCount)} sodelovalo od {students.length} · povprečje {avgPct} %
+          </p>
+        </div>
+        <button onClick={exportCsv} style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600, color: '#fff', background: 'var(--forest)', border: 'none', borderRadius: 'var(--r-sm)', padding: '9px 16px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+          ⬇ Izvozi CSV
+        </button>
+      </div>
+
+      {/* tabela učencev */}
+      <div style={{ marginTop: '28px', overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+          <thead><tr style={{ textAlign: 'left', color: 'var(--muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            <th style={{ padding: '8px 6px' }}><button style={sortBtn(sortBy === 'name')} onClick={() => setSortBy('name')}>Učenec</button></th>
+            <th style={{ padding: '8px 6px' }}><button style={sortBtn(sortBy === 'points')} onClick={() => setSortBy('points')}>Točke</button></th>
+            <th style={{ padding: '8px 6px' }}>%</th>
+            <th style={{ padding: '8px 6px' }}>Pravilno / narobe / brez</th>
+          </tr></thead>
+          <tbody>{rows.map(({ s, sc }) => (
+            <tr key={s.student_id} style={{ borderTop: '1px solid var(--hairline)', color: s.device_id ? 'var(--ink)' : 'var(--muted)' }}>
+              <td style={{ padding: '8px 6px' }}>{s.name}{!s.device_id && ' (ni sodeloval)'}</td>
+              <td style={{ padding: '8px 6px', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(sc.points)} / {formatNumber(sc.maxPoints)}</td>
+              <td style={{ padding: '8px 6px', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(sc.percent)} %</td>
+              <td style={{ padding: '8px 6px', fontVariantNumeric: 'tabular-nums' }}>
+                <span style={{ color: 'var(--green-ok)' }}>{sc.correct}</span> / <span style={{ color: '#c0392b' }}>{sc.wrong}</span> / <span>{sc.unanswered}</span>
+              </td>
+            </tr>
+          ))}</tbody>
+        </table>
+      </div>
+
+      {/* mreža učenec × vprašanje */}
+      {questions.length > 0 && (
+        <div style={{ marginTop: '32px' }}>
+          <h2 style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted)', margin: '0 0 10px' }}>Učenec × vprašanje</h2>
+          <div style={{ overflowX: 'auto', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)' }}>
+            <table style={{ borderCollapse: 'collapse', fontSize: '13px', minWidth: '100%' }}>
+              <thead><tr>
+                <th style={{ position: 'sticky', left: 0, background: 'var(--canvas)', padding: '7px 12px', textAlign: 'left', borderBottom: '1px solid var(--hairline)', whiteSpace: 'nowrap' }}>Učenec</th>
+                {questions.map((q, i) => <th key={q.id} title={q.prompt} style={{ padding: '7px 6px', borderBottom: '1px solid var(--hairline)', minWidth: '32px', color: 'var(--muted)', fontWeight: 600 }}>{i + 1}</th>)}
+              </tr></thead>
+              <tbody>{rows.map(({ s, ans }) => (
+                <tr key={s.student_id}>
+                  <td style={{ position: 'sticky', left: 0, background: '#fff', padding: '6px 12px', borderBottom: '1px solid var(--hairline)', whiteSpace: 'nowrap', color: s.device_id ? 'var(--ink)' : 'var(--muted)' }}>{s.name}</td>
+                  {questions.map(q => {
+                    const st = answerStatus(q, ans[q.id]);
+                    const sym = st === 'correct' ? '✓' : st === 'wrong' ? '✗' : '–';
+                    const color = st === 'correct' ? 'var(--green-ok)' : st === 'wrong' ? '#c0392b' : 'var(--hairline)';
+                    const label = q.kind === 'mc' ? q.options.find(o => o.id === ans[q.id])?.text : ans[q.id];
+                    return <td key={q.id} title={label ?? ''} style={{ textAlign: 'center', padding: '6px 8px', borderBottom: '1px solid var(--hairline)', color, fontWeight: 700 }}>{sym}</td>;
+                  })}
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* statistika po vprašanjih */}
+      {questions.length > 0 && (
+        <div style={{ marginTop: '32px' }}>
+          <h2 style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted)', margin: '0 0 10px' }}>Vprašanja</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {questions.map((q, i) => <QuestionStats key={q.id} q={q} index={i} answers={answers} totalStudents={students.length} />)}
+          </div>
+        </div>
       )}
     </div>
   );
@@ -203,31 +374,9 @@ export default function LiveSession({ sessionId }: { sessionId: string }) {
     if (confirm('Končam sejo? Učenci ne bodo mogli več odgovarjati.')) void act({ status: 'ended', ended_at: new Date().toISOString() });
   };
 
-  // ── konec seje: kratek povzetek ──
+  // ── konec seje: podrobni rezultati ──
   if (!live) {
-    const rows = students.map(s => ({ s, sc: scoreAnswers(session.quiz, answersByStudent.get(s.student_id) ?? {}) }))
-      .sort((a, b) => a.s.name.localeCompare(b.s.name, 'sl'));
-    return (
-      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '32px', fontFamily: 'var(--font-sans)' }}>
-        <Link href="/kvizi" style={{ fontSize: '13px', color: 'var(--forest)', textDecoration: 'none' }}>← Kvizi</Link>
-        <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '36px', fontWeight: 300, margin: '10px 0 4px', color: 'var(--ink)' }}>{session.quiz_title}</h1>
-        <p style={{ color: 'var(--muted)', margin: '0 0 20px' }}>{session.class_name} · seja končana · {joined.length}/{students.length} sodelovalo</p>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
-          <thead><tr style={{ textAlign: 'left', color: 'var(--muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-            <th style={{ padding: '8px 6px' }}>Učenec</th><th style={{ padding: '8px 6px' }}>Točke</th><th style={{ padding: '8px 6px' }}>%</th><th style={{ padding: '8px 6px' }}>Pravilno / narobe / brez</th>
-          </tr></thead>
-          <tbody>{rows.map(({ s, sc }) => (
-            <tr key={s.student_id} style={{ borderTop: '1px solid var(--hairline)', color: s.device_id ? 'var(--ink)' : 'var(--muted)' }}>
-              <td style={{ padding: '8px 6px' }}>{s.name}{!s.device_id && ' (ni sodeloval)'}</td>
-              <td style={{ padding: '8px 6px', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(sc.points)} / {formatNumber(sc.maxPoints)}</td>
-              <td style={{ padding: '8px 6px', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(sc.percent)} %</td>
-              <td style={{ padding: '8px 6px', fontVariantNumeric: 'tabular-nums' }}>{sc.correct} / {sc.wrong} / {sc.unanswered}</td>
-            </tr>
-          ))}</tbody>
-        </table>
-        <p style={{ color: 'var(--muted)', fontSize: '12px', marginTop: '16px' }}>Podrobna stran z rezultati (statistika vprašanj, izvoz CSV) pride v naslednjem koraku.</p>
-      </div>
-    );
+    return <SessionResults session={session} students={students} answers={answers} />;
   }
 
   return (
