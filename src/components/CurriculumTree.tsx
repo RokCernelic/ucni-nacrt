@@ -223,7 +223,7 @@ function StandardFilter({ filter, onToggle }: { filter: StdFilter; onToggle: (ke
 
 // ── Palette ────────────────────────────────────────────────
 
-function Palette({ contentOptions, onDragStart, onDragEnd }: { contentOptions: string[]; onDragStart: (d: PaletteDrag) => void; onDragEnd: () => void }) {
+function Palette({ onDragStart, onDragEnd }: { onDragStart: (d: PaletteDrag) => void; onDragEnd: () => void }) {
   const { chips, addChip, renameChip, removeChip } = usePalette();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState('');
@@ -307,17 +307,6 @@ function Palette({ contentOptions, onDragStart, onDragEnd }: { contentOptions: s
           onKeyDown={e => { if (e.key === 'Escape') cancelAdd(); }}
           style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
         >
-          {contentOptions.length > 0 && (
-            <select
-              value=""
-              onChange={e => { if (e.target.value) setNewLabel(e.target.value); }}
-              title="Izberi iz učne vsebine"
-              style={{ background: 'var(--canvas)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', color: 'var(--ink)', fontSize: '11px', fontWeight: 600, padding: '4px 2px', outline: 'none', maxWidth: '120px' }}
-            >
-              <option value="">Učna vsebina…</option>
-              {contentOptions.map(o => <option key={o} value={o}>{o}</option>)}
-            </select>
-          )}
           <input
             ref={addRef}
             value={newLabel}
@@ -394,7 +383,7 @@ function CiljRow({ tip, text }: { tip: 'O' | 'I'; text: string }) {
 
 // ── Custom enota row ───────────────────────────────────────
 
-function CustomEnotaRow({ item, onToggle, onDragStart, onDragEnd, onRename, onHourChange, remaining }: {
+function CustomEnotaRow({ item, onToggle, onDragStart, onDragEnd, onRename, onHourChange, remaining, noteValue, onNoteChange }: {
   item: ResolvedEnotaItem & { kind: 'custom' };
   onToggle: () => void;
   onDragStart: () => void;
@@ -402,7 +391,10 @@ function CustomEnotaRow({ item, onToggle, onDragStart, onDragEnd, onRename, onHo
   onRename: (label: string) => void;
   onHourChange: (delta: number) => void;
   remaining: number;
+  noteValue: string;
+  onNoteChange: (v: string) => void;
 }) {
+  const [openVsebina, setOpenVsebina] = useState(false);
   const headerRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState(false);
   const [label, setLabel] = useState(item.type);
@@ -477,6 +469,20 @@ function CustomEnotaRow({ item, onToggle, onDragStart, onDragEnd, onRename, onHo
             +
           </button>
         </div>
+      </div>
+
+      <div style={{ borderTop: '1px solid var(--hairline)' }}>
+        <button onClick={() => setOpenVsebina(v => !v)} style={sectionToggleStyle(openVsebina)}>
+          <ChevronIcon open={openVsebina} /> Učna vsebina
+          {noteValue.trim() && (
+            <span style={{ marginLeft: '4px', width: '6px', height: '6px', borderRadius: '50%', background: 'var(--forest)', flexShrink: 0 }} title="Vsebina je vnesena" />
+          )}
+        </button>
+        {openVsebina && (
+          <div style={{ padding: '4px 20px 10px 44px' }}>
+            <UcnaVsebina value={noteValue} onChange={onNoteChange} />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -819,6 +825,8 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
                         onRename={(label) => renameCustom(poglavjeKey, item.id, label)}
                         onHourChange={(delta) => setCustomHours(poglavjeKey, item.id, Math.max(0, item.hours + delta))}
                         remaining={remaining}
+                        noteValue={getNote(`${predmetId}:${item.id}`)}
+                        onNoteChange={(v) => onNoteChange(`${predmetId}:${item.id}`, v)}
                         onDragStart={() => { dragDroppedRef.current = false; dragFromRef.current = idx; setIsDraggingCustom(true); }}
                         onDragEnd={() => {
                           if (!dragDroppedRef.current && dragFromRef.current !== null) {
@@ -1053,7 +1061,6 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
                     totalHours={gradeUsed[razred] ?? 0}
                   />
                   <Palette
-                    contentOptions={poglavja.flatMap(p => p.podpoglavja.map(pp => pp.naslov))}
                     onDragStart={setPaletteDrag}
                     onDragEnd={() => setPaletteDrag(null)}
                   />
