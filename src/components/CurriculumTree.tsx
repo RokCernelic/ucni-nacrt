@@ -513,7 +513,7 @@ function UcnaVsebina({ value, onChange }: { value: string; onChange: (v: string)
 
 // ── Podpoglavje row ────────────────────────────────────────
 
-function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, onHourChange, remaining, number, isAnonymous, listMode, noteValue, onNoteChange, onDragStart, onDragEnd }: {
+function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, onHourChange, remaining, number, isAnonymous, listMode, noteValue, onNoteChange, onDragStart, onDragEnd, collapsed, onToggleCollapse }: {
   podpoglavje: import('@/types/curriculum').Podpoglavje;
   predmetId: string;
   checked: boolean;
@@ -528,6 +528,9 @@ function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, 
   onNoteChange: (v: string) => void;
   onDragStart: () => void;
   onDragEnd: () => void;
+  /** ročno strnjeno za TO podpoglavje posebej (klik na naslov) — neodvisno od globalnega "Strnjen seznam" */
+  collapsed: boolean;
+  onToggleCollapse: () => void;
 }) {
   const [openCilji, setOpenCilji] = useState(false);
   const [openStandardi, setOpenStandardi] = useState(false);
@@ -540,9 +543,9 @@ function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, 
     next.has(key) ? next.delete(key) : next.add(key);
     return next;
   });
-  const hasCilji = !listMode && podpoglavje.cilji.length > 0;
-  const hasStandardi = !listMode && (podpoglavje.standardi?.length ?? 0) > 0;
-  const hasPojmi = !listMode && (podpoglavje.noviPojmi?.length ?? 0) > 0;
+  const hasCilji = !listMode && !collapsed && podpoglavje.cilji.length > 0;
+  const hasStandardi = !listMode && !collapsed && (podpoglavje.standardi?.length ?? 0) > 0;
+  const hasPojmi = !listMode && !collapsed && (podpoglavje.noviPojmi?.length ?? 0) > 0;
 
   return (
     <div style={{ borderBottom: '1px solid var(--hairline)', background: checked ? '#f4fbf4' : 'var(--canvas)', transition: 'background 0.2s' }}>
@@ -580,7 +583,10 @@ function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, 
         )}
 
         <div style={{ flex: 1 }}>
-          <div style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: podpoglavje.izbirna ? 400 : 500, fontStyle: podpoglavje.izbirna ? 'italic' : 'normal', color: checked ? 'var(--green-ok)' : podpoglavje.izbirna ? 'var(--muted)' : 'var(--ink)', opacity: checked ? 0.7 : 1 }}>
+          <div
+            onClick={onToggleCollapse}
+            title={collapsed ? 'Razširi cilje, standarde, pojme in učno vsebino za to podpoglavje' : 'Strni cilje, standarde, pojme in učno vsebino za to podpoglavje'}
+            style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: podpoglavje.izbirna ? 400 : 500, fontStyle: podpoglavje.izbirna ? 'italic' : 'normal', color: checked ? 'var(--green-ok)' : podpoglavje.izbirna ? 'var(--muted)' : 'var(--ink)', opacity: checked ? 0.7 : 1, cursor: 'pointer' }}>
             <span style={{ fontWeight: 400, color: 'var(--muted)', marginRight: '6px', fontSize: '12px' }}>{number}</span>{podpoglavje.naslov}
             {podpoglavje.izbirna && (
               <span style={{ marginLeft: '8px', fontSize: '9px', fontWeight: 600, fontStyle: 'normal', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--wood)', border: '1px solid var(--wood-lt)', borderRadius: '3px', padding: '1px 5px', verticalAlign: 'middle' }}>
@@ -644,7 +650,7 @@ function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, 
           )}
         </div>
       )}
-      {!listMode && (
+      {!listMode && !collapsed && (
         <div style={{ borderTop: '1px solid var(--hairline)' }}>
           <button onClick={() => setOpenVsebina(v => !v)} style={sectionToggleStyle(openVsebina)}>
             <ChevronIcon open={openVsebina} /> Učna vsebina
@@ -665,7 +671,7 @@ function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, 
 
 // ── Poglavje row ──────────────────────────────────────────
 
-function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, onToggleOpen, getHours, onHourChange, remaining, resolve, addEnota, reorder, removeEnota, toggleCustom, renameCustom, setCustomHours, isAnonymous, listMode, getNote, onNoteChange, onDragStart, onDragEnd }: {
+function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, onToggleOpen, getHours, onHourChange, remaining, resolve, addEnota, reorder, removeEnota, toggleCustom, renameCustom, setCustomHours, isAnonymous, listMode, getNote, onNoteChange, onDragStart, onDragEnd, collapsedPodpoglavja, onToggleCollapsePodpoglavje }: {
   poglavje: import('@/types/curriculum').Poglavje;
   index: number;
   predmetId: string;
@@ -689,6 +695,8 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
   onNoteChange: (key: string, v: string) => void;
   onDragStart: () => void;
   onDragEnd: () => void;
+  collapsedPodpoglavja: Set<string>;
+  onToggleCollapsePodpoglavje: (id: string) => void;
 }) {
   const [openOpis, setOpenOpis] = useState(false);
   const [isDraggingCustom, setIsDraggingCustom] = useState(false);
@@ -801,6 +809,8 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
                         onNoteChange={(v) => onNoteChange(`${predmetId}:${item.id}`, v)}
                         onDragStart={() => { dragDroppedRef.current = false; dragFromRef.current = idx; setIsDraggingCustom(true); }}
                         onDragEnd={() => { dragDroppedRef.current = false; dragFromRef.current = null; setIsDraggingCustom(false); }}
+                        collapsed={collapsedPodpoglavja.has(item.id)}
+                        onToggleCollapse={() => onToggleCollapsePodpoglavje(item.id)}
                       />
                     ) : (
                       <CustomEnotaRow
@@ -879,6 +889,9 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
   const { getNote, setNote } = useNotes(classId ? `ucni-nacrt-notes-${classId}` : undefined);
   const { resolve, addEnota, reorder, removeEnota, toggleCustom, renameCustom, setCustomHours, countCustom, countCheckedCustom } = useEnotaOrder(classId ? `ucni-nacrt-enote-order-${classId}` : undefined);
   const { openChapters, toggle: toggleChapter, expandAll, collapseAll } = useOpenChapters(classId ? `ucni-nacrt-open-chapters-${classId}` : undefined);
+  // Klik na naslov podpoglavja strne/razširi cilje, standarde, pojme in učno vsebino ZANJ POSEBEJ
+  // (v nasprotju z gumbom "Strnjen seznam", ki to naredi globalno za vsa podpoglavja).
+  const { openChapters: collapsedPodpoglavja, toggle: toggleCollapsedPodpoglavje } = useOpenChapters(classId ? `ucni-nacrt-collapsed-podpoglavja-${classId}` : undefined);
   const { resolveOrder, reorderChapters } = useChapterOrder(classId ? `ucni-nacrt-chapter-order-${classId}` : undefined);
   const [paletteDrag, setPaletteDrag] = useState<PaletteDrag | null>(null);
   const [listMode, setListMode] = useListMode(classId);
@@ -1076,6 +1089,8 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
                               onNoteChange={setNote}
                               onDragStart={() => { chapterDragFrom.current = ci; setChapterDragging(true); }}
                               onDragEnd={() => { chapterDragFrom.current = null; setChapterDragging(false); }}
+                              collapsedPodpoglavja={collapsedPodpoglavja}
+                              onToggleCollapsePodpoglavje={toggleCollapsedPodpoglavje}
                             />
                             {chapterDragging && <DropZone onDrop={() => handleChapterDrop(groupKey, ci + 1, ids)} />}
                           </div>
