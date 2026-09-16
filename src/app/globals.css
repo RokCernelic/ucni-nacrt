@@ -4,9 +4,9 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 
-/* ── Tisk (Ctrl+P): natisne se samo sedežni red ── */
+/* ── Tisk (Ctrl+P): natisne se samo sedežni red — pokončno, ta dan + naslednji na eni A4 strani ── */
 @media print {
-  @page { size: landscape; margin: 10mm; }
+  @page { size: portrait; margin: 10mm; }
   body { background: #fff !important; }
   body * { visibility: hidden !important; }
   .no-print { display: none !important; }
@@ -16,12 +16,33 @@ html { scroll-behavior: smooth; }
     position: absolute; left: 0; top: 0; width: 100%;
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
-  .print-seating { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  /* naslednji dan na svojo (drugo) stran */
-  .print-next { display: block !important; break-before: page; page-break-before: always; }
-  /* mreža naj se prilagodi strani (brez vodoravnega drsenja) */
+  .print-seating {
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    max-width: 100% !important;
+    /* poskusi ostati skupaj (naslov + mreža + tabla), da se ne razdeli sredi mreže */
+    break-inside: avoid-page; page-break-inside: avoid;
+  }
+  /* naslednji dan pod prvim na isti strani, ločen s črto (namesto na svojo stran) */
+  .print-next {
+    display: block !important;
+    margin-top: 8mm; padding-top: 6mm; border-top: 1px dashed #999;
+  }
+  /* mreža naj se prilagodi širini strani (brez vodoravnega drsenja) in zavzame manj prostora po višini,
+     da se ta dan + naslednji dan izpišeta na eno pokončno stran */
   .print-seating .seating-scroll { overflow: visible !important; }
-  .print-seating .seating-grid { min-width: 0 !important; max-width: 100% !important; }
+  .print-seating .seating-grid {
+    min-width: 0 !important; max-width: 100% !important;
+    --seat-min: 55px; --seat-gap: 7px !important;
+  }
+  .print-seating .seating-head { margin-bottom: 8px !important; }
+  .print-seating .seating-head > div:first-child { font-size: 17px !important; }
+  .print-seating .seating-head > div:last-child { font-size: 11px !important; margin-top: 2px !important; }
+  .print-seating .seating-cell {
+    height: 46px !important; font-size: 11px !important; padding: 3px 4px !important;
+  }
+  .print-seating .seating-board {
+    margin: 8px auto 0 !important; padding: 6px !important; font-size: 10px !important;
+  }
 }
 
 /* naslednji dan je samo za tisk */

@@ -61,7 +61,7 @@ function StaticSeatingGrid({ wrapClass, heading, contextLabel, dateISO, metaLine
   const disabled = new Set(layout.disabled);
   return (
     <div className={wrapClass}>
-      <div style={{ marginBottom: '12px' }}>
+      <div className="seating-head" style={{ marginBottom: '12px' }}>
         <div style={{ fontFamily: 'var(--font-serif)', fontSize: '20px', color: 'var(--ink)' }}>
           {heading}
           {contextLabel && <span style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--muted)', marginLeft: '10px' }}>{contextLabel}</span>}
@@ -71,16 +71,16 @@ function StaticSeatingGrid({ wrapClass, heading, contextLabel, dateISO, metaLine
         </div>
       </div>
       <div className="seating-scroll" style={{ overflowX: 'auto' }}>
-        <div className="seating-grid" style={{ display: 'grid', gridTemplateColumns: `repeat(${layout.cols}, minmax(84px, 1fr))`, gap: '10px', minWidth: `${layout.cols * 94}px`, maxWidth: '760px', margin: '0 auto' }}>
+        <div className="seating-grid" style={{ display: 'grid', gridTemplateColumns: `repeat(${layout.cols}, minmax(var(--seat-min, 84px), 1fr))`, gap: 'var(--seat-gap, 10px)', minWidth: `${layout.cols * 94}px`, maxWidth: '760px', margin: '0 auto' }}>
           {Array.from({ length: layout.rows }).flatMap((_, ri) => {
             const r = layout.rows - 1 - ri;
             return Array.from({ length: layout.cols }).map((_, c) => {
               const k = `${r}-${c}`;
-              if (disabled.has(k)) return <div key={k} style={{ height: '58px' }} />;
+              if (disabled.has(k)) return <div key={k} className="seating-cell" style={{ height: '58px' }} />;
               const stud = studentById.get(assign[k]);
               const gs = stud ? genderStyle(stud.gender) : { bg: 'var(--canvas)', border: 'var(--hairline)', color: 'var(--muted)' };
               return (
-                <div key={k} style={{ position: 'relative', height: '58px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '4px 6px', border: `1.5px solid ${gs.border}`, background: gs.bg, color: gs.color, fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500, lineHeight: 1.2, boxSizing: 'border-box' }}>
+                <div key={k} className="seating-cell" style={{ position: 'relative', height: '58px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '4px 6px', border: `1.5px solid ${gs.border}`, background: gs.bg, color: gs.color, fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500, lineHeight: 1.2, boxSizing: 'border-box' }}>
                   {stud?.frontRow && <span style={{ position: 'absolute', top: '3px', left: '4px', fontSize: '9px', fontWeight: 700, color: gs.color, opacity: 0.6 }}>1↓</span>}
                   {stud ? stud.name : ''}
                 </div>
@@ -89,7 +89,7 @@ function StaticSeatingGrid({ wrapClass, heading, contextLabel, dateISO, metaLine
           })}
         </div>
       </div>
-      <div style={{ textAlign: 'center', margin: '14px auto 0', maxWidth: '640px', background: 'var(--forest)', color: '#fff', borderRadius: 'var(--r-sm)', padding: '8px', fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, letterSpacing: '0.2em', textTransform: 'uppercase' }}>Tabla</div>
+      <div className="seating-board" style={{ textAlign: 'center', margin: '14px auto 0', maxWidth: '640px', background: 'var(--forest)', color: '#fff', borderRadius: 'var(--r-sm)', padding: '8px', fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, letterSpacing: '0.2em', textTransform: 'uppercase' }}>Tabla</div>
     </div>
   );
 }
@@ -342,7 +342,7 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
       <div className="print-root">
         <div className="print-seating">
           {/* Ime razreda + metapodatki */}
-          <div style={{ marginBottom: '12px' }}>
+          <div className="seating-head" style={{ marginBottom: '12px' }}>
             <div style={{ fontFamily: 'var(--font-serif)', fontSize: '20px', color: 'var(--ink)' }}>
               {className}
               {contextLabel && (
@@ -360,7 +360,7 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
 
           {/* Mreža klopi (prva vrsta spodaj, bližje tabli) */}
           <div className="seating-scroll" style={{ overflowX: 'auto' }}>
-            <div className="seating-grid" style={{ display: 'grid', gridTemplateColumns: `repeat(${layout.cols}, minmax(84px, 1fr))`, gap: '10px', minWidth: `${layout.cols * 94}px`, maxWidth: '760px', margin: '0 auto' }}>
+            <div className="seating-grid" style={{ display: 'grid', gridTemplateColumns: `repeat(${layout.cols}, minmax(var(--seat-min, 84px), 1fr))`, gap: 'var(--seat-gap, 10px)', minWidth: `${layout.cols * 94}px`, maxWidth: '760px', margin: '0 auto' }}>
             {Array.from({ length: layout.rows }).flatMap((_, ri) => {
               const r = layout.rows - 1 - ri;
               return Array.from({ length: layout.cols }).map((_, c) => {
@@ -370,7 +370,7 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
 
                 if (editSeats) {
                   return (
-                    <button key={k} onClick={() => toggleSeat(k)}
+                    <button key={k} className="seating-cell" onClick={() => toggleSeat(k)}
                       style={{ height: '58px', borderRadius: '8px', cursor: 'pointer',
                         border: isSeat ? '1px solid var(--hairline)' : '1px dashed var(--hairline)',
                         background: isSeat ? 'var(--canvas)' : 'transparent',
@@ -379,11 +379,12 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
                     </button>
                   );
                 }
-                if (!isSeat) return <div key={k} style={{ height: '58px' }} />;
+                if (!isSeat) return <div key={k} className="seating-cell" style={{ height: '58px' }} />;
 
                 const gs = stud ? genderStyle(stud.gender) : { bg: 'var(--canvas)', border: 'var(--hairline)', color: 'var(--muted)' };
                 return (
                   <div key={k}
+                    className="seating-cell"
                     draggable={!!stud}
                     onDragStart={() => { if (stud) dragRef.current = { from: 'seat', cell: k }; }}
                     onDragOver={e => e.preventDefault()}
@@ -419,7 +420,7 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
           </div>
 
           {/* Tabla spodaj (spredaj v učilnici) */}
-          <div style={{ textAlign: 'center', margin: '14px auto 0', maxWidth: '640px', background: 'var(--forest)', color: '#fff', borderRadius: 'var(--r-sm)', padding: '8px', fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, letterSpacing: '0.2em', textTransform: 'uppercase' }}>
+          <div className="seating-board" style={{ textAlign: 'center', margin: '14px auto 0', maxWidth: '640px', background: 'var(--forest)', color: '#fff', borderRadius: 'var(--r-sm)', padding: '8px', fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, letterSpacing: '0.2em', textTransform: 'uppercase' }}>
             Tabla
           </div>
         </div>
