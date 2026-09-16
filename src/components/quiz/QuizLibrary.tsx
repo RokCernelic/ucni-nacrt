@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
@@ -47,6 +47,9 @@ export default function QuizLibrary() {
   const [renaming, setRenaming] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState<string | null>(null);
+  const [draggingQuiz, setDraggingQuiz] = useState<string | null>(null);
+  const [dragOverFolder, setDragOverFolder] = useState<string | null>(null); // '' pomeni koren
+  const dragQuizId = useRef<string | null>(null);
 
   useEffect(() => {
     try { const v = sessionStorage.getItem(FOLDER_KEY); if (v) setCurrent(v); } catch { /* ignore */ }
@@ -66,6 +69,24 @@ export default function QuizLibrary() {
     catch (e) { setError(e instanceof QuizStorageFullError ? e.message : 'Shranjevanje ni uspelo.'); }
   };
 
+  // Povleci-in-spusti kviz na mapo (podmapo v seznamu ali mapo v poti zgoraj), da ga premakneš vanjo.
+  // Ciljna mapa potuje prek data-folder-id (''=koren), ne prek zaprtja, da ostanejo ročniki stabilni.
+  const onFolderDragOver = (e: React.DragEvent<HTMLElement>) => {
+    if (!dragQuizId.current) return;
+    e.preventDefault();
+    setDragOverFolder(e.currentTarget.dataset.folderId ?? '');
+  };
+  const onFolderDragLeave = (e: React.DragEvent<HTMLElement>) => {
+    const id = e.currentTarget.dataset.folderId ?? '';
+    setDragOverFolder(prev => (prev === id ? null : prev));
+  };
+  const onFolderDrop = (e: React.DragEvent<HTMLElement>) => {
+    e.preventDefault();
+    const folderId = e.currentTarget.dataset.folderId || null; // '' (koren) -> null
+    const id = dragQuizId.current;
+    dragQuizId.current = null; setDraggingQuiz(null); setDragOverFolder(null);
+    if (id) guard(() => lib.updateQuiz(id, { folderId }));
+  };
   if (loading || !lib.loaded) return null;
 
   const path = folderPath(lib.folders, current);
@@ -102,11 +123,19 @@ export default function QuizLibrary() {
             {/* pot + orodja */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '18px' }}>
               <nav style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', fontFamily: 'var(--font-sans)', fontSize: '13px', flex: '1 1 auto' }}>
-                <button onClick={() => open(null)} style={{ ...smallBtn, fontSize: '13px', padding: 0, color: current ? 'var(--forest)' : 'var(--ink)', fontWeight: current ? 500 : 600 }}>Vsi kvizi</button>
+                <button onClick={() => open(null)} data-folder-id="" onDragOver={onFolderDragOver} onDragLeave={onFolderDragLeave} onDrop={onFolderDrop}
+                  style={{ ...smallBtn, fontSize: '13px', padding: '2px 6px', borderRadius: 'var(--r-sm)', color: current ? 'var(--forest)' : 'var(--ink)', fontWeight: current ? 500 : 600,
+                    background: dragOverFolder === '' ? 'var(--forest)' : 'transparent', ...(dragOverFolder === '' ? { color: '#fff' } : {}) }}>
+                  Vsi kvizi
+                </button>
                 {path.map((f, i) => (
                   <span key={f.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                     <span style={{ color: 'var(--muted)' }}>/</span>
-                    <button onClick={() => open(f.id)} style={{ ...smallBtn, fontSize: '13px', padding: 0, color: i === path.length - 1 ? 'var(--ink)' : 'var(--forest)', fontWeight: i === path.length - 1 ? 600 : 500 }}>{f.name}</button>
+                    <button onClick={() => open(f.id)} data-folder-id={f.id} onDragOver={onFolderDragOver} onDragLeave={onFolderDragLeave} onDrop={onFolderDrop}
+                      style={{ ...smallBtn, fontSize: '13px', padding: '2px 6px', borderRadius: 'var(--r-sm)', color: i === path.length - 1 ? 'var(--ink)' : 'var(--forest)', fontWeight: i === path.length - 1 ? 600 : 500,
+                        background: dragOverFolder === f.id ? 'var(--forest)' : 'transparent', ...(dragOverFolder === f.id ? { color: '#fff' } : {}) }}>
+                      {f.name}
+                    </button>
                   </span>
                 ))}
               </nav>
@@ -120,7 +149,9 @@ export default function QuizLibrary() {
             {subfolders.length > 0 && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px', marginBottom: '22px' }}>
                 {subfolders.map(f => (
-                  <div key={f.id} style={{ ...card, display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px' }}>
+                  <div key={f.id} data-folder-id={f.id} onDragOver={onFolderDragOver} onDragLeave={onFolderDragLeave} onDrop={onFolderDrop}
+                    style={{ ...card, display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px',
+                      ...(dragOverFolder === f.id ? { background: '#e9f2ea', border: '1.5px solid var(--forest)' } : {}) }}>
                     <span style={{ color: 'var(--forest)', display: 'flex' }}><FolderIcon /></span>
                     {renaming === f.id ? (
                       <input autoFocus defaultValue={f.name}
@@ -152,8 +183,13 @@ export default function QuizLibrary() {
                   const incomplete = q.questions.filter(x => questionProblems(x).length > 0).length;
                   const maxPoints = q.questions.reduce((s, x) => s + x.points, 0);
                   return (
-                    <div key={q.id} style={{ ...card, display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
-                      <Link href={`/kvizi/${q.id}`} style={{ flex: '1 1 260px', minWidth: 0, textDecoration: 'none' }}>
+                    <div key={q.id}
+                      draggable
+                      onDragStart={e => { dragQuizId.current = q.id; setDraggingQuiz(q.id); e.dataTransfer.effectAllowed = 'move'; }}
+                      onDragEnd={() => { dragQuizId.current = null; setDraggingQuiz(null); setDragOverFolder(null); }}
+                      title="Povleci na mapo (zgoraj ali v seznamu), da premakneš kviz vanjo"
+                      style={{ ...card, display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', cursor: 'grab', opacity: draggingQuiz === q.id ? 0.4 : 1 }}>
+                      <Link href={`/kvizi/${q.id}`} draggable={false} style={{ flex: '1 1 260px', minWidth: 0, textDecoration: 'none' }}>
                         <div style={{ fontFamily: 'var(--font-sans)', fontSize: '15px', fontWeight: 600, color: 'var(--ink)' }}>{q.title || 'Brez naslova'}</div>
                         <div style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--muted)', marginTop: '2px' }}>
                           {questionsLabel(q.questions.length)} · {pointsLabel(maxPoints)}
