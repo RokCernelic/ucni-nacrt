@@ -7,6 +7,8 @@ export interface PaletteChip {
   id: string;
   label: string;
   color: string;
+  /** koliko ur predstavlja en tak vnos, ko ga povlečeš v seznam (privzeto 1) */
+  hours?: number;
 }
 
 const KEY = 'ucni-nacrt-palette';
@@ -49,10 +51,10 @@ export function usePalette() {
     return () => { window.removeEventListener('storage', onStorage); window.removeEventListener(SYNC_EVENT, resync); };
   }, []);
 
-  const addChip = useCallback((label: string) => {
+  const addChip = useCallback((label: string, hours: number = 1) => {
     const cur = readPalette() ?? DEFAULT_PALETTE;
     const color = COLOR_POOL[cur.length % COLOR_POOL.length];
-    const next = [...cur, { id: crypto.randomUUID(), label, color }];
+    const next = [...cur, { id: crypto.randomUUID(), label, color, hours }];
     setChips(next); save(next);
   }, []);
 

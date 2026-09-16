@@ -14,13 +14,13 @@ export const PALETTE_COLORS: Record<string, string> = {
 
 type StoredItem =
   | { k: 'c'; id: string }
-  | { k: 'x'; id: string; type: string; checked: boolean; color?: string };
+  | { k: 'x'; id: string; type: string; checked: boolean; color?: string; hours?: number };
 
 type Store = Record<string, StoredItem[]>;
 
 export type ResolvedEnotaItem =
   | { kind: 'curriculum'; id: string }
-  | { kind: 'custom'; id: string; type: string; checked: boolean; color: string };
+  | { kind: 'custom'; id: string; type: string; checked: boolean; color: string; hours: number };
 
 /**
  * Sestavi poln, usklajen seznam enot za poglavje: shranjeni vrstni red
@@ -62,13 +62,13 @@ export function useEnotaOrder(storageKey = 'ucni-nacrt-enote-order') {
     return materialize(store[poglavjeKey], currIds).map((item): ResolvedEnotaItem =>
       item.k === 'c'
         ? { kind: 'curriculum', id: item.id }
-        : { kind: 'custom', id: item.id, type: item.type, checked: item.checked, color: item.color ?? PALETTE_COLORS[item.type] ?? '#666' });
+        : { kind: 'custom', id: item.id, type: item.type, checked: item.checked, color: item.color ?? PALETTE_COLORS[item.type] ?? '#666', hours: item.hours ?? 1 });
   }, [store]);
 
-  const addEnota = useCallback((poglavjeKey: string, type: string, color: string, atIndex: number, currIds: string[]) => {
+  const addEnota = useCallback((poglavjeKey: string, type: string, color: string, atIndex: number, currIds: string[], hours: number = 1) => {
     setStore(prev => {
       const cur = materialize(prev[poglavjeKey], currIds);
-      const item: StoredItem = { k: 'x', id: crypto.randomUUID(), type, checked: false, color };
+      const item: StoredItem = { k: 'x', id: crypto.randomUUID(), type, checked: false, color, hours };
       const next = [...cur.slice(0, atIndex), item, ...cur.slice(atIndex)];
       const s = { ...prev, [poglavjeKey]: next };
       localStorage.setItem(storageKey, JSON.stringify(s));
@@ -102,6 +102,18 @@ export function useEnotaOrder(storageKey = 'ucni-nacrt-enote-order') {
     window.dispatchEvent(new Event('ucni-nacrt-changed'));
   }, [storageKey]);
 
+  const setCustomHours = useCallback((poglavjeKey: string, id: string, hours: number) => {
+    if (hours < 0) return;
+    setStore(prev => {
+      const cur = prev[poglavjeKey];
+      if (!cur) return prev;
+      const s = { ...prev, [poglavjeKey]: cur.map(i => i.k === 'x' && i.id === id ? { ...i, hours } : i) };
+      localStorage.setItem(storageKey, JSON.stringify(s));
+      return s;
+    });
+    window.dispatchEvent(new Event('ucni-nacrt-changed'));
+  }, [storageKey]);
+
   const toggleCustom = useCallback((poglavjeKey: string, id: string) => {
     setStore(prev => {
       const cur = prev[poglavjeKey];
@@ -124,13 +136,16 @@ export function useEnotaOrder(storageKey = 'ucni-nacrt-enote-order') {
     window.dispatchEvent(new Event('ucni-nacrt-changed'));
   }, [storageKey]);
 
+  // Vsota ur vseh lastnih (»x«) vnosov v danih poglavjih — vsak lahko predstavlja poljubno število ur, ne le 1.
+  const isCustom = (i: StoredItem): i is Extract<StoredItem, { k: 'x' }> => i.k === 'x';
+
   const countCustom = useCallback((poglavjeKeys: string[]) =>
-    poglavjeKeys.reduce((n, k) => n + (store[k]?.filter(i => i.k === 'x').length ?? 0), 0),
+    poglavjeKeys.reduce((n, k) => n + (store[k]?.filter(isCustom).reduce((s, i) => s + (i.hours ?? 1), 0) ?? 0), 0),
   [store]);
 
   const countCheckedCustom = useCallback((poglavjeKeys: string[]) =>
-    poglavjeKeys.reduce((n, k) => n + (store[k]?.filter(i => i.k === 'x' && i.checked).length ?? 0), 0),
+    poglavjeKeys.reduce((n, k) => n + (store[k]?.filter(isCustom).filter(i => i.checked).reduce((s, i) => s + (i.hours ?? 1), 0) ?? 0), 0),
   [store]);
 
-  return { resolve, addEnota, reorder, removeEnota, toggleCustom, renameCustom, countCustom, countCheckedCustom };
+  return { resolve, addEnota, reorder, removeEnota, toggleCustom, renameCustom, setCustomHours, countCustom, countCheckedCustom };
 }

@@ -67,7 +67,7 @@ function GripIcon() {
 
 // ── Palette drag context ───────────────────────────────────
 
-type PaletteDrag = { type: string; color: string };
+type PaletteDrag = { type: string; color: string; hours: number };
 const PaletteDragCtx = createContext<PaletteDrag | null>(null);
 
 // ── Standardi list ─────────────────────────────────────────
@@ -223,12 +223,13 @@ function StandardFilter({ filter, onToggle }: { filter: StdFilter; onToggle: (ke
 
 // ── Palette ────────────────────────────────────────────────
 
-function Palette({ onDragStart, onDragEnd }: { onDragStart: (d: PaletteDrag) => void; onDragEnd: () => void }) {
+function Palette({ contentOptions, onDragStart, onDragEnd }: { contentOptions: string[]; onDragStart: (d: PaletteDrag) => void; onDragEnd: () => void }) {
   const { chips, addChip, renameChip, removeChip } = usePalette();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState('');
   const [adding, setAdding] = useState(false);
   const [newLabel, setNewLabel] = useState('');
+  const [newHours, setNewHours] = useState('1');
   const editRef = useRef<HTMLInputElement>(null);
   const addRef = useRef<HTMLInputElement>(null);
 
@@ -239,9 +240,13 @@ function Palette({ onDragStart, onDragEnd }: { onDragStart: (d: PaletteDrag) => 
     if (editingId && editLabel.trim()) renameChip(editingId, editLabel.trim());
     setEditingId(null);
   };
+  const cancelAdd = () => { setAdding(false); setNewLabel(''); setNewHours('1'); };
   const commitAdd = () => {
-    if (newLabel.trim()) addChip(newLabel.trim());
-    setAdding(false); setNewLabel('');
+    const label = newLabel.trim();
+    if (!label) { cancelAdd(); return; }
+    const hours = Math.max(0, Number(newHours.replace(',', '.')) || 0);
+    addChip(label, hours);
+    cancelAdd();
   };
 
   return (
@@ -258,7 +263,7 @@ function Palette({ onDragStart, onDragEnd }: { onDragStart: (d: PaletteDrag) => 
             onDragStart={(e) => {
               e.dataTransfer.setData('text/plain', chip.label);
               e.dataTransfer.effectAllowed = 'copy';
-              onDragStart({ type: chip.label, color: chip.color });
+              onDragStart({ type: chip.label, color: chip.color, hours: chip.hours ?? 1 });
             }}
             onDragEnd={onDragEnd}
             style={{
@@ -297,15 +302,42 @@ function Palette({ onDragStart, onDragEnd }: { onDragStart: (d: PaletteDrag) => 
       })}
 
       {adding ? (
-        <input
-          ref={addRef}
-          value={newLabel}
-          onChange={e => setNewLabel(e.target.value)}
-          onBlur={commitAdd}
-          onKeyDown={e => { if (e.key === 'Enter') commitAdd(); if (e.key === 'Escape') { setAdding(false); setNewLabel(''); } }}
-          placeholder="lasten napis"
-          style={{ background: 'var(--canvas)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', color: 'var(--ink)', fontSize: '11px', fontWeight: 600, padding: '4px 8px', outline: 'none', width: '110px' }}
-        />
+        <div
+          onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) commitAdd(); }}
+          onKeyDown={e => { if (e.key === 'Escape') cancelAdd(); }}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+        >
+          {contentOptions.length > 0 && (
+            <select
+              value=""
+              onChange={e => { if (e.target.value) setNewLabel(e.target.value); }}
+              title="Izberi iz učne vsebine"
+              style={{ background: 'var(--canvas)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', color: 'var(--ink)', fontSize: '11px', fontWeight: 600, padding: '4px 2px', outline: 'none', maxWidth: '120px' }}
+            >
+              <option value="">Učna vsebina…</option>
+              {contentOptions.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+          )}
+          <input
+            ref={addRef}
+            value={newLabel}
+            onChange={e => setNewLabel(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') commitAdd(); }}
+            placeholder="lasten napis"
+            style={{ background: 'var(--canvas)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', color: 'var(--ink)', fontSize: '11px', fontWeight: 600, padding: '4px 8px', outline: 'none', width: '110px' }}
+          />
+          <input
+            value={newHours}
+            onChange={e => setNewHours(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') commitAdd(); }}
+            title="Število ur"
+            inputMode="decimal"
+            style={{ background: 'var(--canvas)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', color: 'var(--ink)', fontSize: '11px', fontWeight: 600, padding: '4px 4px', outline: 'none', width: '32px', textAlign: 'center' }}
+          />
+          <span style={{ fontSize: '10px', color: 'var(--muted)' }}>ur</span>
+          <button onClick={commitAdd} title="Dodaj" style={{ background: 'transparent', border: 'none', color: 'var(--forest)', cursor: 'pointer', fontSize: '15px', lineHeight: 1, padding: '0 2px' }}>✓</button>
+          <button onClick={cancelAdd} title="Prekliči" style={{ background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '13px', lineHeight: 1, padding: '0 2px' }}>×</button>
+        </div>
       ) : (
         <button
           onClick={() => setAdding(true)}
@@ -362,12 +394,14 @@ function CiljRow({ tip, text }: { tip: 'O' | 'I'; text: string }) {
 
 // ── Custom enota row ───────────────────────────────────────
 
-function CustomEnotaRow({ item, onToggle, onDragStart, onDragEnd, onRename }: {
+function CustomEnotaRow({ item, onToggle, onDragStart, onDragEnd, onRename, onHourChange, remaining }: {
   item: ResolvedEnotaItem & { kind: 'custom' };
   onToggle: () => void;
   onDragStart: () => void;
   onDragEnd: () => void;
   onRename: (label: string) => void;
+  onHourChange: (delta: number) => void;
+  remaining: number;
 }) {
   const headerRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState(false);
@@ -427,7 +461,22 @@ function CustomEnotaRow({ item, onToggle, onDragStart, onDragEnd, onRename }: {
             {item.type}
           </span>
         )}
-        <span style={{ fontSize: '12px', color: 'var(--muted)', flexShrink: 0 }}>ur: 1</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0 }}>
+          <span style={{ fontSize: '10px', color: 'var(--muted)', letterSpacing: '0.04em', marginRight: '1px' }}>ur:</span>
+          <button onClick={() => onHourChange(-1)} disabled={item.hours <= 0}
+            title="Manj ur"
+            style={{ width: '18px', height: '18px', border: '1px solid var(--hairline)', borderRadius: '4px', background: 'transparent', cursor: item.hours <= 0 ? 'not-allowed' : 'pointer', color: item.hours <= 0 ? 'var(--hairline)' : 'var(--muted)', fontSize: '12px', lineHeight: 1, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            −
+          </button>
+          <span style={{ minWidth: '16px', textAlign: 'center', fontSize: '12px', fontWeight: 600, color: 'var(--ink)', fontFamily: 'var(--font-sans)' }}>
+            {item.hours}
+          </span>
+          <button onClick={() => onHourChange(1)} disabled={remaining <= 0}
+            title="Več ur"
+            style={{ width: '18px', height: '18px', border: '1px solid var(--hairline)', borderRadius: '4px', background: 'transparent', cursor: remaining <= 0 ? 'not-allowed' : 'pointer', color: remaining <= 0 ? 'var(--hairline)' : 'var(--forest)', fontSize: '12px', lineHeight: 1, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            +
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -616,7 +665,7 @@ function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, 
 
 // ── Poglavje row ──────────────────────────────────────────
 
-function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, onToggleOpen, getHours, onHourChange, remaining, resolve, addEnota, reorder, removeEnota, toggleCustom, renameCustom, isAnonymous, listMode, getNote, onNoteChange, onDragStart, onDragEnd }: {
+function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, onToggleOpen, getHours, onHourChange, remaining, resolve, addEnota, reorder, removeEnota, toggleCustom, renameCustom, setCustomHours, isAnonymous, listMode, getNote, onNoteChange, onDragStart, onDragEnd }: {
   poglavje: import('@/types/curriculum').Poglavje;
   index: number;
   predmetId: string;
@@ -628,11 +677,12 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
   onHourChange: (key: string, delta: number) => void;
   remaining: number;
   resolve: (key: string, currIds: string[]) => ResolvedEnotaItem[];
-  addEnota: (key: string, type: string, color: string, at: number, currIds: string[]) => void;
+  addEnota: (key: string, type: string, color: string, at: number, currIds: string[], hours?: number) => void;
   reorder: (key: string, from: number, to: number, currIds: string[]) => void;
   removeEnota: (key: string, id: string) => void;
   toggleCustom: (key: string, id: string) => void;
   renameCustom: (key: string, id: string, label: string) => void;
+  setCustomHours: (key: string, id: string, hours: number) => void;
   isAnonymous?: boolean;
   listMode?: boolean;
   getNote: (key: string) => string;
@@ -652,8 +702,9 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
   const podpoglavjeMap = useMemo(() => new Map(poglavje.podpoglavja.map(pp => [pp.id, pp])), [poglavje.podpoglavja]);
   const items = resolve(poglavjeKey, podpoglavjeIds);
 
-  const customCount = items.filter(i => i.kind === 'custom').length;
-  const checkedCustomCount = items.filter(i => i.kind === 'custom' && i.checked).length;
+  const customItems = items.filter((i): i is ResolvedEnotaItem & { kind: 'custom' } => i.kind === 'custom');
+  const customCount = customItems.reduce((s, i) => s + i.hours, 0);
+  const checkedCustomCount = customItems.filter(i => i.checked).reduce((s, i) => s + i.hours, 0);
 
   const totalHours = poglavje.podpoglavja.reduce((s, pp) => s + getHours(`${predmetId}:${pp.id}`), 0) + customCount;
   const doneHours = poglavje.podpoglavja
@@ -663,7 +714,7 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
 
   const handleDrop = (toIndex: number) => {
     if (paletteType !== null) {
-      addEnota(poglavjeKey, paletteType.type, paletteType.color, toIndex, podpoglavjeIds);
+      addEnota(poglavjeKey, paletteType.type, paletteType.color, toIndex, podpoglavjeIds, paletteType.hours);
     } else if (dragFromRef.current !== null) {
       dragDroppedRef.current = true;
       reorder(poglavjeKey, dragFromRef.current, toIndex, podpoglavjeIds);
@@ -756,6 +807,8 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
                         item={item}
                         onToggle={() => toggleCustom(poglavjeKey, item.id)}
                         onRename={(label) => renameCustom(poglavjeKey, item.id, label)}
+                        onHourChange={(delta) => setCustomHours(poglavjeKey, item.id, Math.max(0, item.hours + delta))}
+                        remaining={remaining}
                         onDragStart={() => { dragDroppedRef.current = false; dragFromRef.current = idx; setIsDraggingCustom(true); }}
                         onDragEnd={() => {
                           if (!dragDroppedRef.current && dragFromRef.current !== null) {
@@ -824,7 +877,7 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
   const { checked, toggle } = useProgress(classId ? `ucni-nacrt-progress-${classId}` : undefined);
   const { getHours, change } = useHours(classId ? `ucni-nacrt-hours-${classId}` : undefined);
   const { getNote, setNote } = useNotes(classId ? `ucni-nacrt-notes-${classId}` : undefined);
-  const { resolve, addEnota, reorder, removeEnota, toggleCustom, renameCustom, countCustom, countCheckedCustom } = useEnotaOrder(classId ? `ucni-nacrt-enote-order-${classId}` : undefined);
+  const { resolve, addEnota, reorder, removeEnota, toggleCustom, renameCustom, setCustomHours, countCustom, countCheckedCustom } = useEnotaOrder(classId ? `ucni-nacrt-enote-order-${classId}` : undefined);
   const { openChapters, toggle: toggleChapter, expandAll, collapseAll } = useOpenChapters(classId ? `ucni-nacrt-open-chapters-${classId}` : undefined);
   const { resolveOrder, reorderChapters } = useChapterOrder(classId ? `ucni-nacrt-chapter-order-${classId}` : undefined);
   const [paletteDrag, setPaletteDrag] = useState<PaletteDrag | null>(null);
@@ -987,6 +1040,7 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
                     totalHours={gradeUsed[razred] ?? 0}
                   />
                   <Palette
+                    contentOptions={poglavja.flatMap(p => p.podpoglavja.map(pp => pp.naslov))}
                     onDragStart={setPaletteDrag}
                     onDragEnd={() => setPaletteDrag(null)}
                   />
@@ -1015,6 +1069,7 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
                               removeEnota={removeEnota}
                               toggleCustom={toggleCustom}
                               renameCustom={renameCustom}
+                              setCustomHours={setCustomHours}
                               isAnonymous={isAnonymous}
                               listMode={listMode}
                               getNote={getNote}
