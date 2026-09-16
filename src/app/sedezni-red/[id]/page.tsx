@@ -27,7 +27,10 @@ export default function SedezniRedSubjectPage() {
   const activeClass = master.find(m => m.id === activeId) ?? null;
   const context = entry && activeClass ? [entry.predmet.naslov, activeClass.school].filter(Boolean).join(' · ') : entry?.predmet.naslov ?? '';
   const lessons = activeClass
+    // Ure drugega, poimenovanega predmeta (npr. tehnika na uri fizike) izpusti iz sedežnega reda —
+    // neoznačene ure (u: null) ostanejo, ker jim predmeta (še) nismo znali določiti.
     ? lessonsFor(canonLabel(activeClass.name), `${activeClass.name} ${activeClass.school}`)
+        .filter(l => l.u === null || l.u === subject?.curriculum)
     : [];
   const grade = activeClass ? Number((activeClass.name.match(/[6-9]/) ?? [])[0]) : NaN;
   const totalHours = entry && Number.isFinite(grade) ? entry.gradeTargets[grade] : undefined;
