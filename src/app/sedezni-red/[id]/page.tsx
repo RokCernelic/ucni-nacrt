@@ -35,10 +35,10 @@ export default function SedezniRedSubjectPage() {
   const grade = activeClass ? Number((activeClass.name.match(/[6-9]/) ?? [])[0]) : NaN;
   const totalHours = entry && Number.isFinite(grade) ? entry.gradeTargets[grade] : undefined;
 
-  // Tisk celega dneva ima smisel le, če je v pogledu VEČ kot en razred iz iste šole kot trenutni.
+  // Tisk celega dneva ima smisel le, če imaš SKUPAJ (ne le v pogledu) več kot en razred iz iste šole kot trenutni.
   const activeSchoolLetter = activeClass ? schoolLetterFrom(activeClass.school) : null;
   const sameSchoolCount = activeSchoolLetter
-    ? ids.map(cid => master.find(m => m.id === cid)).filter(c => c && schoolLetterFrom(c.school) === activeSchoolLetter).length
+    ? master.filter(c => schoolLetterFrom(c.school) === activeSchoolLetter).length
     : 0;
 
   return (

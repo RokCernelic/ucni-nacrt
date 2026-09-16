@@ -6,7 +6,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { useSubjects } from '@/hooks/useSubjects';
 import { getCurriculum } from '@/data/registry';
 import { useMasterClasses, type MasterClass } from '@/hooks/useMasterClasses';
-import { useViewClasses } from '@/hooks/useViewClasses';
 import { useClassDayAssignments } from '@/hooks/useClassDayAssignments';
 import { StaticSeatingGrid } from '@/components/SeatingChart';
 import { lessonsFor, canonLabel, formatLessonDate, schoolLetterFrom, SCHOOL_NAME, type LessonSubject } from '@/data/timetable';
@@ -52,7 +51,6 @@ export default function SedezniRedDanPage() {
   const { user, loading } = useAuth();
   const { subjects, loaded } = useSubjects();
   const { classes: master } = useMasterClasses();
-  const { ids } = useViewClasses('sedez', id);
 
   if (loading || !loaded) return null;
   if (!user) return <div style={{ maxWidth: '600px', margin: '0 auto', padding: '80px 32px', textAlign: 'center' }}><p style={{ color: 'var(--muted)' }}>Za tisk se <Link href="/login" style={{ color: 'var(--forest)' }}>prijavite</Link>.</p></div>;
@@ -61,9 +59,9 @@ export default function SedezniRedDanPage() {
   const entry = subject ? getCurriculum(subject.curriculum) : null;
   if (!subject || !entry) return <div style={{ maxWidth: '600px', margin: '0 auto', padding: '80px 32px', textAlign: 'center' }}><p style={{ color: 'var(--muted)' }}>Predmet ne obstaja. <Link href="/" style={{ color: 'var(--forest)' }}>Nazaj</Link></p></div>;
 
-  const viewedClasses = ids.map(cid => master.find(m => m.id === cid)).filter((c): c is MasterClass => !!c);
-  const school = schoolParam ?? (viewedClasses[0] ? schoolLetterFrom(viewedClasses[0].school) ?? undefined : undefined);
-  const classesForSchool = school ? viewedClasses.filter(c => schoolLetterFrom(c.school) === school) : viewedClasses;
+  // VSI razredi učitelja iz te šole — ne le tisti, dodani v pogled na strani sedežnega reda.
+  const school = schoolParam ?? (master[0] ? schoolLetterFrom(master[0].school) ?? undefined : undefined);
+  const classesForSchool = school ? master.filter(c => schoolLetterFrom(c.school) === school) : master;
   const today = todayISO();
   const dateParam = search.get('date');
   const targetDate = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? dateParam : today;
@@ -119,7 +117,7 @@ export default function SedezniRedDanPage() {
       <div className="print-root">
         {classesForSchool.length === 0 ? (
           <p className="no-print" style={{ maxWidth: '900px', margin: '0 auto', padding: '0 32px', color: 'var(--muted)', fontFamily: 'var(--font-sans)' }}>
-            V pogledu ni razredov za to šolo. Dodaj jih z gumbom <b>+</b> na strani sedežnega reda.
+            Za to šolo še nimaš dodanih razredov. Dodaš jih v <Link href="/nastavitve" style={{ color: 'var(--forest)' }}>Nastavitve → Razredi</Link>.
           </p>
         ) : !anyLessonToday ? (
           <div className="no-print" style={{ maxWidth: '900px', margin: '0 auto', padding: '0 32px' }}>
