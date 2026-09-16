@@ -14,7 +14,7 @@ export default function Countdown({ school }: { school?: string }) {
             fontFamily: 'var(--font-serif)', fontSize: 'clamp(44px,6.5vw,76px)',
             fontWeight: 300, lineHeight: 1, whiteSpace: 'nowrap',
             fontVariantNumeric: 'tabular-nums',
-            color: cd.inLesson ? '#bfe3c0' : '#f4a29b',
+            color: cd.inLesson ? '#bfe3c0' : '#ff6459',
           }}>
             {cd.clock}
           </div>
