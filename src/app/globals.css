@@ -43,10 +43,22 @@ html { scroll-behavior: smooth; }
   .print-seating .seating-board {
     margin: 8px auto 0 !important; padding: 6px !important; font-size: 10px !important;
   }
+
+  /* Tisk celega dneva (več razredov): 2 na stran — drugi ločen s črto pod prvim,
+     nato nova stran pred vsakim naslednjim parom. */
+  .day-block:nth-of-type(2n) {
+    margin-top: 8mm; padding-top: 6mm; border-top: 1px dashed #999;
+  }
+  .day-block:nth-of-type(2n+1):not(:first-of-type) {
+    break-before: page; page-break-before: always;
+  }
 }
 
 /* naslednji dan je samo za tisk */
 .print-next { display: none; }
+
+/* Tisk celega dneva: na zaslonu (predogled strani /dan) ločimo razrede z vodoravno črto. */
+.day-block + .day-block { margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--hairline); }
 
 body {
   font-family: 'Inter', -apple-system, sans-serif;

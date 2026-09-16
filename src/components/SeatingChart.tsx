@@ -16,7 +16,7 @@ function genderStyle(g: string) {
 type Drag = { from: 'seat'; cell: string } | { from: 'pool'; studentId: string } | null;
 
 /** Ročni razporedi po dnevih (kdo sedi kje). */
-function useDayOverrides(classId?: string) {
+export function useDayOverrides(classId?: string) {
   const key = classId ? `ucni-nacrt-seatdays-${classId}` : undefined;
   const [map, setMap] = useState<Record<string, Record<string, string>>>({});
   useEffect(() => {
@@ -35,7 +35,7 @@ function useDayOverrides(classId?: string) {
 }
 
 /** Ročni tloris po dnevih (prepiše tloris učilnice samo za tisti dan). */
-function useDayLayouts(classId?: string) {
+export function useDayLayouts(classId?: string) {
   const key = classId ? `ucni-nacrt-daylayout-${classId}` : undefined;
   const [map, setMap] = useState<Record<string, RoomPlan>>({});
   useEffect(() => {
@@ -53,8 +53,8 @@ function useDayLayouts(classId?: string) {
   return { map, setDayLayout };
 }
 
-/** Bralni izris mreže (za tisk naslednjega dne). */
-function StaticSeatingGrid({ wrapClass, heading, contextLabel, dateISO, metaLine, layout, assign, studentById }: {
+/** Bralni izris mreže (za tisk naslednjega dne / tisk celega dneva za več razredov). */
+export function StaticSeatingGrid({ wrapClass, heading, contextLabel, dateISO, metaLine, layout, assign, studentById }: {
   wrapClass: string; heading: string; contextLabel?: string; dateISO: string; metaLine: string;
   layout: RoomPlan; assign: Record<string, string>; studentById: Map<string, Student>;
 }) {

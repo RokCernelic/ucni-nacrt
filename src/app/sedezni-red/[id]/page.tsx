@@ -10,7 +10,7 @@ import { useViewClasses } from '@/hooks/useViewClasses';
 import ViewClassTabs from '@/components/ViewClassTabs';
 import SeatingChart from '@/components/SeatingChart';
 import Countdown from '@/components/Countdown';
-import { lessonsFor, canonLabel } from '@/data/timetable';
+import { lessonsFor, canonLabel, schoolLetterFrom } from '@/data/timetable';
 
 export default function SedezniRedSubjectPage() {
   const params = useParams();
@@ -35,6 +35,12 @@ export default function SedezniRedSubjectPage() {
   const grade = activeClass ? Number((activeClass.name.match(/[6-9]/) ?? [])[0]) : NaN;
   const totalHours = entry && Number.isFinite(grade) ? entry.gradeTargets[grade] : undefined;
 
+  // Tisk celega dneva ima smisel le, če je v pogledu VEČ kot en razred iz iste šole kot trenutni.
+  const activeSchoolLetter = activeClass ? schoolLetterFrom(activeClass.school) : null;
+  const sameSchoolCount = activeSchoolLetter
+    ? ids.map(cid => master.find(m => m.id === cid)).filter(c => c && schoolLetterFrom(c.school) === activeSchoolLetter).length
+    : 0;
+
   return (
     <div>
       <div style={{ background: 'var(--forest)', padding: '32px 32px 28px' }}>
@@ -53,6 +59,17 @@ export default function SedezniRedSubjectPage() {
           </div>
           {user && subject && entry && (
             <ViewClassTabs master={master} ids={ids} activeId={activeId} onSelect={setActive} onAdd={addToView} onRemove={removeFromView} />
+          )}
+          {user && sameSchoolCount > 1 && activeSchoolLetter && (
+            <div style={{ marginTop: '12px' }}>
+              <Link
+                href={`/sedezni-red/${id}/dan?school=${activeSchoolLetter}`}
+                title="Natisni sedežni red za vse razrede te šole, ki imajo danes uro"
+                style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'rgba(255,255,255,0.6)', border: '1px dashed rgba(255,255,255,0.3)', borderRadius: 'var(--r-sm)', padding: '5px 12px', textDecoration: 'none' }}
+              >
+                🖨 Natisni ves dan ({sameSchoolCount} razredov)
+              </Link>
+            </div>
           )}
         </div>
       </div>

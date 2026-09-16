@@ -665,12 +665,17 @@ export function canonLabel(name: string): string {
  * Namenoma NE filtriramo po predmetu — sedežni red je fizičen (isti učenci), zato
  * upoštevamo cel urnik razreda (npr. ponedeljek FIZ + četrtek MAT2), učilnica se prikaže za vsak dan posebej.
  */
+/** Šolska črka (B/C) iz poljubnega besedila (npr. imena šole) — null, če ni prepoznano. */
+export function schoolLetterFrom(text: string): 'B' | 'C' | null {
+  const t = text.toLowerCase();
+  return /bre[žz]/.test(t) ? 'B' : /cerk/.test(t) ? 'C' : null;
+}
+
 export function lessonsFor(classLabel: string, hintText?: string): Lesson[] {
   let cands = TIMETABLE.filter(l => l.c === classLabel);
   const schools = Array.from(new Set(cands.map(l => l.s)));
   if (schools.length > 1 && hintText) {
-    const t = hintText.toLowerCase();
-    const want: 'B' | 'C' | null = /bre[žz]/.test(t) ? 'B' : /cerk/.test(t) ? 'C' : null;
+    const want = schoolLetterFrom(hintText);
     if (want) cands = cands.filter(l => l.s === want);
   }
   return [...cands].sort((a, b) => (a.d + a.t).localeCompare(b.d + b.t));
