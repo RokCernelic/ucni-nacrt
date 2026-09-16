@@ -64,10 +64,23 @@ export default function SedezniRedDanPage() {
   const viewedClasses = ids.map(cid => master.find(m => m.id === cid)).filter((c): c is MasterClass => !!c);
   const school = schoolParam ?? (viewedClasses[0] ? schoolLetterFrom(viewedClasses[0].school) ?? undefined : undefined);
   const classesForSchool = school ? viewedClasses.filter(c => schoolLetterFrom(c.school) === school) : viewedClasses;
-  const targetDate = todayISO();
-  const anyLessonToday = classesForSchool.some(cls =>
+  const today = todayISO();
+  const dateParam = search.get('date');
+  const targetDate = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? dateParam : today;
+
+  const matchingLessonDates = (date: string) => classesForSchool.some(cls =>
     lessonsFor(canonLabel(cls.name), `${cls.name} ${cls.school}`)
-      .some(l => l.d === targetDate && (l.u === null || l.u === subject.curriculum)));
+      .some(l => l.d === date && (l.u === null || l.u === subject.curriculum)));
+  const anyLessonToday = matchingLessonDates(targetDate);
+
+  // Ni ur na ciljni dan (npr. sredo, ko ta šola nima pouka) — poišči najbližji naslednji dan z uro.
+  const nearestNextDate = !anyLessonToday
+    ? classesForSchool
+        .flatMap(cls => lessonsFor(canonLabel(cls.name), `${cls.name} ${cls.school}`)
+          .filter(l => l.d > targetDate && (l.u === null || l.u === subject.curriculum))
+          .map(l => l.d))
+        .sort()[0] ?? null
+    : null;
 
   const gradeTargetFor = (cls: MasterClass) => {
     const grade = Number((cls.name.match(/[6-9]/) ?? [])[0]);
@@ -84,6 +97,11 @@ export default function SedezniRedDanPage() {
           </h1>
           <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'rgba(255,255,255,0.6)', margin: '0 0 16px', textTransform: 'capitalize' }}>
             {formatLessonDate(targetDate)}
+            {targetDate !== today && (
+              <>
+                {' '}· <Link href={`/sedezni-red/${id}/dan?school=${school}`} style={{ color: 'rgba(255,255,255,0.8)', textDecoration: 'underline' }}>nazaj na danes</Link>
+              </>
+            )}
           </p>
           <button
             onClick={() => window.print()}
@@ -104,9 +122,19 @@ export default function SedezniRedDanPage() {
             V pogledu ni razredov za to šolo. Dodaj jih z gumbom <b>+</b> na strani sedežnega reda.
           </p>
         ) : !anyLessonToday ? (
-          <p className="no-print" style={{ maxWidth: '900px', margin: '0 auto', padding: '0 32px', color: 'var(--muted)', fontFamily: 'var(--font-sans)' }}>
-            Na ta dan noben od razredov te šole nima ure pri tem predmetu.
-          </p>
+          <div className="no-print" style={{ maxWidth: '900px', margin: '0 auto', padding: '0 32px' }}>
+            <p style={{ color: 'var(--muted)', fontFamily: 'var(--font-sans)', marginBottom: nearestNextDate ? '12px' : 0 }}>
+              Na ta dan noben od razredov te šole nima ure pri tem predmetu.
+            </p>
+            {nearestNextDate && (
+              <Link
+                href={`/sedezni-red/${id}/dan?school=${school}&date=${nearestNextDate}`}
+                style={{ display: 'inline-block', fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600, background: 'var(--forest)', color: '#fff', borderRadius: 'var(--r-sm)', padding: '9px 18px', textDecoration: 'none' }}
+              >
+                🖨 Natisni za najbližji naslednji dan — <span style={{ textTransform: 'capitalize' }}>{formatLessonDate(nearestNextDate)}</span>
+              </Link>
+            )}
+          </div>
         ) : (
           classesForSchool.map(cls => (
             <ClassDayBlocks
