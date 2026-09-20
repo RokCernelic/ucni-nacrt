@@ -47,7 +47,7 @@ html { scroll-behavior: smooth; }
   /* Tisk celega dneva (več razredov): 2 na stran — drugi ločen s črto pod prvim,
      nato nova stran pred vsakim naslednjim parom. */
   .day-block:nth-of-type(2n) {
-    margin-top: 8mm; padding-top: 6mm; border-top: 1px dashed #999;
+    margin-top: 14mm; padding-top: 8mm; border-top: 1px dashed #999;
   }
   .day-block:nth-of-type(2n+1):not(:first-of-type) {
     break-before: page; page-break-before: always;
