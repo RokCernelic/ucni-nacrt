@@ -59,9 +59,13 @@ export default function SedezniRedDanPage() {
   const entry = subject ? getCurriculum(subject.curriculum) : null;
   if (!subject || !entry) return <div style={{ maxWidth: '600px', margin: '0 auto', padding: '80px 32px', textAlign: 'center' }}><p style={{ color: 'var(--muted)' }}>Predmet ne obstaja. <Link href="/" style={{ color: 'var(--forest)' }}>Nazaj</Link></p></div>;
 
-  // VSI razredi učitelja iz te šole — ne le tisti, dodani v pogled na strani sedežnega reda.
+  // VSI razredi učitelja iz te šole, ki jim po učnem načrtu ta predmet sploh pripada
+  // (npr. fizika samo za 8. in 9. razred) — ne le tisti, dodani v pogled na strani sedežnega reda.
   const school = schoolParam ?? (master[0] ? schoolLetterFrom(master[0].school) ?? undefined : undefined);
-  const classesForSchool = school ? master.filter(c => schoolLetterFrom(c.school) === school) : master;
+  const gradeOf = (cls: MasterClass) => Number((cls.name.match(/[6-9]/) ?? [])[0]);
+  const classesForSchool = master.filter(c =>
+    (!school || schoolLetterFrom(c.school) === school) && entry.gradeTargets[gradeOf(c)] !== undefined
+  );
   const today = todayISO();
   const dateParam = search.get('date');
   const targetDate = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? dateParam : today;
@@ -80,10 +84,7 @@ export default function SedezniRedDanPage() {
         .sort()[0] ?? null
     : null;
 
-  const gradeTargetFor = (cls: MasterClass) => {
-    const grade = Number((cls.name.match(/[6-9]/) ?? [])[0]);
-    return Number.isFinite(grade) ? entry.gradeTargets[grade] : undefined;
-  };
+  const gradeTargetFor = (cls: MasterClass) => entry.gradeTargets[gradeOf(cls)];
 
   return (
     <div>
