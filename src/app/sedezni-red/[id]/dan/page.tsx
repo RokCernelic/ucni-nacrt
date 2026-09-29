@@ -8,9 +8,20 @@ import { getCurriculum } from '@/data/registry';
 import { useMasterClasses, type MasterClass } from '@/hooks/useMasterClasses';
 import { useClassDayAssignments } from '@/hooks/useClassDayAssignments';
 import { StaticSeatingGrid } from '@/components/SeatingChart';
-import { lessonsFor, canonLabel, formatLessonDate, schoolLetterFrom, SCHOOL_NAME, type LessonSubject } from '@/data/timetable';
+import { lessonsFor, canonLabel, formatLessonDate, schoolLetterFrom, SCHOOL_NAME, type LessonSubject, type Lesson } from '@/data/timetable';
 
-const todayISO = () => new Date().toISOString().slice(0, 10);
+const todayISO = () => {
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
+};
+const addDays = (iso: string, n: number) => {
+  const d = new Date(`${iso}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+};
+const shortDate = (iso: string) => { const [, m, d] = iso.split('-').map(Number); return `${d}. ${m}.`; };
+const pagesWord = (n: number) => (n === 1 ? 'stran' : 'strani');
+const redWord = (n: number) => { const m = n % 100; return m === 1 ? 'sedežni red' : m === 2 ? 'sedežna reda' : m === 3 || m === 4 ? 'sedežni redi' : 'sedežnih redov'; };
 
 /** En razred: izračuna njegove ure za dani dan in jih izriše (0, 1 ali izjemoma več). */
 function ClassDayBlocks({ cls, school, subjectCurriculum, subjectNaslov, targetDate, totalHours }: {
@@ -69,38 +80,70 @@ export default function SedezniRedDanPage() {
   const today = todayISO();
   const dateParam = search.get('date');
   const targetDate = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? dateParam : today;
+  const weekMode = search.get('range') === 'week';
 
-  const matchingLessonDates = (date: string) => classesForSchool.some(cls =>
-    lessonsFor(canonLabel(cls.name), `${cls.name} ${cls.school}`)
-      .some(l => l.d === date && (l.u === null || l.u === subject.curriculum)));
-  const anyLessonToday = matchingLessonDates(targetDate);
+  const matches = (l: Lesson) => l.u === null || l.u === subject.curriculum;
+  const lessonsOf = (cls: MasterClass) => lessonsFor(canonLabel(cls.name), `${cls.name} ${cls.school}`).filter(matches);
 
-  // Ni ur na ciljni dan (npr. sredo, ko ta šola nima pouka) — poišči najbližji naslednji dan z uro.
-  const nearestNextDate = !anyLessonToday
-    ? classesForSchool
-        .flatMap(cls => lessonsFor(canonLabel(cls.name), `${cls.name} ${cls.school}`)
-          .filter(l => l.d > targetDate && (l.u === null || l.u === subject.curriculum))
-          .map(l => l.d))
-        .sort()[0] ?? null
+  // Teden = pon–ned tedna, ki vsebuje ciljni dan; ob sobotah/nedeljah privzeto naslednji teden.
+  const dow = (new Date(`${targetDate}T12:00:00Z`).getUTCDay() + 6) % 7;
+  const weekStart = addDays(targetDate, dateParam || dow < 5 ? -dow : 7 - dow);
+  const candidateDates = weekMode ? Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)) : [targetDate];
+
+  // Za vsak dan: razredi z uro tisti dan, urejeni po uri začetka.
+  const days = candidateDates
+    .map(date => ({
+      date,
+      classes: classesForSchool
+        .map(cls => ({ cls, t: lessonsOf(cls).find(l => l.d === date)?.t }))
+        .filter((x): x is { cls: MasterClass; t: string } => x.t !== undefined)
+        .sort((a, b) => a.t.localeCompare(b.t))
+        .map(x => x.cls),
+    }))
+    .filter(d => d.classes.length > 0);
+
+  const lastCandidate = candidateDates[candidateDates.length - 1];
+  const nearestNextDate = days.length === 0
+    ? classesForSchool.flatMap(cls => lessonsOf(cls).filter(l => l.d > lastCandidate).map(l => l.d)).sort()[0] ?? null
     : null;
 
   const gradeTargetFor = (cls: MasterClass) => entry.gradeTargets[gradeOf(cls)];
+  const blockCount = days.reduce((n, d) => n + d.classes.length, 0);
+  const base = `/sedezni-red/${id}/dan?school=${school}`;
+  const linkStyle = { color: 'rgba(255,255,255,0.8)', textDecoration: 'underline' } as const;
+  const tabStyle = (active: boolean) => ({
+    fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 600, textDecoration: 'none',
+    padding: '5px 12px', borderRadius: 'var(--r-sm)',
+    background: active ? '#fff' : 'transparent', color: active ? 'var(--forest)' : 'rgba(255,255,255,0.7)',
+    border: '1px solid rgba(255,255,255,0.3)',
+  });
 
   return (
     <div>
       <div className="no-print" style={{ background: 'var(--forest)', padding: '24px 32px' }}>
         <div style={{ maxWidth: '900px', margin: '0 auto', width: '100%' }}>
           <Link href={`/sedezni-red/${id}`} style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'rgba(255,255,255,0.6)', textDecoration: 'none' }}>← Nazaj na sedežni red</Link>
-          <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(26px,4vw,38px)', fontWeight: 300, color: '#fff', lineHeight: 1.1, margin: '10px 0 4px' }}>
-            Tisk celega dneva{school ? ` — ${SCHOOL_NAME[school]}` : ''}
+          <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(26px,4vw,38px)', fontWeight: 300, color: '#fff', lineHeight: 1.1, margin: '10px 0 10px' }}>
+            {weekMode ? 'Tisk celega tedna' : 'Tisk celega dneva'}{school ? ` — ${SCHOOL_NAME[school]}` : ''}
           </h1>
-          <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'rgba(255,255,255,0.6)', margin: '0 0 16px', textTransform: 'capitalize' }}>
-            {formatLessonDate(targetDate)}
-            {targetDate !== today && (
+          <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
+            <Link href={base} style={tabStyle(!weekMode)}>Dan</Link>
+            <Link href={`${base}&range=week`} style={tabStyle(weekMode)}>Teden</Link>
+          </div>
+          <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'rgba(255,255,255,0.6)', margin: '0 0 16px' }}>
+            {weekMode ? (
               <>
-                {' '}· <Link href={`/sedezni-red/${id}/dan?school=${school}`} style={{ color: 'rgba(255,255,255,0.8)', textDecoration: 'underline' }}>nazaj na danes</Link>
+                <Link href={`${base}&range=week&date=${addDays(weekStart, -7)}`} style={linkStyle}>← prejšnji</Link>
+                {' '}· {shortDate(weekStart)} – {shortDate(addDays(weekStart, 6))} ·{' '}
+                <Link href={`${base}&range=week&date=${addDays(weekStart, 7)}`} style={linkStyle}>naslednji →</Link>
               </>
+            ) : (
+              <span style={{ textTransform: 'capitalize' }}>{formatLessonDate(targetDate)}</span>
             )}
+            {!weekMode && targetDate !== today && (
+              <>{' '}· <Link href={base} style={linkStyle}>nazaj na danes</Link></>
+            )}
+            {blockCount > 0 && <> · {blockCount} {redWord(blockCount)}, {Math.ceil(blockCount / 2)} {pagesWord(Math.ceil(blockCount / 2))}</>}
           </p>
           <button
             onClick={() => window.print()}
@@ -112,7 +155,9 @@ export default function SedezniRedDanPage() {
       </div>
 
       <div className="no-print" style={{ maxWidth: '900px', margin: '0 auto', padding: '20px 32px', fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--muted)' }}>
-        Dva razreda na stran, vsak naslednji par na svoji strani. Natisne se sedežni red za vsak razred, ki ima danes uro pri tem predmetu.
+        Dva sedežna reda na stran, vsak naslednji par na svoji strani. {weekMode
+          ? 'Natisne se sedežni red za vsako uro tega predmeta v tem tednu, po dnevih in urah.'
+          : 'Natisne se sedežni red za vsak razred, ki ima danes uro pri tem predmetu.'}
       </div>
 
       <div className="print-root">
@@ -120,32 +165,32 @@ export default function SedezniRedDanPage() {
           <p className="no-print" style={{ maxWidth: '900px', margin: '0 auto', padding: '0 32px', color: 'var(--muted)', fontFamily: 'var(--font-sans)' }}>
             Za to šolo še nimaš dodanih razredov. Dodaš jih v <Link href="/nastavitve" style={{ color: 'var(--forest)' }}>Nastavitve → Razredi</Link>.
           </p>
-        ) : !anyLessonToday ? (
+        ) : days.length === 0 ? (
           <div className="no-print" style={{ maxWidth: '900px', margin: '0 auto', padding: '0 32px' }}>
             <p style={{ color: 'var(--muted)', fontFamily: 'var(--font-sans)', marginBottom: nearestNextDate ? '12px' : 0 }}>
-              Na ta dan noben od razredov te šole nima ure pri tem predmetu.
+              {weekMode ? 'Ta teden' : 'Na ta dan'} noben od razredov te šole nima ure pri tem predmetu.
             </p>
             {nearestNextDate && (
               <Link
-                href={`/sedezni-red/${id}/dan?school=${school}&date=${nearestNextDate}`}
+                href={`${base}${weekMode ? '&range=week' : ''}&date=${nearestNextDate}`}
                 style={{ display: 'inline-block', fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600, background: 'var(--forest)', color: '#fff', borderRadius: 'var(--r-sm)', padding: '9px 18px', textDecoration: 'none' }}
               >
-                🖨 Natisni za najbližji naslednji dan — <span style={{ textTransform: 'capitalize' }}>{formatLessonDate(nearestNextDate)}</span>
+                🖨 {weekMode ? 'Natisni za naslednji teden z urami' : 'Natisni za najbližji naslednji dan'} — <span style={{ textTransform: 'capitalize' }}>{formatLessonDate(nearestNextDate)}</span>
               </Link>
             )}
           </div>
         ) : (
-          classesForSchool.map(cls => (
+          days.flatMap(({ date, classes }) => classes.map(cls => (
             <ClassDayBlocks
-              key={cls.id}
+              key={`${date}-${cls.id}`}
               cls={cls}
               school={school!}
               subjectCurriculum={subject.curriculum}
               subjectNaslov={entry.predmet.naslov}
-              targetDate={targetDate}
+              targetDate={date}
               totalHours={gradeTargetFor(cls)}
             />
-          ))
+          )))
         )}
       </div>
     </div>

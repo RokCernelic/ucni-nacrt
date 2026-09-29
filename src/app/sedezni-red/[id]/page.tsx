@@ -12,6 +12,8 @@ import SeatingChart from '@/components/SeatingChart';
 import Countdown from '@/components/Countdown';
 import { lessonsFor, canonLabel, schoolLetterFrom } from '@/data/timetable';
 
+const printLinkStyle = { fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'rgba(255,255,255,0.6)', border: '1px dashed rgba(255,255,255,0.3)', borderRadius: 'var(--r-sm)', padding: '5px 12px', textDecoration: 'none' } as const;
+
 export default function SedezniRedSubjectPage() {
   const params = useParams();
   const id = (Array.isArray(params.id) ? params.id[0] : params.id) ?? '';
@@ -65,14 +67,23 @@ export default function SedezniRedSubjectPage() {
           {user && subject && entry && (
             <ViewClassTabs master={master} ids={ids} activeId={activeId} onSelect={setActive} onAdd={addToView} onRemove={removeFromView} />
           )}
-          {user && sameSchoolCount > 1 && activeSchoolLetter && (
-            <div style={{ marginTop: '12px' }}>
+          {user && sameSchoolCount > 0 && activeSchoolLetter && (
+            <div style={{ marginTop: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {sameSchoolCount > 1 && (
+                <Link
+                  href={`/sedezni-red/${id}/dan?school=${activeSchoolLetter}`}
+                  title="Natisni sedežni red za vse razrede te šole, ki imajo danes uro"
+                  style={printLinkStyle}
+                >
+                  🖨 Natisni ves dan ({sameSchoolCount} razredov)
+                </Link>
+              )}
               <Link
-                href={`/sedezni-red/${id}/dan?school=${activeSchoolLetter}`}
-                title="Natisni sedežni red za vse razrede te šole, ki imajo danes uro"
-                style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'rgba(255,255,255,0.6)', border: '1px dashed rgba(255,255,255,0.3)', borderRadius: 'var(--r-sm)', padding: '5px 12px', textDecoration: 'none' }}
+                href={`/sedezni-red/${id}/dan?school=${activeSchoolLetter}&range=week`}
+                title="Natisni sedežne rede za vse ure tega predmeta na tej šoli v tem tednu"
+                style={printLinkStyle}
               >
-                🖨 Natisni ves dan ({sameSchoolCount} razredov)
+                🖨 Natisni ves teden
               </Link>
             </div>
           )}
