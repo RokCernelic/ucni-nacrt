@@ -53,6 +53,12 @@ export function useDayLayouts(classId?: string) {
   return { map, setDayLayout };
 }
 
+/** »1 učenec«, »2 učenca«, »3 učenci«, »5 učencev« */
+export function studentsLabel(n: number): string {
+  const m = n % 100;
+  return `${n} ${m === 1 ? 'učenec' : m === 2 ? 'učenca' : m === 3 || m === 4 ? 'učenci' : 'učencev'}`;
+}
+
 /** Bralni izris mreže (za tisk naslednjega dne / tisk celega dneva za več razredov). */
 export function StaticSeatingGrid({ wrapClass, heading, contextLabel, dateISO, metaLine, layout, assign, studentById }: {
   wrapClass: string; heading: string; contextLabel?: string; dateISO: string; metaLine: string;
@@ -198,7 +204,7 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
     ? { lesson: nextLesson, layout: resolveLayout(nextLesson.d, nextLesson.r), assign: dayAssigns[dayIndex + 1], index: dayIndex + 1 }
     : null;
 
-  const metaLine = (idx: number, room: string) => `${totalHours ? `${idx + 1}/${totalHours}` : `${idx + 1}. ura`} · učilnica ${room}`;
+  const metaLine = (idx: number, room: string) => `${totalHours ? `${idx + 1}/${totalHours}` : `${idx + 1}. ura`} · učilnica ${room} · ${studentsLabel(students.length)}`;
 
   // Zapisovanje razporeda (kdo kje) — dnevno ali klasično.
   const commitAssign = (next: Record<string, string>) => {

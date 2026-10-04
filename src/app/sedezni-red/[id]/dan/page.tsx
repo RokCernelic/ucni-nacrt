@@ -7,7 +7,7 @@ import { useSubjects } from '@/hooks/useSubjects';
 import { getCurriculum } from '@/data/registry';
 import { useMasterClasses, type MasterClass } from '@/hooks/useMasterClasses';
 import { useClassDayAssignments } from '@/hooks/useClassDayAssignments';
-import { StaticSeatingGrid } from '@/components/SeatingChart';
+import { StaticSeatingGrid, studentsLabel } from '@/components/SeatingChart';
 import { lessonsFor, canonLabel, formatLessonDate, schoolLetterFrom, SCHOOL_NAME, type LessonSubject, type Lesson } from '@/data/timetable';
 
 const todayISO = () => {
@@ -35,7 +35,7 @@ function ClassDayBlocks({ cls, school, subjectCurriculum, subjectNaslov, targetD
     <>
       {results.map((r, i) => {
         const idx = allLessons.findIndex(l => l.d === r.lesson.d && l.t === r.lesson.t);
-        const metaLine = `${totalHours ? `${idx + 1}/${totalHours}` : `${idx + 1}. ura`} · učilnica ${r.lesson.r}`;
+        const metaLine = `${totalHours ? `${idx + 1}/${totalHours}` : `${idx + 1}. ura`} · učilnica ${r.lesson.r} · ${studentsLabel(r.studentById.size)}`;
         return (
           <StaticSeatingGrid
             key={`${cls.id}-${i}`}
