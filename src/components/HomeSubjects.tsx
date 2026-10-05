@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import SubjectCard from '@/components/SubjectCard';
 import { useSubjects } from '@/hooks/useSubjects';
 import { useAuth } from '@/hooks/useAuth';
-import { CURRICULA, getCurriculum } from '@/data/registry';
+import { getCurriculum } from '@/data/registry';
+import CurriculumPicker from '@/components/CurriculumPicker';
 import type { Predmet } from '@/types/curriculum';
 
 function podpoglavjaOf(predmet: Predmet) {
@@ -26,8 +27,9 @@ export default function HomeSubjects() {
 
   if (!loaded) return null;
 
-  const pick = (curriculumId: string) => {
+  const pick = (curriculumId: string, school: string) => {
     const id = addSubject(curriculumId);
+    if (school) updateSubtitle(id, school);
     setPicker(false);
     router.push(`/predmet/${id}`);
   };
@@ -111,31 +113,11 @@ export default function HomeSubjects() {
       )}
 
       {picker && (
-        <div
-          onClick={() => setPicker(false)}
-          style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(10,20,12,0.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '80px 16px' }}
-        >
-          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: '440px', background: 'var(--canvas)', borderRadius: 'var(--r-md)', boxShadow: '0 10px 40px rgba(0,0,0,0.25)', overflow: 'hidden' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', background: 'var(--forest)' }}>
-              <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '19px', fontWeight: 400, color: '#fff' }}>Izberi učni načrt</h3>
-              <button onClick={() => setPicker(false)} title="Zapri" style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.7)', fontSize: '22px', lineHeight: 1, cursor: 'pointer', padding: '2px 6px' }}>×</button>
-            </div>
-            <div style={{ padding: '14px' }}>
-              {CURRICULA.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => pick(c.id)}
-                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px', width: '100%', textAlign: 'left', background: 'transparent', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', padding: '14px 16px', marginBottom: '8px', cursor: 'pointer' }}
-                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--forest)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--hairline)'; }}
-                >
-                  <span style={{ fontFamily: 'var(--font-serif)', fontSize: '18px', color: 'var(--ink)' }}>{c.predmet.naslov}</span>
-                  <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--muted)' }}>{c.predmet.opis}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
+        <CurriculumPicker
+          schools={Array.from(new Set(subjects.map(x => x.subtitle.trim()).filter(Boolean)))}
+          onPick={pick}
+          onClose={() => setPicker(false)}
+        />
       )}
     </div>
   );

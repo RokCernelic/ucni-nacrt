@@ -1,7 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import CurriculumPicker from '@/components/CurriculumPicker';
 import { useAuth } from '@/hooks/useAuth';
 import { useSubjects } from '@/hooks/useSubjects';
 import { getCurriculum } from '@/data/registry';
@@ -46,7 +48,9 @@ const ctrl: CSSProperties = {
 export default function Nav() {
   const path = usePathname();
   const { user, loading, signOut } = useAuth();
-  const { subjects } = useSubjects();
+  const { subjects, addSubject, updateSubtitle } = useSubjects();
+  const [picker, setPicker] = useState(false);
+  const router = useRouter();
 
   // učenčev iPad (/k, /k/KODA) — brez menija aplikacije
   if (path === '/k' || path.startsWith('/k/')) return null;
@@ -64,6 +68,13 @@ export default function Nav() {
     .filter((x): x is { id: string; label: string; subtitle: string } => x !== null);
 
   const subjectBase = ucniActive ? '/predmet' : onSeating ? '/sedezni-red' : null;
+
+  const pick = (curriculumId: string, school: string) => {
+    const id = addSubject(curriculumId);
+    if (school) updateSubtitle(id, school);
+    setPicker(false);
+    router.push(`${subjectBase ?? '/predmet'}/${id}`);
+  };
 
   return (
     <nav style={{
@@ -99,7 +110,7 @@ export default function Nav() {
           )}
         </div>
 
-        {subjectBase && subjectItems.length > 0 && (subjectBase === '/predmet' || user) && (
+        {subjectBase && !loading && user && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '8px' }}>
             {subjectItems.map((s) => (
               <Link key={s.id} href={`${subjectBase}/${s.id}`} title={s.subtitle || s.label} style={pill(path === `${subjectBase}/${s.id}`)}>
@@ -107,7 +118,18 @@ export default function Nav() {
                 {s.subtitle && <span style={{ fontSize: '11px', opacity: 0.55, fontWeight: 400 }}>{s.subtitle}</span>}
               </Link>
             ))}
+            <button onClick={() => setPicker(true)} title="Dodaj predmet (učni načrt)" aria-label="Dodaj predmet"
+              style={{ ...pill(false), border: '1px dashed rgba(255,255,255,0.3)', background: 'transparent', padding: '4px 10px', fontSize: '15px', lineHeight: 1 }}>
+              +
+            </button>
           </div>
+        )}
+        {picker && (
+          <CurriculumPicker
+            schools={Array.from(new Set(subjects.map(x => x.subtitle.trim()).filter(Boolean)))}
+            onPick={pick}
+            onClose={() => setPicker(false)}
+          />
         )}
       </div>
     </nav>
