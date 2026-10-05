@@ -162,6 +162,30 @@ export async function loadQuizHistory(quizId: string) {
   return { sessions, studentsBySession, answersBySession };
 }
 
+export interface ActiveSession {
+  session: QuizSession;
+  joined: number;
+  total: number;
+}
+
+/** Vse seje, ki trenutno tečejo (odprte in z nedavno aktivnostjo), najnovejše prve. */
+export async function loadActiveSessions(): Promise<ActiveSession[]> {
+  const sb = getSupabaseBrowserClient();
+  const { data, error } = await sb
+    .from('quiz_sessions')
+    .select('*, quiz_session_students(student_id, device_id)')
+    .eq('status', 'open')
+    .order('created_at', { ascending: false });
+  if (error) throw new Error(error.message);
+  type Row = QuizSession & { quiz_session_students: { student_id: string; device_id: string | null }[] };
+  return ((data ?? []) as Row[])
+    .filter(isLive)
+    .map(({ quiz_session_students: st, ...session }) => {
+      const students = st.filter(x => !isTeacherRow(x));
+      return { session, joined: students.filter(x => x.device_id).length, total: students.length };
+    });
+}
+
 export interface StudentHistoryEntry {
   session: QuizSession;
   student: SessionStudent;

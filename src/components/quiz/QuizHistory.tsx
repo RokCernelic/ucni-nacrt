@@ -16,6 +16,8 @@ type HistoryData = Awaited<ReturnType<typeof loadQuizHistory>>;
 
 /** Čist prikaz (brez omrežja) — ločeno, da ga je mogoče preizkusiti neodvisno od Supabase/prijave. */
 export function QuizHistoryBody({ quizTitle, data }: { quizTitle: string; data: HistoryData }) {
+  // seje, ki še tečejo, so na strani Kvizi pod »Aktivne seje«
+  const sessions = data.sessions.filter(s => !isLive(s));
   const avgPercentFor = (sessionId: string) => {
     const s = data.studentsBySession.get(sessionId) ?? [];
     const a = data.answersBySession.get(sessionId) ?? [];
@@ -23,14 +25,14 @@ export function QuizHistoryBody({ quizTitle, data }: { quizTitle: string; data: 
     for (const x of a) byStudent.set(x.student_id, { ...(byStudent.get(x.student_id) ?? {}), [x.question_id]: x.value });
     const joined = s.filter(x => x.device_id);
     if (!joined.length) return null;
-    const session = data.sessions.find(x => x.id === sessionId)!;
+    const session = sessions.find(x => x.id === sessionId)!;
     const pct = joined.reduce((sum, st) => sum + scoreAnswers(session.quiz, byStudent.get(st.student_id) ?? {}).percent, 0) / joined.length;
     return Math.round(pct);
   };
 
   // združi po razredu
   const byClass = new Map<string, { className: string; sessions: QuizSession[] }>();
-  for (const s of data.sessions) {
+  for (const s of sessions) {
     const g = byClass.get(s.class_id) ?? { className: s.class_name, sessions: [] };
     g.sessions.push(s);
     byClass.set(s.class_id, g);
@@ -55,7 +57,7 @@ export function QuizHistoryBody({ quizTitle, data }: { quizTitle: string; data: 
       </div>
 
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '28px 32px 64px', fontFamily: 'var(--font-sans)' }}>
-        {data.sessions.length === 0 ? (
+        {sessions.length === 0 ? (
           <p style={{ color: 'var(--muted)', fontSize: '14px' }}>Ta kviz še ni bil zagnan v nobenem razredu.</p>
         ) : (
           <>
@@ -78,17 +80,15 @@ export function QuizHistoryBody({ quizTitle, data }: { quizTitle: string; data: 
             {/* seznam sej */}
             <h2 style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted)', margin: '0 0 10px' }}>Vse seje</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              {data.sessions.map(s => {
+              {sessions.map(s => {
                 const students = data.studentsBySession.get(s.id) ?? [];
                 const joined = students.filter(x => x.device_id).length;
                 const pct = avgPercentFor(s.id);
-                const live = isLive(s);
                 return (
                   <Link key={s.id} href={`/kvizi/seja/${s.id}`} style={{ ...card, display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', textDecoration: 'none' }}>
                     <div style={{ flex: '1 1 160px' }}>
                       <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--ink)' }}>
                         {fmtDate(s.created_at)}
-                        {live && <span style={{ marginLeft: '8px', fontSize: '11px', fontWeight: 700, color: 'var(--green-ok)' }}>● V TEKU</span>}
                       </div>
                       <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '2px' }}>
                         {s.class_name} · {s.mode === 'teacher' ? 'vodi učitelj' : 'vsak sam'}

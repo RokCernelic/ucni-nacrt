@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import ActiveSessions from '@/components/quiz/ActiveSessions';
 import { useQuizLibrary, folderPath, QuizStorageFullError } from '@/hooks/useQuizLibrary';
 import { questionProblems } from '@/lib/quiz/scoring';
 import { questionsLabel, pointsLabel } from '@/lib/quiz/format';
@@ -120,6 +121,8 @@ export default function QuizLibrary() {
           </p>
         ) : (
           <>
+            <ActiveSessions />
+
             {/* pot + orodja */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '18px' }}>
               <nav style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', fontFamily: 'var(--font-sans)', fontSize: '13px', flex: '1 1 auto' }}>
