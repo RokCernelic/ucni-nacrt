@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { useMasterClasses } from '@/hooks/useMasterClasses';
@@ -22,7 +22,10 @@ export default function UcenciRazredPage() {
   const { user, loading } = useAuth();
   const { classes, loaded, addClass, updateClass, removeClass } = useMasterClasses();
   const [newName, setNewName] = useState('');
-  const [newSchool, setNewSchool] = useState('');
+  const search = useSearchParams();
+  const [schoolDraft, setNewSchool] = useState<{ sola: string | null; value: string } | null>(null);
+  const sola = search.get('sola');
+  const newSchool = schoolDraft && schoolDraft.sola === sola ? schoolDraft.value : (sola ?? '');
 
   if (loading || !loaded) return null;
 
@@ -33,7 +36,7 @@ export default function UcenciRazredPage() {
   const create = () => {
     if (!newName.trim()) return;
     const nid = addClass(newName, newSchool);
-    setNewName(''); setNewSchool('');
+    setNewName(''); setNewSchool(null);
     router.push(`/ucenci/${nid}`);
   };
 
@@ -69,7 +72,7 @@ export default function UcenciRazredPage() {
               </label>
               <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: '1 1 200px' }}>
                 <span style={label}>Šola</span>
-                <input value={newSchool} onChange={e => setNewSchool(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') create(); }}
+                <input value={newSchool} onChange={e => setNewSchool({ sola, value: e.target.value })} onKeyDown={e => { if (e.key === 'Enter') create(); }}
                   list="ucenci-schools" placeholder="npr. OŠ Brežice" style={input} />
                 <datalist id="ucenci-schools">{schools.map(s => <option key={s} value={s} />)}</datalist>
               </label>

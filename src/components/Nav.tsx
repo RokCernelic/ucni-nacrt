@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { useState, Suspense } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import CurriculumPicker from '@/components/CurriculumPicker';
 import ViewClassTabs from '@/components/ViewClassTabs';
 import { useMasterClasses } from '@/hooks/useMasterClasses';
@@ -60,21 +60,45 @@ function ClassRow({ view, subjectId }: { view: ViewKind; subjectId: string }) {
 }
 
 /** Druga vrstica v razdelku Učenci: vsi razredi + dodaj nov razred. */
-function StudentClassRow({ path }: { path: string }) {
+const NO_SCHOOL = 'Brez šole';
+const plusPill = (active: boolean): CSSProperties => ({ ...pill(active), border: '1px dashed rgba(255,255,255,0.3)', padding: '4px 10px', fontSize: '15px', lineHeight: 1 });
+
+/** Učenci: 2. vrstica = šole, 3. vrstica = razredi izbrane šole (+ nov razred v tej šoli). */
+function StudentRows({ path }: { path: string }) {
   const { classes } = useMasterClasses();
+  const search = useSearchParams();
+  const schoolOf = (c: { school: string }) => c.school.trim() || NO_SCHOOL;
+  const schools = Array.from(new Set(classes.map(schoolOf)));
+
+  const curId = path.match(/^\/ucenci\/([^/]+)$/)?.[1];
+  const cur = classes.find(c => c.id === curId);
+  const selected = cur ? schoolOf(cur) : curId === 'nov' ? search.get('sola') : null;
+  const inSchool = selected ? classes.filter(c => schoolOf(c) === selected) : [];
+  const newHref = (school?: string | null) =>
+    school && school !== NO_SCHOOL ? `/ucenci/nov?sola=${encodeURIComponent(school)}` : '/ucenci/nov';
+
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '8px' }}>
-      {classes.map(c => (
-        <Link key={c.id} href={`/ucenci/${c.id}`} title={[c.name, c.school].filter(Boolean).join(' · ')} style={pill(path === `/ucenci/${c.id}`)}>
-          {c.name}
-          {c.school && <span style={{ fontSize: '11px', opacity: 0.55, fontWeight: 400 }}>{c.school}</span>}
-        </Link>
-      ))}
-      <Link href="/ucenci/nov" title="Dodaj nov razred" aria-label="Dodaj nov razred"
-        style={{ ...pill(path === '/ucenci/nov'), border: '1px dashed rgba(255,255,255,0.3)', padding: '4px 10px', fontSize: '15px', lineHeight: 1 }}>
-        +
-      </Link>
-    </div>
+    <>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '8px' }}>
+        {schools.map(sc => {
+          const first = classes.find(c => schoolOf(c) === sc);
+          return (
+            <Link key={sc} href={first ? `/ucenci/${first.id}` : newHref(sc)} style={pill(sc === selected)}>{sc}</Link>
+          );
+        })}
+        <Link href="/ucenci/nov" title="Dodaj razred v novi šoli" aria-label="Dodaj razred v novi šoli"
+          style={plusPill(curId === 'nov' && !selected)}>+</Link>
+      </div>
+      {selected && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+          {inSchool.map(c => (
+            <Link key={c.id} href={`/ucenci/${c.id}`} style={pill(c.id === curId)}>{c.name}</Link>
+          ))}
+          <Link href={newHref(selected)} title={`Dodaj razred (${selected})`} aria-label="Dodaj razred v tej šoli"
+            style={plusPill(curId === 'nov')}>+</Link>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -149,7 +173,7 @@ export default function Nav() {
           )}
         </div>
 
-        {onStudents && !loading && user && <StudentClassRow path={path} />}
+        {onStudents && !loading && user && <Suspense fallback={null}><StudentRows path={path} /></Suspense>}
         {subjectBase && !loading && user && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '8px' }}>
             {subjectItems.map((s) => (
