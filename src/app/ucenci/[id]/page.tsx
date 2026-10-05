@@ -42,17 +42,6 @@ export default function UcenciRazredPage() {
 
   return (
     <div>
-      <div style={{ background: 'var(--forest)', padding: '28px 32px 24px' }}>
-        <div style={{ maxWidth: '900px', margin: '0 auto', width: '100%' }}>
-          <p style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', margin: '0 0 6px' }}>
-            Učenci{cur?.school ? ` · ${cur.school}` : ''}
-          </p>
-          <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(32px,4vw,48px)', fontWeight: 300, color: '#fff', lineHeight: 1 }}>
-            {cur ? cur.name : 'Nov razred'}
-          </h1>
-        </div>
-      </div>
-
       <div style={{ width: '100%', maxWidth: '900px', margin: '0 auto', padding: '28px 32px 80px' }}>
         {!user ? (
           <p style={{ fontSize: '14px', color: 'var(--muted)' }}>
