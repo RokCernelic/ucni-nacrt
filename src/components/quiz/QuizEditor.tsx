@@ -183,8 +183,9 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
   const [status, setStatus] = useState<'saved' | 'saving' | 'error'>('saved');
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
-  const [importResult, setImportResult] = useState<(TextImportResult & { file: string }) | null>(null);
+  const [importResult, setImportResult] = useState<(TextImportResult & { file: string; mode: 'replace' | 'merge' }) | null>(null);
   const importRef = useRef<HTMLInputElement>(null);
+  const importMode = useRef<'replace' | 'merge'>('merge');
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pending = useRef<Quiz | null>(null);
 
@@ -246,15 +247,20 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
 
   const importFile = async (file: File | undefined) => {
     if (!file) return;
+    const mode = importMode.current;
     const res = parseQuizText(await readTextFile(file));
-    setImportResult({ ...res, file: file.name });
-    if (!res.questions.length) return;
-    // prazen začetni osnutek (eno nedotaknjeno vprašanje) zamenjaj, sicer dodaj na konec
+    if (!res.questions.length) { setImportResult({ ...res, file: file.name, mode }); return; }
+    // prazen začetni osnutek (eno nedotaknjeno vprašanje) se ne šteje za obstoječa vprašanja
     const untouched = draft.questions.length === 1 && questionProblems(draft.questions[0]).length > 0
       && !draft.questions[0].prompt.trim() && !draft.questions[0].image;
-    const title = res.title && (!draft.title.trim() || draft.title === 'Nov kviz') ? res.title : draft.title;
-    update({ ...draft, title, questions: [...(untouched ? [] : draft.questions), ...res.questions] });
+    const existing = untouched ? [] : draft.questions;
+    if (mode === 'replace' && existing.length > 0
+      && !confirm(`Zamenjam vseh ${existing.length} obstoječih vprašanj z ${res.questions.length} iz datoteke? Obstoječa vprašanja bodo izbrisana.`)) return;
+    const title = res.title && (mode === 'replace' || !draft.title.trim() || draft.title === 'Nov kviz') ? res.title : draft.title;
+    update({ ...draft, title, questions: mode === 'replace' ? res.questions : [...existing, ...res.questions] });
+    setImportResult({ ...res, file: file.name, mode });
   };
+  const pickImport = (mode: 'replace' | 'merge') => { importMode.current = mode; importRef.current?.click(); };
 
   const incomplete = draft.questions.filter(q => questionProblems(q).length > 0).length;
   const maxPoints = draft.questions.reduce((s, q) => s + q.points, 0);
@@ -318,7 +324,8 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
           <button style={btn()} onClick={() => setQuestions([...draft.questions, newTrueFalseQuestion()])}>+ Drži / ne drži</button>
           <button style={btn()} onClick={() => setQuestions([...draft.questions, newNumericQuestion()])}>+ Številsko</button>
           <span style={{ flex: 1 }} />
-          <button style={btn()} title="Uvozi vprašanja iz navadne besedilne datoteke (.txt)" onClick={() => importRef.current?.click()}>📄 Uvozi iz datoteke</button>
+          <button style={btn()} title="Izbriše vsa obstoječa vprašanja in uvozi vprašanja iz besedilne datoteke (.txt)" onClick={() => pickImport('replace')}>📄 Uvozi in zamenjaj</button>
+          <button style={btn()} title="Doda vprašanja iz besedilne datoteke (.txt) za obstoječimi vprašanji" onClick={() => pickImport('merge')}>📄 Uvozi in združi</button>
           <a href="/primer-kviz.txt" download style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--muted)' }}>primer datoteke</a>
           <input ref={importRef} type="file" accept=".txt,text/plain" hidden
             onChange={e => { void importFile(e.target.files?.[0]); e.target.value = ''; }} />
@@ -329,7 +336,7 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
             background: importResult.errors.length ? '#fdf6e3' : '#eef6ee', border: `1px solid ${importResult.errors.length ? '#ecd9a8' : '#bfe3c0'}` }}>
             <div style={{ display: 'flex', gap: '10px', alignItems: 'baseline' }}>
               <strong style={{ color: 'var(--ink)' }}>
-                {importResult.file} — uvoženo: {questionsLabel(importResult.questions.length)}
+                {importResult.file} — {importResult.mode === 'replace' ? 'zamenjano z' : 'dodano'}: {questionsLabel(importResult.questions.length)}
                 {importResult.errors.length > 0 && ` · preskočeno: ${importResult.errors.length}`}
               </strong>
               <span style={{ flex: 1 }} />
