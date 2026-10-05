@@ -103,7 +103,7 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
   /** skupno število predvidenih ur za ta razred (iz učnega načrta) — za prikaz »N/skupaj« */
   totalHours?: number;
 }) {
-  const { students } = useRoster(classId || undefined);
+  const { students, save: saveRoster } = useRoster(classId || undefined);
   const { seating, setSeating } = useSeating(classId || undefined);
   const { getPlan } = useRooms();
   const { map: dayMap, setDay } = useDayOverrides(classId || undefined);
@@ -247,6 +247,27 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
     else setFix(studentId, cell, curDate);
   };
 
+  // Krogec »1« spodaj levo: učenec vedno v prvi vrsti (vrsta 0). Ob vklopu ga takoj premakne tja.
+  const rowOf = (k: string) => Number(k.split('-')[0]);
+  const toggleFront = (studentId: string, cell: string) => {
+    const turnOn = !studentById.get(studentId)?.frontRow;
+    saveRoster(students.map(s => (s.id === studentId ? { ...s, frontRow: turnOn } : s)));
+    if (!turnOn || rowOf(cell) === 0) return;
+    // pripetost na sedež zadaj bi bila v sporu s prvo vrsto
+    const pinned = Object.entries(fixedMap).find(([, id]) => id === studentId)?.[0];
+    if (pinned && rowOf(pinned) !== 0) unfix(studentId);
+    // trenutni dan: premakni le tega učenca (ostali ostanejo, kjer so), kot pri pripenjanju
+    const front = activeSeats(layoutS).filter(k => rowOf(k) === 0);
+    const target = front.find(k => !assign[k])
+      ?? front.find(k => { const o = studentById.get(assign[k]); return !!o && !o.frontRow && fixedMap[k] !== o.id; });
+    if (!target) return;
+    const a = { ...assign };
+    const other = a[target];
+    a[target] = studentId;
+    if (other) a[cell] = other; else delete a[cell];
+    commitAssign(a);
+  };
+
   const dropOnSeat = (target: string) => {
     const d = dragRef.current; dragRef.current = null;
     if (!d || disabled.has(target)) return;
@@ -335,7 +356,7 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
       )}
       {hasDays && !editSeats && (
         <p className="no-print" style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '10px' }}>
-          Povleci učenca na želeni sedež, nato klikni krogec <span style={{ display: 'inline-flex', width: '13px', height: '13px', borderRadius: '50%', border: '1.5px solid var(--forest)', verticalAlign: 'middle' }} /> v kotu, da ga <b>pripneš</b> na ta sedež (velja za naprej). Tisk (Ctrl+P) natisne ta in naslednji dan (dve strani).
+          Povleci učenca na želeni sedež, nato klikni krogec <span style={{ display: 'inline-flex', width: '13px', height: '13px', borderRadius: '50%', border: '1.5px solid var(--forest)', verticalAlign: 'middle' }} /> zgoraj desno, da ga <b>pripneš</b> na ta sedež (velja za naprej). Krogec spodaj levo ga postavi <b>vedno v prvo vrsto</b> (takoj ga premakne tja). Tisk (Ctrl+P) natisne ta in naslednji dan (dve strani).
         </p>
       )}
 
@@ -394,8 +415,21 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
                       border: `1.5px solid ${gs.border}`, background: gs.bg, color: gs.color,
                       fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500, lineHeight: 1.2,
                       cursor: stud ? 'grab' : 'default', boxSizing: 'border-box' }}>
-                    {stud?.frontRow && (
-                      <span title="Vedno v prvi vrsti" style={{ position: 'absolute', top: '3px', left: '4px', fontSize: '9px', fontWeight: 700, letterSpacing: '0.03em', color: gs.color, opacity: 0.6 }}>1↓</span>
+                    {stud && !editSeats && (
+                      <button
+                        className="no-print"
+                        draggable={false}
+                        onMouseDown={e => e.stopPropagation()}
+                        onClick={e => { e.stopPropagation(); toggleFront(stud.id, k); }}
+                        title={stud.frontRow ? 'Vedno v prvi vrsti — klik izklopi' : 'Vedno v prvi vrsti (takoj premakne v prvo vrsto)'}
+                        style={{ position: 'absolute', bottom: '2px', left: '2px', width: '16px', height: '16px', borderRadius: '50%', padding: 0, cursor: 'pointer',
+                          border: `1.5px solid ${stud.frontRow ? 'var(--forest)' : gs.border}`,
+                          background: stud.frontRow ? 'var(--forest)' : 'rgba(255,255,255,0.5)',
+                          color: '#fff', fontFamily: 'var(--font-sans)', fontWeight: 700,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: '10px', lineHeight: 1, opacity: stud.frontRow ? 1 : 0.5 }}>
+                        {stud.frontRow ? '1' : ''}
+                      </button>
                     )}
                     {stud && hasDays && !editSeats && (
                       <button
