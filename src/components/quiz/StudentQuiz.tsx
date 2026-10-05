@@ -38,22 +38,84 @@ export function CodeEntry() {
   );
 }
 
+const PIN_MAX_FAILS = 3;
+const PIN_LOCK_MS = 60_000;
+
+/** Lokalna zapora vnosa PIN-a na tej napravi (po 3 napačnih → 60 s). */
+function readPinLock(code: string): { fails: number; until: number } {
+  try {
+    const v = JSON.parse(localStorage.getItem(`kviz-pin-lock-${code}`) ?? 'null');
+    if (v && typeof v.fails === 'number' && typeof v.until === 'number') return v;
+  } catch { /* ignore */ }
+  return { fails: 0, until: 0 };
+}
+function writePinLock(code: string, v: { fails: number; until: number } | null) {
+  try {
+    if (v) localStorage.setItem(`kviz-pin-lock-${code}`, JSON.stringify(v));
+    else localStorage.removeItem(`kviz-pin-lock-${code}`);
+  } catch { /* ignore */ }
+}
+
+/** Zabeleži napačen PIN; ob tretjem zaporednem vrne čas konca zapore. */
+function registerBadPin(code: string): { fails: number; until: number; now: number } {
+  const now = Date.now();
+  const fails = readPinLock(code).fails + 1;
+  if (fails >= PIN_MAX_FAILS) {
+    const until = now + PIN_LOCK_MS;
+    writePinLock(code, { fails: 0, until });
+    return { fails, until, now };
+  }
+  writePinLock(code, { fails, until: 0 });
+  return { fails, until: 0, now };
+}
+
 function PinEntry({ code, onJoined, message }: { code: string; onJoined: () => void; message?: string }) {
   const [pin, setPin] = useState('');
   const [status, setStatus] = useState<string | null>(message ?? null);
   const [busy, setBusy] = useState(false);
+  const [lockUntil, setLockUntil] = useState(0);
+  const [now, setNow] = useState(0);
+
+  // zapora preživi osvežitev strani (shranjena na napravi)
+  useEffect(() => {
+    const until = readPinLock(code).until;
+    if (until > Date.now()) { setNow(Date.now()); setLockUntil(until); }
+  }, [code]);
+
+  const lockedFor = Math.max(0, Math.ceil((lockUntil - now) / 1000));
+  const isLocked = lockedFor > 0;
+
+  useEffect(() => {
+    if (lockUntil <= Date.now()) return;
+    const t = setInterval(() => {
+      const n = Date.now();
+      setNow(n);
+      if (n >= lockUntil) { clearInterval(t); setStatus(null); }
+    }, 250);
+    return () => clearInterval(t);
+  }, [lockUntil]);
 
   const submit = async (value: string) => {
-    if (value.length !== 4 || busy) return;
+    if (value.length !== 4 || busy || isLocked) return;
     setBusy(true); setStatus(null);
     try {
       const r = await deviceJoin(code, value, getDeviceId());
-      if (r.status === 'joined' || r.status === 'pending') onJoined();
+      if (r.status === 'joined' || r.status === 'pending') { writePinLock(code, null); onJoined(); }
       else {
         setPin('');
-        setStatus(r.status === 'bad_pin' ? 'Napačen PIN. Poskusi znova.'
-          : r.status === 'locked' ? 'Preveč napačnih poskusov. Pokliči učitelja.'
-          : 'Seja s to kodo ne obstaja ali je končana.');
+        if (r.status === 'bad_pin') {
+          const r2 = registerBadPin(code);
+          if (r2.until) {
+            setNow(r2.now); setLockUntil(r2.until);
+            setStatus('Preveč napačnih poskusov.');
+          } else {
+            const left = PIN_MAX_FAILS - r2.fails;
+            setStatus(`Napačen PIN. Poskusi znova (še ${left} ${left === 1 ? 'poskus' : 'poskusa'}).`);
+          }
+        } else {
+          setStatus(r.status === 'locked' ? 'Preveč napačnih poskusov. Pokliči učitelja.'
+            : 'Seja s to kodo ne obstaja ali je končana.');
+        }
       }
     } catch {
       setStatus('Ni povezave. Preveri internet in poskusi znova.');
@@ -61,7 +123,7 @@ function PinEntry({ code, onJoined, message }: { code: string; onJoined: () => v
   };
 
   const press = (d: string) => {
-    if (busy) return;
+    if (busy || isLocked) return;
     const next = d === '⌫' ? pin.slice(0, -1) : (pin + d).slice(0, 4);
     setPin(next);
     if (next.length === 4) void submit(next);
@@ -74,13 +136,22 @@ function PinEntry({ code, onJoined, message }: { code: string; onJoined: () => v
         <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '32px', fontWeight: 400, margin: '8px 0 18px' }}>Vpiši svoj PIN</h1>
         <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginBottom: '14px' }}>
           {[0, 1, 2, 3].map(i => (
-            <div key={i} style={{ width: '54px', height: '66px', borderRadius: '12px', border: `2px solid ${pin.length === i ? 'var(--forest)' : 'var(--hairline)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '36px', fontWeight: 700 }}>{pin[i] ? '•' : ''}</div>
+            <div key={i} style={{ width: '54px', height: '66px', borderRadius: '12px', border: `2px solid ${pin.length === i && !isLocked ? 'var(--forest)' : 'var(--hairline)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '36px', fontWeight: 700 }}>{pin[i] ? '•' : ''}</div>
           ))}
         </div>
-        <p style={{ minHeight: '24px', fontSize: '16px', color: '#c0392b', margin: '0 0 10px' }}>{busy ? <span style={{ color: 'var(--muted)' }}>Preverjam …</span> : status}</p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', maxWidth: '330px', margin: '0 auto' }}>
+        {isLocked ? (
+          <div style={{ margin: '0 0 10px' }}>
+            <p style={{ fontSize: '16px', color: '#c0392b', margin: '0 0 4px' }}>Preveč napačnih poskusov. Počakaj:</p>
+            <div style={{ fontSize: '44px', fontWeight: 700, color: '#c0392b', fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
+              {Math.floor(lockedFor / 60)}:{String(lockedFor % 60).padStart(2, '0')}
+            </div>
+          </div>
+        ) : (
+          <p style={{ minHeight: '24px', fontSize: '16px', color: '#c0392b', margin: '0 0 10px' }}>{busy ? <span style={{ color: 'var(--muted)' }}>Preverjam …</span> : status}</p>
+        )}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', maxWidth: '330px', margin: '0 auto', opacity: isLocked ? 0.35 : 1 }}>
           {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'].map((d, i) => d === '' ? <div key={i} /> : (
-            <button key={i} onClick={() => press(d)} style={{ fontSize: '30px', fontWeight: 600, padding: '16px 0', borderRadius: '14px', border: '1px solid var(--hairline)', background: '#fff', color: 'var(--ink)', cursor: 'pointer', touchAction: 'manipulation' }}>{d}</button>
+            <button key={i} onClick={() => press(d)} disabled={isLocked} style={{ fontSize: '30px', fontWeight: 600, padding: '16px 0', borderRadius: '14px', border: '1px solid var(--hairline)', background: '#fff', color: 'var(--ink)', cursor: isLocked ? 'not-allowed' : 'pointer', touchAction: 'manipulation' }}>{d}</button>
           ))}
         </div>
       </div>
