@@ -44,13 +44,13 @@ export default function ViewClassTabs({ master, ids, activeId, onSelect, onAdd, 
 
       {/* Dodaj obstoječ razred */}
       <div style={{ position: 'relative' }}>
-        <button onClick={() => setPicking(v => !v)} title="Dodaj razred iz nastavitev"
+        <button onClick={() => setPicking(v => !v)} title="Dodaj razred (razrede ustvariš v meniju Učenci)"
           style={{ background: 'rgba(255,255,255,0.07)', border: '1px dashed rgba(255,255,255,0.3)', borderRadius: '6px', color: 'rgba(255,255,255,0.6)', fontSize: '18px', fontWeight: 300, width: '30px', height: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>+</button>
         {picking && (
           <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 50, minWidth: '220px', background: 'var(--canvas)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', boxShadow: '0 8px 24px rgba(0,0,0,0.2)', padding: '6px' }}>
             {available.length === 0 ? (
               <p style={{ fontSize: '12px', color: 'var(--muted)', padding: '8px 10px' }}>
-                Ni razredov za dodati. Ustvari jih v <b>Nastavitve → Razredi</b>.
+                Ni razredov za dodati. Ustvari jih v meniju <b>Učenci</b>.
               </p>
             ) : available.map(m => (
               <button key={m.id} onClick={() => { onAdd(m.id); setPicking(false); }}

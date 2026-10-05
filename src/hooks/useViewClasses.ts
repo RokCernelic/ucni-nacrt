@@ -9,7 +9,7 @@ const VIEW_SYNC = 'ucni-nacrt-view-classes-changed';
 
 /**
  * Izbor razredov (glavnih) v danem pogledu (Učni načrt / Sedežni red) za predmet.
- * Hrani le id-je; brisanje iz pogleda ne izbriše razreda (to je v nastavitvah).
+ * Hrani le id-je; brisanje iz pogleda ne izbriše razreda (to je v meniju Učenci).
  */
 export function useViewClasses(view: ViewKind, subjectId: string) {
   const KEY = useMemo(() => `ucni-nacrt-view-${view}-${subjectId}`, [view, subjectId]);

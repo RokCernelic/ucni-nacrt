@@ -85,7 +85,7 @@ export default function StartSessionDialog({ quiz, onClose }: { quiz: Quiz; onCl
         {/* razred */}
         <div style={label}>Razred</div>
         {classes.length === 0 ? (
-          <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--muted)', margin: '0 0 16px' }}>Najprej ustvari razred v Nastavitve → Razredi in učenci.</p>
+          <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--muted)', margin: '0 0 16px' }}>Najprej ustvari razred in vpiši učence v meniju Učenci.</p>
         ) : (
           <select value={classId} onChange={e => setClassId(e.target.value)}
             style={{ width: '100%', fontFamily: 'var(--font-sans)', fontSize: '14px', padding: '9px 10px', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', background: 'var(--canvas)', color: 'var(--ink)', marginBottom: '6px' }}>

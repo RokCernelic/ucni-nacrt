@@ -95,7 +95,7 @@ export default function SedezniRedSubjectPage() {
           <p style={{ fontSize: '14px', color: 'var(--muted)' }}>Predmet ne obstaja. <Link href="/" style={{ color: 'var(--forest)' }}>Nazaj</Link></p>
         ) : !activeClass ? (
           <p style={{ fontSize: '14px', color: 'var(--muted)' }}>
-            Dodaj razred z gumbom <b>+</b> zgoraj (razrede ustvariš v <Link href="/nastavitve" style={{ color: 'var(--forest)' }}>Nastavitve → Razredi</Link>).
+            Dodaj razred z gumbom <b>+</b> zgoraj (razrede ustvariš v meniju <Link href="/ucenci" style={{ color: 'var(--forest)' }}>Učenci</Link>).
           </p>
         ) : (
           <SeatingChart classId={activeId!} className={activeClass.name} contextLabel={context} lessons={lessons} totalHours={totalHours} />

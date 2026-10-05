@@ -164,7 +164,7 @@ export default function SedezniRedDanPage() {
       <div className="print-root">
         {classesForSchool.length === 0 ? (
           <p className="no-print" style={{ maxWidth: '900px', margin: '0 auto', padding: '0 32px', color: 'var(--muted)', fontFamily: 'var(--font-sans)' }}>
-            Za to šolo še nimaš dodanih razredov. Dodaš jih v <Link href="/nastavitve" style={{ color: 'var(--forest)' }}>Nastavitve → Razredi</Link>.
+            Za to šolo še nimaš dodanih razredov. Dodaš jih v meniju <Link href="/ucenci" style={{ color: 'var(--forest)' }}>Učenci</Link>.
           </p>
         ) : days.length === 0 ? (
           <div className="no-print" style={{ maxWidth: '900px', margin: '0 auto', padding: '0 32px' }}>

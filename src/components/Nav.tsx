@@ -59,6 +59,25 @@ function ClassRow({ view, subjectId }: { view: ViewKind; subjectId: string }) {
   );
 }
 
+/** Druga vrstica v razdelku Učenci: vsi razredi + dodaj nov razred. */
+function StudentClassRow({ path }: { path: string }) {
+  const { classes } = useMasterClasses();
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '8px' }}>
+      {classes.map(c => (
+        <Link key={c.id} href={`/ucenci/${c.id}`} title={[c.name, c.school].filter(Boolean).join(' · ')} style={pill(path === `/ucenci/${c.id}`)}>
+          {c.name}
+          {c.school && <span style={{ fontSize: '11px', opacity: 0.55, fontWeight: 400 }}>{c.school}</span>}
+        </Link>
+      ))}
+      <Link href="/ucenci/nov" title="Dodaj nov razred" aria-label="Dodaj nov razred"
+        style={{ ...pill(path === '/ucenci/nov'), border: '1px dashed rgba(255,255,255,0.3)', padding: '4px 10px', fontSize: '15px', lineHeight: 1 }}>
+        +
+      </Link>
+    </div>
+  );
+}
+
 export default function Nav() {
   const path = usePathname();
   const { user, loading, signOut } = useAuth();
@@ -71,8 +90,9 @@ export default function Nav() {
 
   const onSeating = path.startsWith('/sedezni-red');
   const onQuizzes = path.startsWith('/kvizi');
+  const onStudents = path.startsWith('/ucenci');
   const onSettings = path.startsWith('/nastavitve');
-  const ucniActive = !onSeating && !onQuizzes && !onSettings && path !== '/login';
+  const ucniActive = !onSeating && !onQuizzes && !onStudents && !onSettings && path !== '/login';
 
   const subjectItems = subjects
     .map((s) => {
@@ -106,6 +126,7 @@ export default function Nav() {
             <>
               <Link href="/sedezni-red" style={item(onSeating)}>Sedežni red</Link>
               <Link href="/kvizi" style={item(onQuizzes)}>Kvizi</Link>
+              <Link href="/ucenci" style={item(onStudents)}>Učenci</Link>
               <span style={{ flex: 1 }} />
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginLeft: 'auto' }}>
                 <Link href="/nastavitve" title="Nastavitve" aria-label="Nastavitve"
@@ -128,6 +149,7 @@ export default function Nav() {
           )}
         </div>
 
+        {onStudents && !loading && user && <StudentClassRow path={path} />}
         {subjectBase && !loading && user && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '8px' }}>
             {subjectItems.map((s) => (

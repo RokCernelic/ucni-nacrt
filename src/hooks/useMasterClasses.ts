@@ -59,8 +59,9 @@ function write(next: MasterClass[]) { localStorage.setItem(KEY, JSON.stringify(n
 
 export function useMasterClasses() {
   const [classes, setClasses] = useState<MasterClass[]>([]);
+  const [loaded, setLoaded] = useState(false);
 
-  useEffect(() => { setClasses(read()); }, []);
+  useEffect(() => { setClasses(read()); setLoaded(true); }, []);
   useEffect(() => {
     const resync = () => setClasses(read());
     const onStorage = (e: StorageEvent) => { if (e.key === KEY) resync(); };
@@ -100,5 +101,5 @@ export function useMasterClasses() {
     write(next);
   }, []);
 
-  return { classes, addClass, updateClass, removeClass };
+  return { classes, loaded, addClass, updateClass, removeClass };
 }
