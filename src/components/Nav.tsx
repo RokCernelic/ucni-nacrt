@@ -21,7 +21,6 @@ const item = (active: boolean): CSSProperties => ({
   letterSpacing: '0.08em', textTransform: 'uppercase', whiteSpace: 'nowrap',
   color: active ? '#fff' : 'rgba(255,255,255,0.5)',
   textDecoration: 'none', flexShrink: 0, transition: 'color 0.15s',
-  background: 'none', border: 'none', padding: 0, cursor: 'pointer',
   borderBottom: `2px solid ${active ? 'rgba(255,255,255,0.7)' : 'transparent'}`,
   paddingBottom: '2px',
 });
@@ -79,13 +78,16 @@ export default function Nav() {
               <Link href="/sedezni-red" style={item(onSeating)}>Sedežni red</Link>
               <Link href="/kvizi" style={item(onQuizzes)}>Kvizi</Link>
               <span style={{ flex: 1 }} />
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <Link href="/nastavitve" title="Nastavitve" aria-label="Nastavitve"
                   style={{ ...ctrl, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '30px', height: '28px', padding: 0,
                     ...(onSettings ? { background: 'rgba(255,255,255,0.2)', color: '#fff' } : {}) }}>
                   <GearIcon />
                 </Link>
-                <button onClick={signOut} title={user.email ? `Odjava (${user.email})` : 'Odjava'} style={item(false)}>Odjava</button>
+                <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap' }}>
+                  {user.email}
+                </span>
+                <button onClick={signOut} style={ctrl}>Odjava</button>
               </div>
             </>
           )}
