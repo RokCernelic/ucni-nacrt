@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useRoster, parseRoster, rosterToText } from '@/hooks/useRoster';
 import StudentHistoryDialog from '@/components/quiz/StudentHistoryDialog';
 
@@ -38,25 +39,14 @@ export default function RosterEditor({ classId, className }: { classId: string; 
     save(students.map(s => (s.id === id ? { ...s, name: clean } : s)));
   };
 
-  // Natisni listke s PIN-i (ločeno okno, da ne vpliva na tisk sedežnega reda)
+  // Listki s PIN-i se natisnejo neposredno s te strani (brez pojavnega okna, ki ga brskalniki radi blokirajo):
+  // med tiskom je viden le ta element, vse ostalo je skrito (globals.css, html.printing-pins).
   const printPins = () => {
-    const esc = (x: string) => x.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
-    const slips = students.map(s => `<div class="slip"><div class="cls">${esc(className)}</div><div class="name">${esc(s.name)}</div><div class="pin">${esc(s.pin ?? '—')}</div><div class="hint">PIN za kviz</div></div>`).join('');
-    const w = window.open('', '_blank');
-    if (!w) return;
-    w.document.write(`<!doctype html><html lang="sl"><head><meta charset="utf-8"><title>PIN-i — ${esc(className)}</title><style>
-      body{font-family:-apple-system,Inter,sans-serif;margin:12mm;color:#222}
-      h1{font-size:16px;margin:0 0 8mm}
-      .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:0}
-      .slip{border:1px dashed #999;padding:5mm 4mm;text-align:center;break-inside:avoid}
-      .cls{font-size:10px;color:#777;letter-spacing:.08em;text-transform:uppercase}
-      .name{font-size:14px;font-weight:600;margin:2mm 0}
-      .pin{font-size:30px;font-weight:700;letter-spacing:.12em;font-variant-numeric:tabular-nums}
-      .hint{font-size:9px;color:#999;margin-top:1mm}
-      @media print{h1{display:none}body{margin:8mm}}
-    </style></head><body><h1>PIN-i za kvize — ${esc(className)} (izreži po črtkanih črtah)</h1><div class="grid">${slips}</div>
-    <script>window.onload=()=>setTimeout(()=>window.print(),200)</script></body></html>`);
-    w.document.close();
+    const root = document.documentElement;
+    const done = () => { root.classList.remove('printing-pins'); window.removeEventListener('afterprint', done); };
+    root.classList.add('printing-pins');
+    window.addEventListener('afterprint', done);
+    window.print();
   };
 
   const toggleFront = (id: string) =>
@@ -165,6 +155,21 @@ export default function RosterEditor({ classId, className }: { classId: string; 
         </div>
       )}
       {historyFor && <StudentHistoryDialog studentId={historyFor.id} studentName={historyFor.name} onClose={() => setHistoryFor(null)} />}
+      {typeof document !== 'undefined' && createPortal(
+        <div className="print-pins" aria-hidden>
+          <div className="print-pins-grid">
+            {students.map(st => (
+              <div key={st.id} className="print-pins-slip">
+                <div className="cls">{className}</div>
+                <div className="name">{st.name}</div>
+                <div className="pin">{st.pin ?? '—'}</div>
+                <div className="hint">PIN za kviz</div>
+              </div>
+            ))}
+          </div>
+        </div>,
+        document.body,
+      )}
     </div>
   );
 }

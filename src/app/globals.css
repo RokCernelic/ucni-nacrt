@@ -54,6 +54,20 @@ html { scroll-behavior: smooth; }
   }
 }
 
+/* Listki s PIN-i (Učenci → Natisni PIN-e): na zaslonu skriti; ob tisku edini vidni element. */
+.print-pins { display: none; }
+@media print {
+  html.printing-pins body > :not(.print-pins) { display: none !important; }
+  html.printing-pins .print-pins, html.printing-pins .print-pins * { visibility: visible !important; }
+  html.printing-pins .print-pins { display: block; font-family: -apple-system, Inter, sans-serif; color: #222; }
+  .print-pins-grid { display: grid; grid-template-columns: repeat(3, 1fr); }
+  .print-pins-slip { border: 1px dashed #999; padding: 5mm 4mm; text-align: center; break-inside: avoid; }
+  .print-pins-slip .cls { font-size: 10px; color: #777; letter-spacing: .08em; text-transform: uppercase; }
+  .print-pins-slip .name { font-size: 14px; font-weight: 600; margin: 2mm 0; }
+  .print-pins-slip .pin { font-size: 30px; font-weight: 700; letter-spacing: .12em; font-variant-numeric: tabular-nums; }
+  .print-pins-slip .hint { font-size: 9px; color: #999; margin-top: 1mm; }
+}
+
 /* naslednji dan je samo za tisk */
 .print-next { display: none; }
 
