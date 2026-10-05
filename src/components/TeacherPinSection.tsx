@@ -41,7 +41,7 @@ export default function TeacherPinSection() {
           onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
           onKeyDown={e => { if (e.key === 'Enter') save(); }}
           inputMode="numeric"
-          placeholder="4 števke"
+          placeholder="••••" aria-label="PIN (4 števke)"
           style={{ fontFamily: 'var(--font-sans)', fontSize: '18px', fontWeight: 600, letterSpacing: '0.15em', width: '110px', color: 'var(--ink)', background: 'var(--canvas)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', padding: '7px 10px', outline: 'none' }}
         />
         <button onClick={save} disabled={!valid || pin === saved}

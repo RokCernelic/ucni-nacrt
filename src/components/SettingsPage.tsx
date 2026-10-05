@@ -135,6 +135,9 @@ export default function SettingsPage() {
                 </button>
               </div>
               {pwMsg && <p style={{ marginTop: '8px', fontSize: '12px', color: pwMsg.ok ? 'var(--green-ok)' : '#c0392b' }}>{pwMsg.text}</p>}
+
+              <div style={{ ...label, margin: '22px 0 10px' }}>PIN (za testiranje kvizov)</div>
+              <TeacherPinSection />
             </>
           )}
         </div>
@@ -193,18 +196,6 @@ export default function SettingsPage() {
                 {savedMsg && <span style={{ fontSize: '12px', color: 'var(--green-ok)' }}>Shranjeno ✓</span>}
               </div>
             </>
-          )}
-        </div>
-
-        {/* PIN učitelja za kvize */}
-        <div style={card}>
-          <div style={{ ...label, marginBottom: '10px' }}>Kvizi — moj PIN (učitelj)</div>
-          {isAnon ? (
-            <p style={{ fontSize: '13px', color: 'var(--muted)' }}>
-              Za nastavitev PIN-a se <Link href="/login" style={{ color: 'var(--forest)', fontWeight: 500 }}>prijavite</Link>.
-            </p>
-          ) : (
-            <TeacherPinSection />
           )}
         </div>
 
