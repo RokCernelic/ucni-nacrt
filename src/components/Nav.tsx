@@ -78,16 +78,16 @@ export default function Nav() {
               <Link href="/sedezni-red" style={item(onSeating)}>Sedežni red</Link>
               <Link href="/kvizi" style={item(onQuizzes)}>Kvizi</Link>
               <span style={{ flex: 1 }} />
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginLeft: 'auto' }}>
                 <Link href="/nastavitve" title="Nastavitve" aria-label="Nastavitve"
                   style={{ ...ctrl, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '30px', height: '28px', padding: 0,
                     ...(onSettings ? { background: 'rgba(255,255,255,0.2)', color: '#fff' } : {}) }}>
                   <GearIcon />
                 </Link>
+                <button onClick={signOut} style={ctrl}>Odjava</button>
                 <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap' }}>
                   {user.email}
                 </span>
-                <button onClick={signOut} style={ctrl}>Odjava</button>
               </div>
             </>
           )}
