@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 
 export interface MasterClass {
   id: string;
@@ -12,6 +12,14 @@ const KEY = 'ucni-nacrt-master-classes';
 const SYNC = 'ucni-nacrt-master-classes-changed';
 /** kurikularni podatki, ki so vezani na (predmet::razred) */
 const SCOPED = ['progress', 'hours', 'enote-order', 'open-chapters', 'notes', 'listmode'];
+
+/** Vrstni red razredov povsod: najprej višji razred (9 → 6), nato po abecedi (8A, 8B …). */
+export function compareClasses(a: { name: string; school?: string }, b: { name: string; school?: string }): number {
+  const grade = (n: string) => Number((n.match(/\d+/) ?? ['0'])[0]);
+  return grade(b.name) - grade(a.name)
+    || a.name.localeCompare(b.name, 'sl', { numeric: true })
+    || (a.school ?? '').localeCompare(b.school ?? '', 'sl');
+}
 
 function emit() { window.dispatchEvent(new Event(SYNC)); window.dispatchEvent(new Event('ucni-nacrt-changed')); }
 
@@ -101,5 +109,7 @@ export function useMasterClasses() {
     write(next);
   }, []);
 
-  return { classes, loaded, addClass, updateClass, removeClass };
+  const sorted = useMemo(() => [...classes].sort(compareClasses), [classes]);
+
+  return { classes: sorted, loaded, addClass, updateClass, removeClass };
 }

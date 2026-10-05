@@ -12,8 +12,7 @@ export default function ViewClassTabs({ master, ids, activeId, onSelect, onAdd, 
   onRemove: (id: string) => void;
 }) {
   const [picking, setPicking] = useState(false);
-  const byId = new Map(master.map(m => [m.id, m]));
-  const shown = ids.map(id => byId.get(id)).filter((m): m is MasterClass => !!m);
+  const shown = master.filter(m => ids.includes(m.id));
   const available = master.filter(m => !ids.includes(m.id));
 
   const tabStyle = (active: boolean): React.CSSProperties => ({
