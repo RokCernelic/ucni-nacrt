@@ -7,7 +7,6 @@ import { useSubjects } from '@/hooks/useSubjects';
 import { getCurriculum } from '@/data/registry';
 import { useMasterClasses } from '@/hooks/useMasterClasses';
 import { useViewClasses } from '@/hooks/useViewClasses';
-import ViewClassTabs from '@/components/ViewClassTabs';
 import SeatingChart from '@/components/SeatingChart';
 import Countdown from '@/components/Countdown';
 import { lessonsFor, canonLabel, schoolLetterFrom } from '@/data/timetable';
@@ -20,7 +19,7 @@ export default function SedezniRedSubjectPage() {
   const { user, loading } = useAuth();
   const { subjects, loaded } = useSubjects();
   const { classes: master } = useMasterClasses();
-  const { ids, activeId, setActive, addToView, removeFromView } = useViewClasses('sedez', id);
+  const { activeId } = useViewClasses('sedez', id);
 
   if (loading || !loaded) return null;
 
@@ -64,9 +63,6 @@ export default function SedezniRedSubjectPage() {
             </div>
             <Countdown school={subject?.subtitle} />
           </div>
-          {user && subject && entry && (
-            <ViewClassTabs master={master} ids={ids} activeId={activeId} onSelect={setActive} onAdd={addToView} onRemove={removeFromView} />
-          )}
           {user && sameSchoolCount > 0 && activeSchoolLetter && (
             <div style={{ marginTop: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               {sameSchoolCount > 1 && (

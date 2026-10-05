@@ -4,6 +4,9 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import CurriculumPicker from '@/components/CurriculumPicker';
+import ViewClassTabs from '@/components/ViewClassTabs';
+import { useMasterClasses } from '@/hooks/useMasterClasses';
+import { useViewClasses, type ViewKind } from '@/hooks/useViewClasses';
 import { useAuth } from '@/hooks/useAuth';
 import { useSubjects } from '@/hooks/useSubjects';
 import { getCurriculum } from '@/data/registry';
@@ -45,6 +48,17 @@ const ctrl: CSSProperties = {
   padding: '4px 12px', textDecoration: 'none', cursor: 'pointer',
 };
 
+/** Tretja vrstica menija: razredi izbranega predmeta (v pogledu učni načrt / sedežni red). */
+function ClassRow({ view, subjectId }: { view: ViewKind; subjectId: string }) {
+  const { classes: master } = useMasterClasses();
+  const { ids, activeId, setActive, addToView, removeFromView } = useViewClasses(view, subjectId);
+  return (
+    <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+      <ViewClassTabs master={master} ids={ids} activeId={activeId} onSelect={setActive} onAdd={addToView} onRemove={removeFromView} />
+    </div>
+  );
+}
+
 export default function Nav() {
   const path = usePathname();
   const { user, loading, signOut } = useAuth();
@@ -68,6 +82,10 @@ export default function Nav() {
     .filter((x): x is { id: string; label: string; subtitle: string } => x !== null);
 
   const subjectBase = ucniActive ? '/predmet' : onSeating ? '/sedezni-red' : null;
+  const subjectMatch = path.match(/^\/(predmet|sedezni-red)\/([^/]+)$/);
+  const classRow = subjectMatch && subjects.some(s => s.id === subjectMatch[2])
+    ? { view: (subjectMatch[1] === 'predmet' ? 'ucni' : 'sedez') as ViewKind, subjectId: subjectMatch[2] }
+    : null;
 
   const pick = (curriculumId: string, school: string) => {
     const id = addSubject(curriculumId);
@@ -124,6 +142,7 @@ export default function Nav() {
             </button>
           </div>
         )}
+        {classRow && !loading && user && <ClassRow key={`${classRow.view}-${classRow.subjectId}`} {...classRow} />}
         {picker && (
           <CurriculumPicker
             schools={Array.from(new Set(subjects.map(x => x.subtitle.trim()).filter(Boolean)))}

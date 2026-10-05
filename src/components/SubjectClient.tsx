@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useMasterClasses } from '@/hooks/useMasterClasses';
 import { useViewClasses } from '@/hooks/useViewClasses';
 import { useAuth } from '@/hooks/useAuth';
-import ViewClassTabs from '@/components/ViewClassTabs';
 import CurriculumTree from '@/components/CurriculumTree';
 import type { Predmet } from '@/types/curriculum';
 
@@ -21,7 +20,7 @@ export default function SubjectClient({ predmet, gradeTargets, scopeId, subtitle
 }) {
   const subjectId = scopeId ?? predmet.id;
   const { classes: master } = useMasterClasses();
-  const { ids, activeId, setActive, addToView, removeFromView } = useViewClasses('ucni', subjectId);
+  const { activeId } = useViewClasses('ucni', subjectId);
   const { user, loading } = useAuth();
   const isAnonymous = !loading && !user;
 
@@ -35,16 +34,7 @@ export default function SubjectClient({ predmet, gradeTargets, scopeId, subtitle
         + Prijava za razrede
       </Link>
     </div>
-  ) : (
-    <ViewClassTabs
-      master={master}
-      ids={ids}
-      activeId={activeId}
-      onSelect={setActive}
-      onAdd={addToView}
-      onRemove={removeFromView}
-    />
-  );
+  ) : null;
 
   return (
     <CurriculumTree

@@ -4,6 +4,9 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 
 export type ViewKind = 'ucni' | 'sedez';
 
+/** meni in stran imata vsak svojo instanco hooka — ta dogodek ju drži usklajeni v istem zavihku */
+const VIEW_SYNC = 'ucni-nacrt-view-classes-changed';
+
 /**
  * Izbor razredov (glavnih) v danem pogledu (Učni načrt / Sedežni red) za predmet.
  * Hrani le id-je; brisanje iz pogleda ne izbriše razreda (to je v nastavitvah).
@@ -25,18 +28,25 @@ export function useViewClasses(view: ViewKind, subjectId: string) {
     const onStorage = (e: StorageEvent) => { if (e.key === KEY || e.key === ACTIVE) load(); };
     window.addEventListener('storage', onStorage);
     window.addEventListener('ucni-nacrt-master-classes-changed', load);
-    return () => { window.removeEventListener('storage', onStorage); window.removeEventListener('ucni-nacrt-master-classes-changed', load); };
+    window.addEventListener(VIEW_SYNC, load);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('ucni-nacrt-master-classes-changed', load);
+      window.removeEventListener(VIEW_SYNC, load);
+    };
   }, [KEY, ACTIVE, load]);
 
   const persist = useCallback((next: string[]) => {
     setIds(next);
     localStorage.setItem(KEY, JSON.stringify(next));
+    window.dispatchEvent(new Event(VIEW_SYNC));
     window.dispatchEvent(new Event('ucni-nacrt-changed'));
   }, [KEY]);
 
   const setActive = useCallback((id: string) => {
     setActiveIdState(id);
     localStorage.setItem(ACTIVE, id);
+    window.dispatchEvent(new Event(VIEW_SYNC));
     window.dispatchEvent(new Event('ucni-nacrt-changed'));
   }, [ACTIVE]);
 
@@ -54,7 +64,7 @@ export function useViewClasses(view: ViewKind, subjectId: string) {
     persist(next);
     if (activeId === id) {
       const na = next[0] ?? null;
-      if (na) setActive(na); else { localStorage.removeItem(ACTIVE); setActiveIdState(null); }
+      if (na) setActive(na); else { localStorage.removeItem(ACTIVE); setActiveIdState(null); window.dispatchEvent(new Event(VIEW_SYNC)); }
     }
   }, [KEY, ACTIVE, persist, setActive, activeId]);
 

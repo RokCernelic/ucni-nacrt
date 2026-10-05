@@ -26,7 +26,7 @@ export default function ViewClassTabs({ master, ids, activeId, onSelect, onAdd, 
   });
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '18px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
       {shown.map(m => {
         const active = m.id === activeId;
         return (
