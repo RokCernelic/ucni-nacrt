@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useRoster, type Student } from '@/hooks/useRoster';
+import { studentsLabel } from '@/lib/quiz/format';
 import { useSeating, activeSeats, shuffleInto, makeRng, emptyHistory, bumpHistory, type Seating } from '@/hooks/useSeating';
 import { useRooms, type RoomPlan } from '@/hooks/useRooms';
 import { useFixedSeats, fixedMapForDate } from '@/hooks/useFixedSeats';
@@ -51,12 +52,6 @@ export function useDayLayouts(classId?: string) {
     });
   };
   return { map, setDayLayout };
-}
-
-/** »1 učenec«, »2 učenca«, »3 učenci«, »5 učencev« */
-export function studentsLabel(n: number): string {
-  const m = n % 100;
-  return `${n} ${m === 1 ? 'učenec' : m === 2 ? 'učenca' : m === 3 || m === 4 ? 'učenci' : 'učencev'}`;
 }
 
 /** Bralni izris mreže (za tisk naslednjega dne / tisk celega dneva za več razredov). */

@@ -10,6 +10,7 @@ import {
 import { questionProblems, parseNumber } from '@/lib/quiz/scoring';
 import { downscaleImage } from '@/lib/quiz/image';
 import { questionsLabel, pointsLabel, formatNumber } from '@/lib/quiz/format';
+import { parseQuizText, readTextFile, type TextImportResult } from '@/lib/quiz/textImport';
 import type { Quiz, Question, McQuestion, NumericQuestion, QuizFolder } from '@/lib/quiz/types';
 import StartSessionDialog from '@/components/quiz/StartSessionDialog';
 
@@ -182,6 +183,8 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
   const [status, setStatus] = useState<'saved' | 'saving' | 'error'>('saved');
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
+  const [importResult, setImportResult] = useState<(TextImportResult & { file: string }) | null>(null);
+  const importRef = useRef<HTMLInputElement>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pending = useRef<Quiz | null>(null);
 
@@ -239,6 +242,18 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
     const qs = [...draft.questions];
     [qs[i], qs[j]] = [qs[j], qs[i]];
     setQuestions(qs);
+  };
+
+  const importFile = async (file: File | undefined) => {
+    if (!file) return;
+    const res = parseQuizText(await readTextFile(file));
+    setImportResult({ ...res, file: file.name });
+    if (!res.questions.length) return;
+    // prazen začetni osnutek (eno nedotaknjeno vprašanje) zamenjaj, sicer dodaj na konec
+    const untouched = draft.questions.length === 1 && questionProblems(draft.questions[0]).length > 0
+      && !draft.questions[0].prompt.trim() && !draft.questions[0].image;
+    const title = res.title && (!draft.title.trim() || draft.title === 'Nov kviz') ? res.title : draft.title;
+    update({ ...draft, title, questions: [...(untouched ? [] : draft.questions), ...res.questions] });
   };
 
   const incomplete = draft.questions.filter(q => questionProblems(q).length > 0).length;
@@ -302,7 +317,31 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
           <button style={btn(true)} onClick={() => setQuestions([...draft.questions, newMcQuestion()])}>+ Izbirno</button>
           <button style={btn()} onClick={() => setQuestions([...draft.questions, newTrueFalseQuestion()])}>+ Drži / ne drži</button>
           <button style={btn()} onClick={() => setQuestions([...draft.questions, newNumericQuestion()])}>+ Številsko</button>
+          <span style={{ flex: 1 }} />
+          <button style={btn()} title="Uvozi vprašanja iz navadne besedilne datoteke (.txt)" onClick={() => importRef.current?.click()}>📄 Uvozi iz datoteke</button>
+          <a href="/primer-kviz.txt" download style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--muted)' }}>primer datoteke</a>
+          <input ref={importRef} type="file" accept=".txt,text/plain" hidden
+            onChange={e => { void importFile(e.target.files?.[0]); e.target.value = ''; }} />
         </div>
+
+        {importResult && (
+          <div style={{ marginTop: '12px', padding: '12px 14px', borderRadius: 'var(--r-md)', fontFamily: 'var(--font-sans)', fontSize: '13px', lineHeight: 1.5,
+            background: importResult.errors.length ? '#fdf6e3' : '#eef6ee', border: `1px solid ${importResult.errors.length ? '#ecd9a8' : '#bfe3c0'}` }}>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'baseline' }}>
+              <strong style={{ color: 'var(--ink)' }}>
+                {importResult.file} — uvoženo: {questionsLabel(importResult.questions.length)}
+                {importResult.errors.length > 0 && ` · preskočeno: ${importResult.errors.length}`}
+              </strong>
+              <span style={{ flex: 1 }} />
+              <button onClick={() => setImportResult(null)} style={{ ...iconBtn, width: '24px', height: '24px' }} title="Zapri">×</button>
+            </div>
+            {importResult.errors.length > 0 && (
+              <ul style={{ margin: '6px 0 0', paddingLeft: '18px', color: '#8a5a00' }}>
+                {importResult.errors.map((er, i) => <li key={i}>vrstica {er.line}: {er.message}</li>)}
+              </ul>
+            )}
+          </div>
+        )}
       </div>
       {starting && <StartSessionDialog quiz={draft} onClose={() => setStarting(false)} />}
     </div>

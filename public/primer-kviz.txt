@@ -1,0 +1,45 @@
+Naslov: Gostota in sila teže
+
+# ------------------------------------------------------------------
+# PRIMER DATOTEKE ZA UVOZ VPRAŠANJ V KVIZ
+#
+# Pravila:
+#  - Vrstice, ki se začnejo z #, so komentarji in se ne uvozijo.
+#  - "Naslov:" v prvi vrstici je neobvezen (nastavi naslov kviza).
+#  - Vprašanja med seboj loči PRAZNA VRSTICA.
+#  - Prva vrstica je besedilo vprašanja (številka "1." je neobvezna).
+#    Besedilo je lahko v več vrsticah, vse do prve možnosti.
+#  - Možnosti začni z A) B) C) ... (ali A. B. C. ali pomišljajem -).
+#  - Pravilno možnost označi z zvezdico * pred črko, npr. *B)
+#    (pravilna je lahko le ena; največ 6 možnosti).
+#  - [ohrani] na koncu možnosti = pri mešanju ostane na svojem mestu.
+#  - Številski odgovor zapiši z enačajem: = 9,81
+#    s toleranco: = 9,81 ± 0,1   (namesto ± lahko napišeš +-)
+#  - "točke: 2" je neobvezno (privzeto 1 točka).
+#  - Datoteko shrani kot navadno besedilo (.txt).
+# ------------------------------------------------------------------
+
+1. Kolikšna je gostota vode?
+A) 100 kg/m³
+*B) 1000 kg/m³
+C) 10 000 kg/m³
+D) 1 kg/m³
+
+2. Kocka iz lesa plava na vodi.
+Kaj velja za gostoto lesa?
+A) Je večja od gostote vode.
+*B) Je manjša od gostote vode.
+C) Je enaka gostoti vode.
+D) Nič od naštetega. [ohrani]
+točke: 2
+
+3. Telo z večjo maso ima vedno večjo gostoto.
+- Drži
+*- Ne drži
+
+4. Kolikšen je težni pospešek g na Zemlji (v m/s²)?
+= 9,81 ± 0,1
+
+5. Kolikšna je sila teže na telo z maso 2 kg? (Vzemi g = 10 m/s², odgovor v N.)
+= 20
+točke: 2

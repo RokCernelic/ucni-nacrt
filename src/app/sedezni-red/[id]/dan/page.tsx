@@ -7,7 +7,8 @@ import { useSubjects } from '@/hooks/useSubjects';
 import { getCurriculum } from '@/data/registry';
 import { useMasterClasses, type MasterClass } from '@/hooks/useMasterClasses';
 import { useClassDayAssignments } from '@/hooks/useClassDayAssignments';
-import { StaticSeatingGrid, studentsLabel } from '@/components/SeatingChart';
+import { StaticSeatingGrid } from '@/components/SeatingChart';
+import { studentsLabel } from '@/lib/quiz/format';
 import { lessonsFor, canonLabel, formatLessonDate, schoolLetterFrom, SCHOOL_NAME, type LessonSubject, type Lesson } from '@/data/timetable';
 
 const todayISO = () => {
