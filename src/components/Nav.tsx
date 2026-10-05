@@ -16,11 +16,14 @@ function GearIcon() {
   );
 }
 
-const sectionTitle = (active: boolean): CSSProperties => ({
-  fontFamily: 'var(--font-serif)', fontSize: '18px', fontWeight: 400,
+const item = (active: boolean): CSSProperties => ({
+  fontFamily: 'var(--font-serif)', fontSize: 'clamp(15px, 1.7vw, 18px)', fontWeight: 400,
   letterSpacing: '0.08em', textTransform: 'uppercase', whiteSpace: 'nowrap',
-  color: active ? '#fff' : 'rgba(255,255,255,0.45)',
+  color: active ? '#fff' : 'rgba(255,255,255,0.5)',
   textDecoration: 'none', flexShrink: 0, transition: 'color 0.15s',
+  background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+  borderBottom: `2px solid ${active ? 'rgba(255,255,255,0.7)' : 'transparent'}`,
+  paddingBottom: '2px',
 });
 
 const pill = (active: boolean): CSSProperties => ({
@@ -51,7 +54,8 @@ export default function Nav() {
 
   const onSeating = path.startsWith('/sedezni-red');
   const onQuizzes = path.startsWith('/kvizi');
-  const ucniActive = !onSeating && !onQuizzes;
+  const onSettings = path.startsWith('/nastavitve');
+  const ucniActive = !onSeating && !onQuizzes && !onSettings && path !== '/login';
 
   const subjectItems = subjects
     .map((s) => {
@@ -60,70 +64,48 @@ export default function Nav() {
     })
     .filter((x): x is { id: string; label: string; subtitle: string } => x !== null);
 
+  const subjectBase = ucniActive ? '/predmet' : onSeating ? '/sedezni-red' : null;
+
   return (
     <nav style={{
       position: 'sticky', top: 0, zIndex: 100,
       background: 'var(--forest)', boxShadow: '0 1px 8px rgba(0,0,0,0.18)',
     }}>
-      <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '10px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '24px', width: '100%' }}>
-
-        {/* Levo: dvovrstični meni */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: 0 }}>
-          {/* Vrsta 1: Učni načrt + predmeti */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
-            <Link href="/" style={sectionTitle(ucniActive)}>Učni načrt</Link>
-            {ucniActive && subjectItems.length > 0 && (
-              <div style={{ display: 'flex', gap: '4px', overflowX: 'auto' }}>
-                {subjectItems.map((s) => (
-                  <Link key={s.id} href={`/predmet/${s.id}`} title={s.subtitle || s.label} style={pill(path === `/predmet/${s.id}`)}>
-                    {s.label}
-                    {s.subtitle && <span style={{ fontSize: '11px', opacity: 0.55, fontWeight: 400 }}>{s.subtitle}</span>}
-                  </Link>
-                ))}
+      <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '12px 32px 10px', width: '100%' }}>
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 'clamp(16px, 2.5vw, 28px)', rowGap: '6px' }}>
+          <Link href="/" style={item(ucniActive)}>Učni načrt</Link>
+          {!loading && user && (
+            <>
+              <Link href="/sedezni-red" style={item(onSeating)}>Sedežni red</Link>
+              <Link href="/kvizi" style={item(onQuizzes)}>Kvizi</Link>
+              <span style={{ flex: 1 }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <Link href="/nastavitve" title="Nastavitve" aria-label="Nastavitve"
+                  style={{ ...ctrl, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '30px', height: '28px', padding: 0,
+                    ...(onSettings ? { background: 'rgba(255,255,255,0.2)', color: '#fff' } : {}) }}>
+                  <GearIcon />
+                </Link>
+                <button onClick={signOut} title={user.email ? `Odjava (${user.email})` : 'Odjava'} style={item(false)}>Odjava</button>
               </div>
-            )}
-          </div>
-
-          {/* Vrsta 2: Sedežni red + predmeti (samo prijavljeni) */}
-          {!loading && user && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
-              <Link href="/sedezni-red" style={sectionTitle(onSeating)}>Sedežni red</Link>
-              {onSeating && subjectItems.length > 0 && (
-                <div style={{ display: 'flex', gap: '4px', overflowX: 'auto' }}>
-                  {subjectItems.map((s) => (
-                    <Link key={s.id} href={`/sedezni-red/${s.id}`} title={s.subtitle || s.label} style={pill(path === `/sedezni-red/${s.id}`)}>
-                      {s.label}
-                      {s.subtitle && <span style={{ fontSize: '11px', opacity: 0.55, fontWeight: 400 }}>{s.subtitle}</span>}
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
+            </>
           )}
-
-          {/* Vrsta 3: Kvizi (samo prijavljeni) — ena globalna knjižnica */}
-          {!loading && user && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
-              <Link href="/kvizi" style={sectionTitle(onQuizzes)}>Kvizi</Link>
-            </div>
+          {!loading && !user && (
+            <>
+              <span style={{ flex: 1 }} />
+              <Link href="/login" style={{ ...ctrl, flexShrink: 0 }}>Prijava</Link>
+            </>
           )}
         </div>
 
-        {/* Desno: račun + nastavitve */}
-        {!loading && (
-          user ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-              <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap' }}>
-                {user.email}
-              </span>
-              <Link href="/nastavitve" title="Nastavitve" style={{ ...ctrl, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '30px', height: '28px', padding: 0 }}>
-                <GearIcon />
+        {subjectBase && subjectItems.length > 0 && (subjectBase === '/predmet' || user) && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '8px' }}>
+            {subjectItems.map((s) => (
+              <Link key={s.id} href={`${subjectBase}/${s.id}`} title={s.subtitle || s.label} style={pill(path === `${subjectBase}/${s.id}`)}>
+                {s.label}
+                {s.subtitle && <span style={{ fontSize: '11px', opacity: 0.55, fontWeight: 400 }}>{s.subtitle}</span>}
               </Link>
-              <button onClick={signOut} style={ctrl}>Odjava</button>
-            </div>
-          ) : (
-            <Link href="/login" style={{ ...ctrl, flexShrink: 0 }}>Prijava</Link>
-          )
+            ))}
+          </div>
         )}
       </div>
     </nav>
