@@ -11,8 +11,8 @@ export function generatePin(taken: Set<string>, rand: () => number = Math.random
 }
 
 /** Dodeli PIN vsem, ki ga še nimajo. Obstoječi PIN-i se nikoli ne spremenijo. */
-export function withPins<T extends { pin?: string }>(students: T[], rand: () => number = Math.random): T[] {
-  const taken = new Set(students.map(s => s.pin).filter((p): p is string => !!p));
+export function withPins<T extends { pin?: string }>(students: T[], rand: () => number = Math.random, reserved: string[] = []): T[] {
+  const taken = new Set([...reserved, ...students.map(s => s.pin).filter((p): p is string => !!p)]);
   return students.map(s => {
     if (s.pin) return s;
     const pin = generatePin(taken, rand);

@@ -6,7 +6,7 @@ import { useMasterClasses } from '@/hooks/useMasterClasses';
 import { useRoster } from '@/hooks/useRoster';
 import { useQuizLibrary } from '@/hooks/useQuizLibrary';
 import { questionProblems } from '@/lib/quiz/scoring';
-import { startSession, type SessionMode } from '@/lib/quiz/sessionApi';
+import { startSession, type SessionMode, getTeacherPin } from '@/lib/quiz/sessionApi';
 import { studentsLabel, hasNotVerb } from '@/lib/quiz/format';
 import type { Quiz } from '@/lib/quiz/types';
 
@@ -40,6 +40,8 @@ export default function StartSessionDialog({ quiz, onClose }: { quiz: Quiz; onCl
   const cls = classes.find(c => c.id === classId);
   const incomplete = quiz.questions.filter(q => questionProblems(q).length > 0).length;
   const missingPins = students.filter(s => !s.pin).length;
+  const teacherPin = getTeacherPin();
+  const pinClash = teacherPin ? students.find(s => s.pin === teacherPin) : undefined;
   const canStart = !!cls && students.length > 0 && missingPins === 0 && incomplete === 0 && quiz.questions.length > 0 && !busy;
 
   const start = async () => {
@@ -51,6 +53,7 @@ export default function StartSessionDialog({ quiz, onClose }: { quiz: Quiz; onCl
         classId: cls.id,
         className: [cls.name, cls.school].filter(Boolean).join(' · '),
         students: students.map(s => ({ id: s.id, name: s.name, pin: s.pin! })),
+        teacherPin: getTeacherPin(),
         mode, shuffle, showSolutions,
       });
       try { sessionStorage.setItem(LAST_CLASS, cls.id); } catch { /* ignore */ }
@@ -97,6 +100,11 @@ export default function StartSessionDialog({ quiz, onClose }: { quiz: Quiz; onCl
             {!students.length ? 'Ta razred nima učencev.'
               : missingPins ? (<>{studentsLabel(missingPins)} {hasNotVerb(missingPins)} PIN-a. <button onClick={() => save(students)} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--forest)', fontWeight: 600, cursor: 'pointer', fontSize: '12px' }}>Dodeli PIN-e</button></>)
               : `${studentsLabel(students.length)} s PIN-i`}
+            {students.length > 0 && !missingPins && (teacherPin
+              ? (pinClash
+                ? <span style={{ color: '#b7791f' }}> · tvoj PIN {teacherPin} ima že {pinClash.name} — ta seja bo brez tebe</span>
+                : ` · + ti kot skriti udeleženec (PIN ${teacherPin})`)
+              : null)}
           </p>
         )}
 

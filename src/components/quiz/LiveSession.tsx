@@ -5,7 +5,7 @@ import Link from 'next/link';
 import QRCode from 'qrcode';
 import { useAuth } from '@/hooks/useAuth';
 import {
-  loadSession, updateSession, resolveDevice, joinChannel, isLive,
+  loadSession, updateSession, resolveDevice, joinChannel, isLive, TEACHER_NAME,
   type QuizSession, type SessionStudent, type SessionAnswer,
 } from '@/lib/quiz/sessionApi';
 import { isCorrect, answerStatus, scoreAnswers, parseNumber } from '@/lib/quiz/scoring';
@@ -154,7 +154,10 @@ function QuestionStats({ q, index, answers, totalStudents }: { q: Question; inde
 }
 
 /** Podrobna stran rezultatov: tabela učencev, statistika po vprašanjih, mreža učenec × vprašanje, CSV. */
-function SessionResults({ session, students, answers }: { session: QuizSession; students: SessionStudent[]; answers: SessionAnswer[] }) {
+function SessionResults({ session, students, answers, teacher, teacherAnswers }: {
+  session: QuizSession; students: SessionStudent[]; answers: SessionAnswer[];
+  teacher: SessionStudent | null; teacherAnswers: SessionAnswer[];
+}) {
   const [sortBy, setSortBy] = useState<'name' | 'points'>('name');
   const questions = session.quiz.questions;
   const joinedCount = students.filter(s => s.device_id).length;
@@ -173,6 +176,11 @@ function SessionResults({ session, students, answers }: { session: QuizSession; 
     const withScore = students.map(s => ({ s, ans: answersByStudent.get(s.student_id) ?? {}, sc: scoreAnswers(session.quiz, answersByStudent.get(s.student_id) ?? {}) }));
     return withScore.sort((a, b) => sortBy === 'points' ? b.sc.points - a.sc.points || a.s.name.localeCompare(b.s.name, 'sl') : a.s.name.localeCompare(b.s.name, 'sl'));
   }, [students, answersByStudent, session.quiz, sortBy]);
+
+  // učitelj (testna oseba) — prikazan pod učenci, ne šteje v povprečje
+  const teacherScore = teacher?.device_id
+    ? scoreAnswers(session.quiz, Object.fromEntries(teacherAnswers.map(a => [a.question_id, a.value])))
+    : null;
 
   const avgPct = rows.length ? Math.round(rows.reduce((s, r) => s + r.sc.percent, 0) / rows.length) : 0;
 
@@ -220,7 +228,18 @@ function SessionResults({ session, students, answers }: { session: QuizSession; 
                 <span style={{ color: 'var(--green-ok)' }}>{sc.correct}</span> / <span style={{ color: '#c0392b' }}>{sc.wrong}</span> / <span>{sc.unanswered}</span>
               </td>
             </tr>
-          ))}</tbody>
+          ))}
+          {teacherScore && (
+            <tr style={{ borderTop: '2px solid var(--hairline)', color: 'var(--muted)', fontStyle: 'italic' }} title="Učitelj (testna oseba) — ne šteje v povprečje">
+              <td style={{ padding: '8px 6px' }}>{TEACHER_NAME} (test)</td>
+              <td style={{ padding: '8px 6px', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(teacherScore.points)} / {formatNumber(teacherScore.maxPoints)}</td>
+              <td style={{ padding: '8px 6px', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(teacherScore.percent)} %</td>
+              <td style={{ padding: '8px 6px', fontVariantNumeric: 'tabular-nums' }}>
+                {teacherScore.correct} / {teacherScore.wrong} / {teacherScore.unanswered}
+              </td>
+            </tr>
+          )}
+          </tbody>
         </table>
       </div>
 
@@ -269,6 +288,8 @@ export default function LiveSession({ sessionId }: { sessionId: string }) {
   const [session, setSession] = useState<QuizSession | null>(null);
   const [students, setStudents] = useState<SessionStudent[]>([]);
   const [answers, setAnswers] = useState<SessionAnswer[]>([]);
+  const [teacher, setTeacher] = useState<SessionStudent | null>(null);
+  const [teacherAnswers, setTeacherAnswers] = useState<SessionAnswer[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showJoin, setShowJoin] = useState(true);
@@ -278,7 +299,8 @@ export default function LiveSession({ sessionId }: { sessionId: string }) {
   const refetch = useCallback(async () => {
     try {
       const d = await loadSession(sessionId);
-      setSession(d.session); setStudents(d.students); setAnswers(d.answers); setError(null);
+      setSession(d.session); setStudents(d.students); setAnswers(d.answers);
+      setTeacher(d.teacher); setTeacherAnswers(d.teacherAnswers); setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -376,7 +398,7 @@ export default function LiveSession({ sessionId }: { sessionId: string }) {
 
   // ── konec seje: podrobni rezultati ──
   if (!live) {
-    return <SessionResults session={session} students={students} answers={answers} />;
+    return <SessionResults session={session} students={students} answers={answers} teacher={teacher} teacherAnswers={teacherAnswers} />;
   }
 
   return (

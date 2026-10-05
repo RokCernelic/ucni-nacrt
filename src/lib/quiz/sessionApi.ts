@@ -53,6 +53,19 @@ export interface SessionAnswer {
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // brez 0/O, 1/I
 export const channelName = (code: string) => `kviz-${code.toUpperCase()}`;
 
+/** Skriti udeleženec seje: učitelj (testna oseba). Ni na seznamih, le v končnih rezultatih. */
+export const TEACHER_ID = '__ucitelj__';
+export const TEACHER_NAME = 'Učitelj';
+export const TEACHER_PIN_KEY = 'ucni-nacrt-teacher-pin';
+const isTeacherRow = (x: { student_id: string }) => x.student_id === TEACHER_ID;
+
+export function getTeacherPin(): string | null {
+  try {
+    const v = JSON.parse(localStorage.getItem(TEACHER_PIN_KEY) ?? 'null');
+    return typeof v === 'string' && /^\d{4}$/.test(v) ? v : null;
+  } catch { return null; }
+}
+
 function newCode(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(6));
   return Array.from(bytes, b => CODE_ALPHABET[b % CODE_ALPHABET.length]).join('');
@@ -68,6 +81,8 @@ export async function startSession(opts: {
   classId: string;
   className: string;
   students: { id: string; name: string; pin: string }[];
+  /** PIN učitelja; če ga ima že kateri od učencev, se učitelj ne doda */
+  teacherPin?: string | null;
   mode: SessionMode;
   shuffle: boolean;
   showSolutions: boolean;
@@ -90,9 +105,11 @@ export async function startSession(opts: {
       throw new Error(error.message);
     }
     const session = data as QuizSession;
-    const { error: e2 } = await sb.from('quiz_session_students').insert(
-      opts.students.map(s => ({ session_id: session.id, student_id: s.id, name: s.name, pin: s.pin })),
-    );
+    const rows = opts.students.map(s => ({ session_id: session.id, student_id: s.id, name: s.name, pin: s.pin }));
+    if (opts.teacherPin && !opts.students.some(s => s.pin === opts.teacherPin)) {
+      rows.push({ session_id: session.id, student_id: TEACHER_ID, name: TEACHER_NAME, pin: opts.teacherPin });
+    }
+    const { error: e2 } = await sb.from('quiz_session_students').insert(rows);
     if (e2) {
       await sb.from('quiz_sessions').delete().eq('id', session.id);
       throw new Error(e2.message);
@@ -110,10 +127,14 @@ export async function loadSession(id: string) {
     sb.from('quiz_answers').select('*').eq('session_id', id),
   ]);
   if (s.error) throw new Error(s.error.message);
+  const allStudents = (st.data ?? []) as SessionStudent[];
+  const allAnswers = (a.data ?? []) as SessionAnswer[];
   return {
     session: s.data as QuizSession,
-    students: (st.data ?? []) as SessionStudent[],
-    answers: (a.data ?? []) as SessionAnswer[],
+    students: allStudents.filter(x => !isTeacherRow(x)),
+    answers: allAnswers.filter(x => !isTeacherRow(x)),
+    teacher: allStudents.find(isTeacherRow) ?? null,
+    teacherAnswers: allAnswers.filter(isTeacherRow),
   };
 }
 
@@ -135,9 +156,9 @@ export async function loadQuizHistory(quizId: string) {
     sb.from('quiz_answers').select('*').in('session_id', ids),
   ]);
   const studentsBySession = new Map<string, SessionStudent[]>();
-  for (const s of (st.data ?? []) as SessionStudent[]) studentsBySession.set(s.session_id, [...(studentsBySession.get(s.session_id) ?? []), s]);
+  for (const s of ((st.data ?? []) as SessionStudent[]).filter(x => !isTeacherRow(x))) studentsBySession.set(s.session_id, [...(studentsBySession.get(s.session_id) ?? []), s]);
   const answersBySession = new Map<string, SessionAnswer[]>();
-  for (const a2 of (a.data ?? []) as SessionAnswer[]) answersBySession.set(a2.session_id, [...(answersBySession.get(a2.session_id) ?? []), a2]);
+  for (const a2 of ((a.data ?? []) as SessionAnswer[]).filter(x => !isTeacherRow(x))) answersBySession.set(a2.session_id, [...(answersBySession.get(a2.session_id) ?? []), a2]);
   return { sessions, studentsBySession, answersBySession };
 }
 

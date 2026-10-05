@@ -58,7 +58,10 @@ export function useRoster(classId?: string) {
 
   const save = useCallback((list: Student[]) => {
     // vsak učenec dobi PIN za kvize (obstoječi PIN-i ostanejo nespremenjeni)
-    const next = withPins(list);
+    // novi PIN-i se izognejo PIN-u učitelja (skriti udeleženec kvizov)
+    let teacherPin: string | null = null;
+    try { teacherPin = JSON.parse(localStorage.getItem('ucni-nacrt-teacher-pin') ?? 'null'); } catch { /* ignore */ }
+    const next = withPins(list, Math.random, teacherPin ? [teacherPin] : []);
     setStudents(next);
     if (key) {
       localStorage.setItem(key, JSON.stringify(next));

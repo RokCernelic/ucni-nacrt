@@ -8,6 +8,7 @@ import { useSubjects } from '@/hooks/useSubjects';
 import { CURRICULA } from '@/data/registry';
 import { curriculumToText, downloadText } from '@/lib/exportCurriculum';
 import RoomPlansSection from '@/components/RoomPlansSection';
+import TeacherPinSection from '@/components/TeacherPinSection';
 
 export default function SettingsPage() {
   const { user, loading, updateEmail, updatePassword } = useAuth();
@@ -192,6 +193,18 @@ export default function SettingsPage() {
                 {savedMsg && <span style={{ fontSize: '12px', color: 'var(--green-ok)' }}>Shranjeno ✓</span>}
               </div>
             </>
+          )}
+        </div>
+
+        {/* PIN učitelja za kvize */}
+        <div style={card}>
+          <div style={{ ...label, marginBottom: '10px' }}>Kvizi — moj PIN (učitelj)</div>
+          {isAnon ? (
+            <p style={{ fontSize: '13px', color: 'var(--muted)' }}>
+              Za nastavitev PIN-a se <Link href="/login" style={{ color: 'var(--forest)', fontWeight: 500 }}>prijavite</Link>.
+            </p>
+          ) : (
+            <TeacherPinSection />
           )}
         </div>
 
