@@ -11,6 +11,8 @@ export interface TopicInfo {
   number: string;
   title: string;
   chapter: string;
+  /** enoličen ključ poglavja: '<curriculum>:<poglavjeId>' */
+  chapterKey: string;
   standards: Standard[];
 }
 
@@ -32,7 +34,7 @@ export function topicsOf(curriculumId: string): TopicInfo[] {
     perGrade.set(grade, (perGrade.get(grade) ?? 0) + 1);
     pg.podpoglavja.forEach((pp, i) => out.push({
       key: `${curriculumId}:${pp.id}`, curriculum: curriculumId, predmet: p.naslov, grade: pg.razred ?? null,
-      number: `${n}.${i + 1}`, title: pp.naslov, chapter: `${n} ${pg.naslov}`, standards: pp.standardi,
+      number: `${n}.${i + 1}`, title: pp.naslov, chapter: `${n} ${pg.naslov}`, chapterKey: `${curriculumId}:${pg.id}`, standards: pp.standardi,
     }));
   });
   cache.set(curriculumId, out);

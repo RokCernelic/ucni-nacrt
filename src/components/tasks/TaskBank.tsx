@@ -32,9 +32,10 @@ export default function TaskBank() {
   const { selected, setMany } = useTaskSelection();
 
   const [q, setQ] = useState('');
-  const [curr, setCurr] = useState('');
-  const [grade, setGrade] = useState('');
-  const [topic, setTopic] = useState('');
+  const [currs, setCurrs] = useState<Set<string>>(new Set());
+  const [grades, setGrades] = useState<Set<number>>(new Set());
+  const [chapters, setChapters] = useState<Set<string>>(new Set());
+  const [topicSel, setTopicSel] = useState<Set<string>>(new Set());
   const [diff, setDiff] = useState<Set<Difficulty>>(new Set());
   const [bloom, setBloom] = useState<Set<BloomLevel>>(new Set());
   const [kinds, setKinds] = useState<Set<TaskKind>>(new Set());
@@ -45,8 +46,17 @@ export default function TaskBank() {
   const [noTopic, setNoTopic] = useState(false);
   const [sheetTitle, setSheetTitle] = useState('Učni list');
 
-  const topicOptions = useMemo(() => (curr ? topicsOf(curr) : []).filter(t => !grade || String(t.grade) === grade), [curr, grade]);
-  const grades = useMemo(() => Array.from(new Set((curr ? topicsOf(curr) : []).map(t => t.grade).filter(Boolean))) as number[], [curr]);
+  // ponudba filtrov učnega načrta: vsak naslednji nivo le v okviru izbranega
+  const allTopics = useMemo(() => allCurricula().flatMap(c => topicsOf(c.id)), []);
+  const gradeOptions = useMemo(() => Array.from(new Set(allTopics.filter(t => !currs.size || currs.has(t.curriculum)).map(t => t.grade).filter((g): g is number => !!g))).sort((a, b) => b - a), [allTopics, currs]);
+  const inScope = useMemo(() => allTopics.filter(t => (!currs.size || currs.has(t.curriculum)) && (!grades.size || (t.grade !== null && grades.has(t.grade)))), [allTopics, currs, grades]);
+  const chapterOptions = useMemo(() => {
+    const m = new Map<string, { key: string; label: string; grade: number | null; predmet: string }>();
+    for (const t of inScope) if (!m.has(t.chapterKey)) m.set(t.chapterKey, { key: t.chapterKey, label: t.chapter, grade: t.grade, predmet: t.predmet });
+    return [...m.values()];
+  }, [inScope]);
+  const topicOptions = useMemo(() => inScope.filter(t => chapters.has(t.chapterKey)), [inScope, chapters]);
+  const multiCurr = new Set(chapterOptions.map(c => c.predmet)).size > 1;
 
   const filtered = useMemo(() => {
     const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
@@ -55,9 +65,10 @@ export default function TaskBank() {
         const hay = `${plain(t.body)} ${plain(t.answer)} ${plain(t.solution)} ${t.tags.join(' ').toLowerCase()} ${(t.options ?? []).map(o => o.text).join(' ').toLowerCase()}`;
         if (!words.every(w => hay.includes(w))) return false;
       }
-      if (curr && t.curriculum !== curr && !t.topics.some(k => k.startsWith(`${curr}:`))) return false;
-      if (grade && !t.topics.some(k => String(topicInfo(k)?.grade) === grade)) return false;
-      if (topic && !t.topics.includes(topic)) return false;
+      if (currs.size && !(t.curriculum && currs.has(t.curriculum)) && !t.topics.some(k => currs.has(k.split(':')[0]))) return false;
+      if (grades.size && !t.topics.some(k => { const g = topicInfo(k)?.grade; return g != null && grades.has(g); })) return false;
+      if (chapters.size && !t.topics.some(k => { const c = topicInfo(k)?.chapterKey; return !!c && chapters.has(c); })) return false;
+      if (topicSel.size && !t.topics.some(k => topicSel.has(k))) return false;
       if (diff.size && !(t.difficulty && diff.has(t.difficulty))) return false;
       if (bloom.size && !(t.bloom && bloom.has(t.bloom))) return false;
       if (kinds.size && !t.kinds.some(k => kinds.has(k))) return false;
@@ -68,7 +79,7 @@ export default function TaskBank() {
       if (noTopic && t.topics.length) return false;
       return true;
     });
-  }, [tasks, q, curr, grade, topic, diff, bloom, kinds, aks, source, status, onlyMin, noTopic]);
+  }, [tasks, q, currs, grades, chapters, topicSel, diff, bloom, kinds, aks, source, status, onlyMin, noTopic]);
 
   // dvojniki (enako besedilo) — npr. po dvakratnem uvozu iste datoteke; obdrži najstarejšo
   const duplicates = useMemo(() => {
@@ -116,8 +127,8 @@ export default function TaskBank() {
 
   const selectedInView = ordered.filter(t => selected.has(t.id));
   const allSelected = filtered.length > 0 && selectedInView.length === filtered.length;
-  const anyFilter = q || curr || grade || topic || diff.size || bloom.size || kinds.size || aks.size || source || status || onlyMin || noTopic;
-  const reset = () => { setQ(''); setCurr(''); setGrade(''); setTopic(''); setDiff(new Set()); setBloom(new Set()); setKinds(new Set()); setAks(new Set()); setSource(''); setStatus(''); setOnlyMin(false); setNoTopic(false); };
+  const anyFilter = q || currs.size || grades.size || chapters.size || topicSel.size || diff.size || bloom.size || kinds.size || aks.size || source || status || onlyMin || noTopic;
+  const reset = () => { setQ(''); setCurrs(new Set()); setGrades(new Set()); setChapters(new Set()); setTopicSel(new Set()); setDiff(new Set()); setBloom(new Set()); setKinds(new Set()); setAks(new Set()); setSource(''); setStatus(''); setOnlyMin(false); setNoTopic(false); };
 
   if (loading) return null;
 
@@ -139,23 +150,30 @@ export default function TaskBank() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'var(--canvas)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', padding: '14px 16px', marginBottom: '16px' }}>
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
                 <input value={q} onChange={e => setQ(e.target.value)} placeholder="🔍 Išči po besedilu, rešitvi, ključnikih …" style={{ ...input, flex: '1 1 260px' }} />
-                <select value={curr} onChange={e => { setCurr(e.target.value); setGrade(''); setTopic(''); }} style={input}>
-                  <option value="">vsi predmeti</option>
-                  {allCurricula().map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-                {curr && (
-                  <select value={grade} onChange={e => { setGrade(e.target.value); setTopic(''); }} style={input}>
-                    <option value="">vsi razredi</option>
-                    {grades.map(g => <option key={g} value={g}>{g}. razred</option>)}
-                  </select>
-                )}
-                {curr && (
-                  <select value={topic} onChange={e => setTopic(e.target.value)} style={{ ...input, maxWidth: '260px' }}>
-                    <option value="">vsa podpoglavja</option>
-                    {topicOptions.map(t => <option key={t.key} value={t.key}>{t.grade ? `${t.grade}. r · ` : ''}{t.number} {t.title}</option>)}
-                  </select>
-                )}
               </div>
+              <Row label="Predmet">
+                {allCurricula().map(c => (
+                  <Chip key={c.id} active={currs.has(c.id)} onClick={() => { setCurrs(toggleIn(currs, c.id)); setChapters(new Set()); setTopicSel(new Set()); }}>{c.name}</Chip>
+                ))}
+              </Row>
+              <Row label="Razred">
+                {gradeOptions.map(g => (
+                  <Chip key={g} active={grades.has(g)} onClick={() => { setGrades(toggleIn(grades, g)); setChapters(new Set()); setTopicSel(new Set()); }}>{g}. razred</Chip>
+                ))}
+              </Row>
+              <Row label="Poglavje">
+                {chapterOptions.map(c => (
+                  <Chip key={c.key} active={chapters.has(c.key)} title={`${c.predmet}${c.grade ? ` · ${c.grade}. razred` : ''}`}
+                    onClick={() => { const next = toggleIn(chapters, c.key); setChapters(next); setTopicSel(new Set([...topicSel].filter(k => next.has(topicInfo(k)?.chapterKey ?? '')))); }}>
+                    {multiCurr ? `${c.predmet.split(' ')[0]} · ` : ''}{c.grade && !grades.size ? `${c.grade}. r · ` : ''}{c.label}
+                  </Chip>
+                ))}
+              </Row>
+              {topicOptions.length > 0 && (
+                <Row label="Podpoglavje">
+                  {topicOptions.map(t => <Chip key={t.key} active={topicSel.has(t.key)} onClick={() => setTopicSel(toggleIn(topicSel, t.key))}>{t.number} {t.title}</Chip>)}
+                </Row>
+              )}
               <Row label="Težavnost">{DIFFICULTY.map(d => <Chip key={d.level} active={diff.has(d.level)} color={d.color} onClick={() => setDiff(toggleIn(diff, d.level))}>{d.name}</Chip>)}</Row>
               <Row label="Bloom">{BLOOM.map(b => <Chip key={b.level} active={bloom.has(b.level)} color={b.color} title={b.hint} onClick={() => setBloom(toggleIn(bloom, b.level))}>{b.level} · {b.name}</Chip>)}</Row>
               <Row label="Vrsta">{KINDS.map(k => <Chip key={k.id} active={kinds.has(k.id)} onClick={() => setKinds(toggleIn(kinds, k.id))}>{k.name}</Chip>)}</Row>
