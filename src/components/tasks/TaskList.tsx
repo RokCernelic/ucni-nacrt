@@ -8,12 +8,18 @@ import TaskEditor from './TaskEditor';
 import { Rich, TaskBadges, TaskAnswer, btn } from './ui';
 
 /** Seznam nalog (vsaka v svojem okvirju): kljukica za izbor, Uredi, Izbriši, + Nova naloga. */
-export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyText }: {
+export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyText, showAdd = true, startIndex = 0, hideTopic }: {
   tasks: Task[];
   /** nova naloga je že povezana s tem podpoglavjem */
   fixedTopic?: string;
   showTopics?: boolean;
   emptyText?: string;
+  /** gumb »+ Nova naloga« pod seznamom */
+  showAdd?: boolean;
+  /** zaporedna številka prve naloge − 1 (oštevilčenje čez več skupin) */
+  startIndex?: number;
+  /** podpoglavje, pod katerim je seznam (ne ponavljaj ga pri vsaki nalogi) */
+  hideTopic?: string;
 }) {
   const { save, remove } = useTasks();
   const { selected, toggle } = useTaskSelection();
@@ -41,7 +47,7 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
             ) : (
               <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
                 <input type="checkbox" checked={on} onChange={() => toggle(t.id)} title="Izberi (za tisk / kviz)" style={{ marginTop: '3px', cursor: 'pointer' }} />
-                <span style={{ color: 'var(--muted)', minWidth: '18px', fontVariantNumeric: 'tabular-nums' }}>{i + 1}.</span>
+                <span style={{ color: 'var(--muted)', minWidth: '18px', fontVariantNumeric: 'tabular-nums' }}>{startIndex + i + 1}.</span>
                 <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <Rich html={t.body} />
                   {(t.answer_kind === 'mc' || t.answer_kind === 'tf') && t.options && (
@@ -56,7 +62,7 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
                   {(t.answer || t.answer_kind === 'numeric') && (
                     <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Rešitev: <TaskAnswer task={t} /></div>
                   )}
-                  <TaskBadges task={t} showTopics={showTopics} />
+                  <TaskBadges task={t} showTopics={showTopics} hideTopic={hideTopic} />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flexShrink: 0 }}>
                   <button onClick={() => { setEditingId(t.id); setAdding(false); }} style={{ ...btn(), padding: '3px 9px', fontSize: '11px' }}>✎ Uredi</button>
@@ -68,7 +74,7 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
         );
       })}
 
-      {adding ? (
+      {!showAdd ? null : adding ? (
         <div style={{ border: '1px dashed var(--forest)', borderRadius: 'var(--r-md)', padding: '12px', background: 'var(--surface)' }}>
           <TaskEditor fixedTopic={fixedTopic} onCancel={() => setAdding(false)} onSave={async d => { await save(d); setAdding(false); }} />
         </div>

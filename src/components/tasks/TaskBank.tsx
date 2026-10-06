@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { useTasks } from '@/hooks/useTasks';
@@ -87,7 +87,34 @@ export default function TaskBank() {
     try { await removeMany(duplicates); setMany(duplicates, false); } finally { setDedupBusy(false); }
   };
 
-  const selectedInView = filtered.filter(t => selected.has(t.id));
+  // vrstni red podpoglavij kot v učnem načrtu (po predmetih, razredih, poglavjih)
+  const topicOrder = useMemo(() => {
+    const m = new Map<string, number>();
+    let n = 0;
+    for (const c of allCurricula()) for (const t of topicsOf(c.id)) m.set(t.key, n++);
+    return m;
+  }, []);
+  const primaryTopic = useCallback((t: Task) => [...t.topics].sort((a, b) => (topicOrder.get(a) ?? 1e9) - (topicOrder.get(b) ?? 1e9))[0] ?? '', [topicOrder]);
+  const ordered = useMemo(() => [...filtered].sort((a, b) =>
+    (topicOrder.get(primaryTopic(a)) ?? 1e9) - (topicOrder.get(primaryTopic(b)) ?? 1e9) || a.created_at.localeCompare(b.created_at)),
+  [filtered, topicOrder, primaryTopic]);
+  // poglavje → podpoglavja → naloge (naloga z več podpoglavji je pri prvem)
+  const groups = useMemo(() => {
+    const out: { chapter: string; topics: { key: string; title: string; tasks: Task[] }[] }[] = [];
+    for (const t of ordered) {
+      const key = primaryTopic(t);
+      const info = key ? topicInfo(key) : null;
+      const chapter = info ? `${info.grade ? `${info.grade}. razred · ` : ''}${info.chapter}` : 'Brez podpoglavja';
+      let g = out[out.length - 1];
+      if (!g || g.chapter !== chapter) { g = { chapter, topics: [] }; out.push(g); }
+      let sub = g.topics[g.topics.length - 1];
+      if (!sub || sub.key !== key) { sub = { key, title: info ? `${info.number} ${info.title}` : '', tasks: [] }; g.topics.push(sub); }
+      sub.tasks.push(t);
+    }
+    return out;
+  }, [ordered, primaryTopic]);
+
+  const selectedInView = ordered.filter(t => selected.has(t.id));
   const allSelected = filtered.length > 0 && selectedInView.length === filtered.length;
   const anyFilter = q || curr || grade || topic || diff.size || bloom.size || kinds.size || aks.size || source || status || onlyMin || noTopic;
   const reset = () => { setQ(''); setCurr(''); setGrade(''); setTopic(''); setDiff(new Set()); setBloom(new Set()); setKinds(new Set()); setAks(new Set()); setSource(''); setStatus(''); setOnlyMin(false); setNoTopic(false); };
@@ -168,7 +195,34 @@ export default function TaskBank() {
             </div>
 
             {error && <p style={{ color: '#c0392b', fontSize: '13px' }}>{error}</p>}
-            {loaded && <TaskList tasks={filtered} emptyText={anyFilter ? 'Ni nalog, ki ustrezajo filtrom.' : 'Baza je še prazna. Dodaj prvo nalogo.'} />}
+            {loaded && (
+              <>
+                <TaskList tasks={[]} emptyText={anyFilter && !ordered.length ? 'Ni nalog, ki ustrezajo filtrom.' : !tasks.length ? 'Baza je še prazna. Dodaj prvo nalogo.' : undefined} />
+                {(() => {
+                  let n = 0;
+                  return groups.map(g => (
+                    <section key={g.chapter} style={{ marginTop: '26px' }}>
+                      <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '24px', fontWeight: 400, color: 'var(--ink)', margin: '0 0 10px', borderBottom: '1px solid var(--hairline)', paddingBottom: '6px' }}>
+                        {g.chapter}
+                      </h2>
+                      {g.topics.map(sub => {
+                        const start = n; n += sub.tasks.length;
+                        return (
+                          <div key={sub.key || 'none'} style={{ marginBottom: '18px' }}>
+                            {sub.title && (
+                              <h3 style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600, color: 'var(--forest)', margin: '0 0 8px' }}>
+                                {sub.title} <span style={{ fontWeight: 400, color: 'var(--muted)' }}>· {sub.tasks.length}</span>
+                              </h3>
+                            )}
+                            <TaskList tasks={sub.tasks} hideTopic={sub.key} showAdd={false} startIndex={start} />
+                          </div>
+                        );
+                      })}
+                    </section>
+                  ));
+                })()}
+              </>
+            )}
           </>
         )}
       </div>
