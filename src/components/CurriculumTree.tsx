@@ -498,7 +498,7 @@ function CustomEnotaRow({ item, onToggle, onDragStart, onDragEnd, onRename, onHo
         </button>
         {openVprasanja && (
           <div style={{ padding: '4px 20px 12px 44px' }}>
-            <TopicQuestions items={questions} onChange={onQuestionsChange} />
+            <TopicQuestions items={questions} onChange={onQuestionsChange} title={item.type} />
           </div>
         )}
       </div>
@@ -702,7 +702,7 @@ function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, 
           </button>
           {openVprasanja && (
             <div style={{ padding: '4px 20px 12px 44px' }}>
-              <TopicQuestions items={questions} onChange={onQuestionsChange} />
+              <TopicQuestions items={questions} onChange={onQuestionsChange} title={`${number} ${podpoglavje.naslov}`} />
             </div>
           )}
         </div>

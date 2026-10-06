@@ -77,6 +77,23 @@ html { scroll-behavior: smooth; }
 .rich-field ul, .rich-field ol, .rich-content ul, .rich-content ol { margin: 2px 0 4px; padding-left: 20px; }
 .rich-field math, .rich-content math { font-size: 1.1em; }
 
+/* Vprašanja in naloge → Natisni izbrane: na zaslonu skrito; ob tisku edina vidna stvar. */
+.print-questions { display: none; }
+@media print {
+  html.printing-questions body > :not(.print-questions) { display: none !important; }
+  html.printing-questions .print-questions, html.printing-questions .print-questions * { visibility: visible !important; }
+  html.printing-questions .print-questions { display: block; font-family: Inter, -apple-system, sans-serif; color: #111; font-size: 12pt; line-height: 1.45; }
+  .pq-head { border-bottom: 1px solid #999; padding-bottom: 3mm; margin-bottom: 6mm; }
+  .pq-title { font-size: 16pt; font-weight: 600; }
+  .pq-meta { font-size: 9.5pt; color: #444; margin-top: 2mm; }
+  .pq-list { margin: 0; padding-left: 7mm; list-style: decimal outside; }
+  .pq-item::marker { font-weight: 600; }
+  .pq-item { margin-bottom: 5mm; break-inside: avoid; }
+  .pq-item img { max-width: 100%; max-height: 90mm; }
+  .pq-space { height: 22mm; }
+  .pq-answer { margin-top: 2mm; font-size: 10.5pt; color: #333; }
+}
+
 /* naslednji dan je samo za tisk */
 .print-next { display: none; }
 

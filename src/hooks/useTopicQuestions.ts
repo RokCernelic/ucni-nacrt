@@ -8,7 +8,21 @@ export interface TopicQuestion {
   text: string;
   /** neobvezen odgovor / rešitev (očiščen HTML) */
   answer?: string;
+  /** raven po (prenovljeni) Bloomovi taksonomiji, 1–6 */
+  bloom?: BloomLevel;
+  /** obkljukano za tisk */
+  selected?: boolean;
 }
+
+export type BloomLevel = 1 | 2 | 3 | 4 | 5 | 6;
+export const BLOOM: { level: BloomLevel; name: string; hint: string; color: string }[] = [
+  { level: 1, name: 'Pomnjenje', hint: 'priklic dejstev, definicij, pojmov', color: '#7a8b99' },
+  { level: 2, name: 'Razumevanje', hint: 'razložiti, opisati, primerjati s svojimi besedami', color: '#3f7cac' },
+  { level: 3, name: 'Uporaba', hint: 'uporabiti znanje v novi situaciji, računske naloge', color: '#2d6a31' },
+  { level: 4, name: 'Analiza', hint: 'razčleniti, poiskati vzroke, interpretirati podatke/grafe', color: '#b7791f' },
+  { level: 5, name: 'Vrednotenje', hint: 'presoditi, utemeljiti, kritično oceniti', color: '#c0562b' },
+  { level: 6, name: 'Ustvarjanje', hint: 'načrtovati poskus, sestaviti, predlagati rešitev', color: '#8e3b8e' },
+];
 
 const KEY = 'ucni-nacrt-topic-questions';
 const SYNC = 'ucni-nacrt-topic-questions-changed';
