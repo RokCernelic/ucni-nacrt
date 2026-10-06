@@ -161,12 +161,25 @@ export default function TaskBank() {
                 ))}
               </Row>
               <Row label="Poglavje">
-                {chapterOptions.map(c => (
-                  <Chip key={c.key} active={chapters.has(c.key)} title={`${c.predmet}${c.grade ? ` · ${c.grade}. razred` : ''}`}
-                    onClick={() => { const next = toggleIn(chapters, c.key); setChapters(next); setTopicSel(new Set([...topicSel].filter(k => next.has(topicInfo(k)?.chapterKey ?? '')))); }}>
-                    {c.label}
-                  </Chip>
-                ))}
+                {(() => {
+                  // ko je v ponudbi več predmetov/razredov, pred vsako skupino majhna oznaka (gumbi ostanejo le ime poglavja)
+                  const groupOf = (c: { predmet: string; grade: number | null }) => `${c.predmet}|${c.grade ?? ''}`;
+                  const many = new Set(chapterOptions.map(groupOf)).size > 1;
+                  const subjects = new Set(chapterOptions.map(c => c.predmet)).size > 1;
+                  return chapterOptions.map((c, i) => (
+                    <span key={c.key} style={{ display: 'contents' }}>
+                      {many && (i === 0 || groupOf(chapterOptions[i - 1]) !== groupOf(c)) && (
+                        <span style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', color: 'var(--muted)', marginLeft: i ? '8px' : 0, whiteSpace: 'nowrap' }}>
+                          {subjects ? `${c.predmet.split(' ')[0]} · ` : ''}{c.grade ? `${c.grade}. r` : ''}
+                        </span>
+                      )}
+                      <Chip active={chapters.has(c.key)} title={`${c.predmet}${c.grade ? ` · ${c.grade}. razred` : ''}`}
+                        onClick={() => { const next = toggleIn(chapters, c.key); setChapters(next); setTopicSel(new Set([...topicSel].filter(k => next.has(topicInfo(k)?.chapterKey ?? '')))); }}>
+                        {c.label}
+                      </Chip>
+                    </span>
+                  ));
+                })()}
               </Row>
               {topicOptions.length > 0 && (
                 <Row label="Podpoglavje">

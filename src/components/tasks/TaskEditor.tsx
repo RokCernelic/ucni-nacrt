@@ -48,6 +48,7 @@ export default function TaskEditor({ initial, fixedTopic, onSave, onCancel }: {
   const [error, setError] = useState<string | null>(null);
   const [tagText, setTagText] = useState((initial?.tags ?? []).join(', '));
   const [pickCurr, setPickCurr] = useState(t.curriculum ?? allCurricula()[0]?.id ?? '');
+  const [pickChapter, setPickChapter] = useState('');
   const up = (patch: Partial<TaskDraft>) => setT(prev => ({ ...prev, ...patch }));
   const problems = problemsOf(t);
 
@@ -58,7 +59,18 @@ export default function TaskEditor({ initial, fixedTopic, onSave, onCancel }: {
   };
   const toggleKindTag = (k: TaskKind) => up({ kinds: t.kinds.includes(k) ? t.kinds.filter(x => x !== k) : [...t.kinds, k] });
 
-  const topicOptions = useMemo(() => topicsOf(pickCurr), [pickCurr]);
+  // Predmet → poglavje (po razredih) → podpoglavje, vse iz učnega načrta
+  const chapterOptions = useMemo(() => {
+    const byGrade = new Map<number, { key: string; label: string }[]>();
+    for (const tp of topicsOf(pickCurr)) {
+      const g = tp.grade ?? 0;
+      const list = byGrade.get(g) ?? [];
+      if (!list.some(c => c.key === tp.chapterKey)) list.push({ key: tp.chapterKey, label: tp.chapter });
+      byGrade.set(g, list);
+    }
+    return [...byGrade.entries()];
+  }, [pickCurr]);
+  const topicOptions = useMemo(() => topicsOf(pickCurr).filter(tp => tp.chapterKey === pickChapter), [pickCurr, pickChapter]);
   const topicStandards = t.topics.flatMap(k => (topicInfo(k)?.standards ?? []).map(s => ({ ...s, topic: k })));
 
   const save = async () => {
@@ -172,14 +184,23 @@ export default function TaskEditor({ initial, fixedTopic, onSave, onCancel }: {
                 style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '14px', lineHeight: 1 }}>×</button>
             </span>
           ))}
-          <select value={pickCurr} onChange={e => setPickCurr(e.target.value)} style={{ ...input, padding: '4px 6px' }}>
+          <select value={pickCurr} onChange={e => { setPickCurr(e.target.value); setPickChapter(''); }} title="Predmet" style={{ ...input, padding: '4px 6px' }}>
             {allCurricula().map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
-          <select value="" onChange={e => { const k = e.target.value; if (k && !t.topics.includes(k)) up({ topics: [...t.topics, k], curriculum: t.curriculum ?? pickCurr }); }}
-            style={{ ...input, padding: '4px 6px', maxWidth: '280px' }}>
-            <option value="">+ dodaj podpoglavje …</option>
+          <select value={pickChapter} onChange={e => setPickChapter(e.target.value)} title="Poglavje" style={{ ...input, padding: '4px 6px', maxWidth: '240px' }}>
+            <option value="">poglavje …</option>
+            {chapterOptions.map(([g, list]) => (
+              <optgroup key={g} label={g ? `${g}. razred` : 'brez razreda'}>
+                {list.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+              </optgroup>
+            ))}
+          </select>
+          <select value="" disabled={!pickChapter} title="Podpoglavje"
+            onChange={e => { const k = e.target.value; if (k && !t.topics.includes(k)) up({ topics: [...t.topics, k], curriculum: t.curriculum ?? pickCurr }); }}
+            style={{ ...input, padding: '4px 6px', maxWidth: '280px', opacity: pickChapter ? 1 : 0.5 }}>
+            <option value="">{pickChapter ? '+ dodaj podpoglavje …' : 'najprej izberi poglavje'}</option>
             {topicOptions.filter(o => !t.topics.includes(o.key)).map(o => (
-              <option key={o.key} value={o.key}>{o.grade ? `${o.grade}. r · ` : ''}{o.number} {o.title}</option>
+              <option key={o.key} value={o.key}>{o.number} {o.title}</option>
             ))}
           </select>
         </div>
