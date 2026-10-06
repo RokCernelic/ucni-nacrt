@@ -56,7 +56,6 @@ export default function TaskBank() {
     return [...m.values()];
   }, [inScope]);
   const topicOptions = useMemo(() => inScope.filter(t => chapters.has(t.chapterKey)), [inScope, chapters]);
-  const multiCurr = new Set(chapterOptions.map(c => c.predmet)).size > 1;
 
   const filtered = useMemo(() => {
     const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
@@ -165,7 +164,7 @@ export default function TaskBank() {
                 {chapterOptions.map(c => (
                   <Chip key={c.key} active={chapters.has(c.key)} title={`${c.predmet}${c.grade ? ` · ${c.grade}. razred` : ''}`}
                     onClick={() => { const next = toggleIn(chapters, c.key); setChapters(next); setTopicSel(new Set([...topicSel].filter(k => next.has(topicInfo(k)?.chapterKey ?? '')))); }}>
-                    {multiCurr ? `${c.predmet.split(' ')[0]} · ` : ''}{c.grade && !grades.size ? `${c.grade}. r · ` : ''}{c.label}
+                    {c.label}
                   </Chip>
                 ))}
               </Row>
