@@ -64,3 +64,10 @@ export async function deleteTask(id: string): Promise<void> {
   const { error } = await getSupabaseBrowserClient().from('tasks').delete().eq('id', id);
   if (error) throw new Error(error.message);
 }
+
+export async function deleteTasks(ids: string[]): Promise<void> {
+  for (let i = 0; i < ids.length; i += 100) {
+    const { error } = await getSupabaseBrowserClient().from('tasks').delete().in('id', ids.slice(i, i + 100));
+    if (error) throw new Error(error.message);
+  }
+}

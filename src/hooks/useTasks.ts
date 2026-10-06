@@ -2,7 +2,7 @@
 
 import { useEffect, useSyncExternalStore, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { listTasks, saveTask, deleteTask, insertTasks } from '@/lib/tasks/api';
+import { listTasks, saveTask, deleteTask, deleteTasks, insertTasks } from '@/lib/tasks/api';
 import { emptyTask, type Task, type TaskDraft, type BloomLevel } from '@/lib/tasks/types';
 
 /*
@@ -45,13 +45,16 @@ async function load(userId: string) {
 }
 
 export function useTasks() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const s = useSyncExternalStore(subscribe, () => state, () => SERVER_STATE);
 
   useEffect(() => {
+    // Vsaka komponenta ima svoj useAuth, ki ob nastanku za trenutek še nima uporabnika (loading).
+    // Zalogo izpraznimo le ob pravi odjavi, sicer bi vsaka nova komponenta pobrisala seznam.
+    if (loading) return;
     if (!user) { if (state.userId) set({ tasks: [], loaded: false, userId: null }); return; }
     if (state.userId !== user.id) void load(user.id);
-  }, [user]);
+  }, [user, loading]);
 
   const save = useCallback(async (draft: TaskDraft) => {
     const saved = await saveTask(draft);
@@ -62,6 +65,12 @@ export function useTasks() {
   const remove = useCallback(async (id: string) => {
     await deleteTask(id);
     set({ tasks: state.tasks.filter(t => t.id !== id) });
+  }, []);
+
+  const removeMany = useCallback(async (ids: string[]) => {
+    await deleteTasks(ids);
+    const gone = new Set(ids);
+    set({ tasks: state.tasks.filter(t => !gone.has(t.id)) });
   }, []);
 
   const importMany = useCallback(async (drafts: TaskDraft[], onProgress?: (done: number) => void) => {
@@ -76,5 +85,5 @@ export function useTasks() {
 
   const reload = useCallback(() => { if (state.userId) void load(state.userId); }, []);
 
-  return { tasks: s.tasks, loaded: s.loaded, error: s.error, save, remove, reload, importMany };
+  return { tasks: s.tasks, loaded: s.loaded, error: s.error, save, remove, reload, importMany, removeMany };
 }

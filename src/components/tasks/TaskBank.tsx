@@ -11,6 +11,7 @@ import TaskList from './TaskList';
 import { plural } from '@/lib/quiz/format';
 import PrintTasks from './PrintTasks';
 import ImportTasks from './ImportTasks';
+import { plainKey } from '@/lib/tasks/import';
 import { Chip, tinyLabel, input, btn } from './ui';
 
 const plain = (html: string | null) => (html ?? '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').toLowerCase();
@@ -27,7 +28,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 
 export default function TaskBank() {
   const { user, loading } = useAuth();
-  const { tasks, loaded, error } = useTasks();
+  const { tasks, loaded, error, removeMany } = useTasks();
   const { selected, setMany } = useTaskSelection();
 
   const [q, setQ] = useState('');
@@ -68,6 +69,23 @@ export default function TaskBank() {
       return true;
     });
   }, [tasks, q, curr, grade, topic, diff, bloom, kinds, aks, source, status, onlyMin, noTopic]);
+
+  // dvojniki (enako besedilo) — npr. po dvakratnem uvozu iste datoteke; obdrži najstarejšo
+  const duplicates = useMemo(() => {
+    const seen = new Map<string, Task>();
+    const extra: string[] = [];
+    for (const t of [...tasks].sort((a, b) => a.created_at.localeCompare(b.created_at))) {
+      const k = plainKey(t.body);
+      if (seen.has(k)) extra.push(t.id); else seen.set(k, t);
+    }
+    return extra;
+  }, [tasks]);
+  const [dedupBusy, setDedupBusy] = useState(false);
+  const dedup = async () => {
+    if (!confirm(`Odstranim ${duplicates.length} podvojenih nalog (enako besedilo)? Od vsake ostane najstarejša.`)) return;
+    setDedupBusy(true);
+    try { await removeMany(duplicates); setMany(duplicates, false); } finally { setDedupBusy(false); }
+  };
 
   const selectedInView = filtered.filter(t => selected.has(t.id));
   const allSelected = filtered.length > 0 && selectedInView.length === filtered.length;
@@ -138,6 +156,12 @@ export default function TaskBank() {
                 izberi vse{anyFilter ? ' (v filtru)' : ''}
               </label>
               <ImportTasks />
+              {duplicates.length > 0 && (
+                <button onClick={() => void dedup()} disabled={dedupBusy}
+                  style={{ ...btn(), color: '#b7791f', borderColor: '#ecd9a8', opacity: dedupBusy ? 0.5 : 1 }}>
+                  {dedupBusy ? 'Odstranjujem …' : `⚠ ${duplicates.length} dvojnikov — odstrani`}
+                </button>
+              )}
               <span style={{ flex: 1 }} />
               <input value={sheetTitle} onChange={e => setSheetTitle(e.target.value)} title="Naslov učnega lista" style={{ ...input, width: '170px', padding: '4px 8px' }} />
               <PrintTasks tasks={selectedInView} title={sheetTitle} />
