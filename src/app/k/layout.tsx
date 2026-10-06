@@ -1,9 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 
 // Naprave učencev (iPadi): brez povečave/pomanjšave s prsti in prekrivanje roba
-// zaslona (viewportFit: cover) — skupaj z useAutoFullscreen (celozaslonski API ob
-// prvem dotiku) daje čim bolj "kiosk" videz. Če stran kdo doda na domači zaslon,
-// appleWebApp jo zažene brez Safarijeve vrstice naslovov.
+// zaslona (viewportFit: cover). Celozaslonski način se ne vsiljuje; če stran kdo
+// doda na domači zaslon, appleWebApp jo zažene brez Safarijeve vrstice naslovov.
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
