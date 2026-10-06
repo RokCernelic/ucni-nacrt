@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { useTasks } from '@/hooks/useTasks';
@@ -12,6 +12,7 @@ import { plural } from '@/lib/quiz/format';
 import PrintTasks from './PrintTasks';
 import ImportTasks from './ImportTasks';
 import { plainKey } from '@/lib/tasks/import';
+import { orderTasks, groupTasks } from '@/lib/tasks/order';
 import { Chip, tinyLabel, input, btn } from './ui';
 
 const plain = (html: string | null) => (html ?? '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').toLowerCase();
@@ -99,35 +100,11 @@ export default function TaskBank() {
     try { await removeMany(duplicates); setMany(duplicates, false); } finally { setDedupBusy(false); }
   };
 
-  // vrstni red kot v učnem načrtu: poglavje → (naloge samo s poglavjem) → podpoglavja
-  const chapterOrder = useMemo(() => new Map(allChapters.map((c, i) => [c.key, i])), [allChapters]);
-  const topicOrder = useMemo(() => new Map(allTopics.map((t, i) => [t.key, i])), [allTopics]);
-  const placeOf = useCallback((t: Task): { chapterKey: string; topicKey: string } => {
-    const topic = [...t.topics].sort((a, b) => (topicOrder.get(a) ?? 1e9) - (topicOrder.get(b) ?? 1e9))[0];
-    if (topic) return { chapterKey: topicInfo(topic)?.chapterKey ?? '', topicKey: topic };
-    const chapter = [...t.chapters].sort((a, b) => (chapterOrder.get(a) ?? 1e9) - (chapterOrder.get(b) ?? 1e9))[0];
-    return { chapterKey: chapter ?? '', topicKey: '' };
-  }, [topicOrder, chapterOrder]);
-  const ordered = useMemo(() => {
-    const rank = (t: Task) => { const p = placeOf(t); return [chapterOrder.get(p.chapterKey) ?? 1e9, p.topicKey ? (topicOrder.get(p.topicKey) ?? 1e9) : -1] as const; };
-    return [...filtered].sort((a, b) => { const ra = rank(a), rb = rank(b); return ra[0] - rb[0] || ra[1] - rb[1] || a.created_at.localeCompare(b.created_at); });
-  }, [filtered, placeOf, chapterOrder, topicOrder]);
-  // poglavje → podpoglavja → naloge (naloga z več podpoglavji je pri prvem; naloge samo s poglavjem so na začetku poglavja)
-  const groups = useMemo(() => {
-    const out: { chapter: string; chapterKey: string; topics: { key: string; title: string; tasks: Task[] }[] }[] = [];
-    for (const t of ordered) {
-      const p = placeOf(t);
-      const ci = p.chapterKey ? chapterInfo(p.chapterKey) : null;
-      const ti = p.topicKey ? topicInfo(p.topicKey) : null;
-      const chapter = ci ? `${ci.grade ? `${ci.grade}. razred · ` : ''}${ci.label}` : 'Brez poglavja';
-      let g = out[out.length - 1];
-      if (!g || g.chapterKey !== p.chapterKey) { g = { chapter, chapterKey: p.chapterKey, topics: [] }; out.push(g); }
-      let sub = g.topics[g.topics.length - 1];
-      if (!sub || sub.key !== p.topicKey) { sub = { key: p.topicKey, title: ti ? `${ti.number} ${ti.title}` : ci ? 'Brez podpoglavja' : '', tasks: [] }; g.topics.push(sub); }
-      sub.tasks.push(t);
-    }
-    return out;
-  }, [ordered, placeOf]);
+  // vrstni red kot v učnem načrtu; naloge samo s poglavjem so na začetku poglavja
+  const ordered = useMemo(() => orderTasks(filtered), [filtered]);
+  const groups = useMemo(() => groupTasks(ordered).map(g => ({
+    ...g, topics: g.topics.map(t => ({ ...t, title: t.title || (g.chapterKey ? 'Brez podpoglavja' : '') })),
+  })), [ordered]);
 
   const selectedInView = ordered.filter(t => selected.has(t.id));
   const allSelected = filtered.length > 0 && selectedInView.length === filtered.length;

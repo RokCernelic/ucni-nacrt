@@ -94,7 +94,7 @@ const SYMBOLS: Record<string, string> = {
   Delta: 'Δ', delta: 'δ', alpha: 'α', beta: 'β', gamma: 'γ', rho: 'ρ', mu: 'μ', eta: 'η', lambda: 'λ', pi: 'π', omega: 'ω', Omega: 'Ω',
   varphi: 'φ', phi: 'φ', theta: 'θ', sigma: 'σ', tau: 'τ', quad: ' ', qquad: '  ', ',': ' ', ';': ' ', ' ': ' ', '%': '%', '&': '&amp;',
   '_': '_', '#': '#', '$': '$', '{': '{', '}': '}', textendash: '–', textemdash: '—', euro: '€', newline: '<br>', par: '\n\n',
-  noindent: '', smallskip: '', medskip: '', bigskip: '', centering: '', hfill: ' ', newpage: '', clearpage: '', displaystyle: '',
+  textquotedbl: '"', textdegree: '°', textbackslash: '\\', textasciitilde: '~', textasciicircum: '^', noindent: '', smallskip: '', medskip: '', bigskip: '', centering: '', hfill: ' ', newpage: '', clearpage: '', displaystyle: '',
 };
 const WRAP: Record<string, [string, string]> = {
   textsubscript: ['<sub>', '</sub>'], textsuperscript: ['<sup>', '</sup>'], textbf: ['<b>', '</b>'], textit: ['<i>', '</i>'],
@@ -146,6 +146,7 @@ export function texToHtml(src: string, math = false): string {
         continue;
       }
       if (name === 'item') { out += '<li>'; continue; }
+      if (name === 'slika' || name === 'resitev') { const g = readGroup(s, i); if (g) i = g.end; continue; }
       if (name === 'includegraphics') { const o = readOptional(s, i); if (o) i = o.end; const g = readGroup(s, i); if (g) { out += ` [slika: ${esc(g.body)}] `; i = g.end; } continue; }
       // neznan ukaz: obdrži vsebino morebitnih argumentov
       const o = readOptional(s, i); if (o) i = o.end;

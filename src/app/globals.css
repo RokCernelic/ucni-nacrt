@@ -78,23 +78,45 @@ html { scroll-behavior: smooth; }
 .rich-field math, .rich-content math { font-size: 1.1em; }
 .rich-inline, .rich-inline > p { display: inline; }
 
-/* Vprašanja in naloge → Natisni izbrane: na zaslonu skrito; ob tisku edina vidna stvar. */
+/* Pisava Computer Modern (CMU Serif, licenca OFL — public/fonts/CMU-OFL.txt) za tisk v LaTeX videzu */
+@font-face { font-family: 'CMU Serif'; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/cmu-serif-500-roman.woff2') format('woff2'); }
+@font-face { font-family: 'CMU Serif'; font-style: italic; font-weight: 400; font-display: swap; src: url('/fonts/cmu-serif-500-italic.woff2') format('woff2'); }
+@font-face { font-family: 'CMU Serif'; font-style: normal; font-weight: 700; font-display: swap; src: url('/fonts/cmu-serif-700-roman.woff2') format('woff2'); }
+@font-face { font-family: 'CMU Serif'; font-style: italic; font-weight: 700; font-display: swap; src: url('/fonts/cmu-serif-700-italic.woff2') format('woff2'); }
+
+/* Baza nalog / učni načrt → Natisni izbrane: list v videzu LaTeX (article, 11 pt, robovi 2,2 cm).
+   Na zaslonu skrit; ob tisku edina vidna stvar. */
 .print-questions { display: none; }
+@page latex { size: A4 portrait; margin: 22mm; }
 @media print {
   html.printing-questions body > :not(.print-questions) { display: none !important; }
   html.printing-questions .print-questions, html.printing-questions .print-questions * { visibility: visible !important; }
-  html.printing-questions .print-questions { display: block; font-family: Inter, -apple-system, sans-serif; color: #111; font-size: 12pt; line-height: 1.45; }
-  .pq-head { border-bottom: 1px solid #999; padding-bottom: 3mm; margin-bottom: 6mm; }
-  .pq-title { font-size: 16pt; font-weight: 600; }
-  .pq-meta { font-size: 9.5pt; color: #444; margin-top: 2mm; }
-  .pq-list { margin: 0; padding-left: 7mm; list-style: decimal outside; }
-  .pq-item::marker { font-weight: 600; }
-  .pq-item { margin-bottom: 5mm; break-inside: avoid; }
-  .pq-item img { max-width: 100%; max-height: 90mm; }
-  .pq-space { height: 22mm; }
-  .pq-answer { margin-top: 2mm; font-size: 10.5pt; color: #333; }
-  .pq-options { list-style: upper-alpha; padding-left: 8mm; margin: 1.5mm 0 0; }
-  .pq-solution { margin-top: 1mm; font-size: 10pt; color: #444; }
+  html.printing-questions .print-questions.lx {
+    display: block; page: latex; color: #000; background: #fff;
+    font-family: 'CMU Serif', 'Latin Modern Roman', 'Computer Modern', Georgia, serif;
+    font-size: 11pt; line-height: 1.24; text-align: justify; hyphens: auto; -webkit-hyphens: auto;
+  }
+  .lx-titleblock { text-align: center; margin: 0 0 1.4em; }
+  .lx-title { font-size: 17.3pt; line-height: 1.2; margin: 0 0 .6em; }
+  .lx-author { font-size: 12pt; }
+  .lx-name { margin: 0 0 1em; font-size: 10.5pt; text-align: left; display: flex; justify-content: space-between; gap: 1.5em; white-space: nowrap; }
+  .lx-section { font-size: 14.4pt; font-weight: 700; line-height: 1.2; margin: 1.5em 0 .5em; text-align: left; break-after: avoid; }
+  .lx-subsection { font-size: 12pt; font-weight: 700; line-height: 1.2; margin: 1.1em 0 .35em; text-align: left; break-after: avoid; }
+  .lx-task { margin-top: .6em; break-inside: avoid; }
+  .lx-num { font-weight: 700; margin-right: .3em; }
+  .lx-task > .rich-content, .lx-task > .rich-content > p:first-child { display: inline; }
+  .lx-task .rich-content p { margin: 0; }
+  .lx-task .rich-content p.lx-sub { display: block; padding-left: 2.2em; text-indent: -1em; }
+  .lx-task .rich-content p.lx-note { display: block; padding-left: 1.2em; font-style: italic; }
+  .lx-task .rich-content ul, .lx-task .rich-content ol { margin: .2em 0; padding-left: 2.2em; }
+  .lx-task .rich-content img { display: block; margin: .6em auto; max-width: 100%; max-height: 6cm; }
+  .lx-task .rich-content table { margin: .5em auto; border-collapse: collapse; }
+  .lx-task .rich-content td, .lx-task .rich-content th { border: 1px solid #000; padding: 1px 6px; }
+  .lx-options { margin: 0 0 0 1.2em; }
+  .lx-meta { font-size: 9pt; color: #777; margin-top: .2em; text-align: left; }
+  .lx-answer { margin: .25em 0 0 1.2em; font-size: 10pt; text-align: left; }
+  .lx-answer .rich-content, .lx-answer .rich-content p { display: inline; }
+  .lx-space { height: 20mm; }
 }
 
 /* naslednji dan je samo za tisk */
