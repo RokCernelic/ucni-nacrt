@@ -68,6 +68,15 @@ html { scroll-behavior: smooth; }
   .print-pins-slip .hint { font-size: 9px; color: #999; margin-top: 1mm; }
 }
 
+/* Obogateno besedilo (prilepljeno iz Worda/spleta): vprašanja in naloge */
+.rich-field:empty::before { content: attr(data-placeholder); color: var(--muted); pointer-events: none; }
+.rich-field img, .rich-content img { max-width: 100%; max-height: 320px; vertical-align: middle; }
+.rich-field table, .rich-content table { border-collapse: collapse; margin: 4px 0; }
+.rich-field td, .rich-field th, .rich-content td, .rich-content th { border: 1px solid var(--hairline); padding: 3px 6px; }
+.rich-field p, .rich-content p { margin: 0 0 4px; }
+.rich-field ul, .rich-field ol, .rich-content ul, .rich-content ol { margin: 2px 0 4px; padding-left: 20px; }
+.rich-field math, .rich-content math { font-size: 1.1em; }
+
 /* naslednji dan je samo za tisk */
 .print-next { display: none; }
 

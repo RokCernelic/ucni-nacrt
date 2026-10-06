@@ -17,6 +17,8 @@ function sectionToggleStyle(open: boolean): CSSProperties {
 import { useProgress } from '@/hooks/useProgress';
 import { useHours } from '@/hooks/useHours';
 import { useNotes } from '@/hooks/useNotes';
+import { useTopicQuestions, type TopicQuestion } from '@/hooks/useTopicQuestions';
+import TopicQuestions from '@/components/TopicQuestions';
 import { useOpenChapters } from '@/hooks/useOpenChapters';
 import { useChapterOrder } from '@/hooks/useChapterOrder';
 import { usePalette } from '@/hooks/usePalette';
@@ -383,7 +385,7 @@ function CiljRow({ tip, text }: { tip: 'O' | 'I'; text: string }) {
 
 // ── Custom enota row ───────────────────────────────────────
 
-function CustomEnotaRow({ item, onToggle, onDragStart, onDragEnd, onRename, onHourChange, remaining, noteValue, onNoteChange }: {
+function CustomEnotaRow({ item, onToggle, onDragStart, onDragEnd, onRename, onHourChange, remaining, noteValue, onNoteChange, questions, onQuestionsChange }: {
   item: ResolvedEnotaItem & { kind: 'custom' };
   onToggle: () => void;
   onDragStart: () => void;
@@ -393,8 +395,11 @@ function CustomEnotaRow({ item, onToggle, onDragStart, onDragEnd, onRename, onHo
   remaining: number;
   noteValue: string;
   onNoteChange: (v: string) => void;
+  questions: TopicQuestion[];
+  onQuestionsChange: (items: TopicQuestion[]) => void;
 }) {
   const [openVsebina, setOpenVsebina] = useState(false);
+  const [openVprasanja, setOpenVprasanja] = useState(false);
   const headerRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState(false);
   const [label, setLabel] = useState(item.type);
@@ -484,6 +489,19 @@ function CustomEnotaRow({ item, onToggle, onDragStart, onDragEnd, onRename, onHo
           </div>
         )}
       </div>
+      <div style={{ borderTop: '1px solid var(--hairline)' }}>
+        <button onClick={() => setOpenVprasanja(v => !v)} style={sectionToggleStyle(openVprasanja)}>
+          <ChevronIcon open={openVprasanja} /> Vprašanja in naloge
+          {questions.length > 0 && (
+            <span style={{ marginLeft: '6px', fontSize: '11px', fontWeight: 600, color: 'var(--forest)', letterSpacing: 0 }}>{questions.length}</span>
+          )}
+        </button>
+        {openVprasanja && (
+          <div style={{ padding: '4px 20px 12px 44px' }}>
+            <TopicQuestions items={questions} onChange={onQuestionsChange} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -519,7 +537,7 @@ function UcnaVsebina({ value, onChange }: { value: string; onChange: (v: string)
 
 // ── Podpoglavje row ────────────────────────────────────────
 
-function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, onHourChange, remaining, number, isAnonymous, listMode, noteValue, onNoteChange, onDragStart, onDragEnd, collapsed, onToggleCollapse }: {
+function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, onHourChange, remaining, number, isAnonymous, listMode, noteValue, onNoteChange, questions, onQuestionsChange, onDragStart, onDragEnd, collapsed, onToggleCollapse }: {
   podpoglavje: import('@/types/curriculum').Podpoglavje;
   predmetId: string;
   checked: boolean;
@@ -532,6 +550,8 @@ function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, 
   listMode?: boolean;
   noteValue: string;
   onNoteChange: (v: string) => void;
+  questions: TopicQuestion[];
+  onQuestionsChange: (items: TopicQuestion[]) => void;
   onDragStart: () => void;
   onDragEnd: () => void;
   /** ročno strnjeno za TO podpoglavje posebej (klik na naslov) — neodvisno od globalnega "Strnjen seznam" */
@@ -542,6 +562,7 @@ function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, 
   const [openStandardi, setOpenStandardi] = useState(false);
   const [openPojmi, setOpenPojmi] = useState(false);
   const [openVsebina, setOpenVsebina] = useState(false);
+  const [openVprasanja, setOpenVprasanja] = useState(false);
   const headerRef = useRef<HTMLDivElement>(null);
   const [stdFilter, setStdFilter] = useState<StdFilter>(new Set());
   const toggleFilter = (key: 'M' | 'I' | 'S') => setStdFilter(prev => {
@@ -671,13 +692,28 @@ function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, 
           )}
         </div>
       )}
+      {!listMode && !collapsed && (
+        <div style={{ borderTop: '1px solid var(--hairline)' }}>
+          <button onClick={() => setOpenVprasanja(v => !v)} style={sectionToggleStyle(openVprasanja)}>
+            <ChevronIcon open={openVprasanja} /> Vprašanja in naloge
+            {questions.length > 0 && (
+              <span style={{ marginLeft: '6px', fontSize: '11px', fontWeight: 600, color: 'var(--forest)', letterSpacing: 0 }}>{questions.length}</span>
+            )}
+          </button>
+          {openVprasanja && (
+            <div style={{ padding: '4px 20px 12px 44px' }}>
+              <TopicQuestions items={questions} onChange={onQuestionsChange} />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
 // ── Poglavje row ──────────────────────────────────────────
 
-function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, onToggleOpen, getHours, onHourChange, remaining, resolve, addEnota, reorder, removeEnota, toggleCustom, renameCustom, setCustomHours, isAnonymous, listMode, getNote, onNoteChange, onDragStart, onDragEnd, collapsedPodpoglavja, onToggleCollapsePodpoglavje }: {
+function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, onToggleOpen, getHours, onHourChange, remaining, resolve, addEnota, reorder, removeEnota, toggleCustom, renameCustom, setCustomHours, isAnonymous, listMode, getNote, onNoteChange, getQuestions, onQuestionsChange, onDragStart, onDragEnd, collapsedPodpoglavja, onToggleCollapsePodpoglavje }: {
   poglavje: import('@/types/curriculum').Poglavje;
   index: number;
   predmetId: string;
@@ -699,6 +735,8 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
   listMode?: boolean;
   getNote: (key: string) => string;
   onNoteChange: (key: string, v: string) => void;
+  getQuestions: (key: string) => TopicQuestion[];
+  onQuestionsChange: (key: string, items: TopicQuestion[]) => void;
   onDragStart: () => void;
   onDragEnd: () => void;
   collapsedPodpoglavja: Set<string>;
@@ -813,6 +851,8 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
                         listMode={listMode}
                         noteValue={getNote(`${predmetId}:${item.id}`)}
                         onNoteChange={(v) => onNoteChange(`${predmetId}:${item.id}`, v)}
+                        questions={getQuestions(`${predmetId}:${item.id}`)}
+                        onQuestionsChange={(list) => onQuestionsChange(`${predmetId}:${item.id}`, list)}
                         onDragStart={() => { dragDroppedRef.current = false; dragFromRef.current = idx; setIsDraggingCustom(true); }}
                         onDragEnd={() => { dragDroppedRef.current = false; dragFromRef.current = null; setIsDraggingCustom(false); }}
                         collapsed={collapsedPodpoglavja.has(item.id)}
@@ -827,6 +867,8 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
                         remaining={remaining}
                         noteValue={getNote(`${predmetId}:${item.id}`)}
                         onNoteChange={(v) => onNoteChange(`${predmetId}:${item.id}`, v)}
+                        questions={getQuestions(`${predmetId}:${item.id}`)}
+                        onQuestionsChange={(list) => onQuestionsChange(`${predmetId}:${item.id}`, list)}
                         onDragStart={() => { dragDroppedRef.current = false; dragFromRef.current = idx; setIsDraggingCustom(true); }}
                         onDragEnd={() => {
                           if (!dragDroppedRef.current && dragFromRef.current !== null) {
@@ -895,6 +937,7 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
   const { checked, toggle } = useProgress(classId ? `ucni-nacrt-progress-${classId}` : undefined);
   const { getHours, change } = useHours(classId ? `ucni-nacrt-hours-${classId}` : undefined);
   const { getNote, setNote } = useNotes(classId ? `ucni-nacrt-notes-${classId}` : undefined);
+  const { getQuestions, setQuestions } = useTopicQuestions();
   const { resolve, addEnota, reorder, removeEnota, toggleCustom, renameCustom, setCustomHours, countCustom, countCheckedCustom } = useEnotaOrder(classId ? `ucni-nacrt-enote-order-${classId}` : undefined);
   const { openChapters, toggle: toggleChapter, expandAll, collapseAll } = useOpenChapters(classId ? `ucni-nacrt-open-chapters-${classId}` : undefined);
   // Klik na naslov podpoglavja strne/razširi cilje, standarde, pojme in učno vsebino ZANJ POSEBEJ
@@ -1094,6 +1137,8 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
                               listMode={listMode}
                               getNote={getNote}
                               onNoteChange={setNote}
+                              getQuestions={getQuestions}
+                              onQuestionsChange={setQuestions}
                               onDragStart={() => { chapterDragFrom.current = ci; setChapterDragging(true); }}
                               onDragEnd={() => { chapterDragFrom.current = null; setChapterDragging(false); }}
                               collapsedPodpoglavja={collapsedPodpoglavja}
