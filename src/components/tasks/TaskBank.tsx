@@ -10,6 +10,7 @@ import { allCurricula, topicsOf, topicInfo, hasMinimalStandard } from '@/lib/tas
 import TaskList from './TaskList';
 import { plural } from '@/lib/quiz/format';
 import PrintTasks from './PrintTasks';
+import ImportTasks from './ImportTasks';
 import { Chip, tinyLabel, input, btn } from './ui';
 
 const plain = (html: string | null) => (html ?? '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').toLowerCase();
@@ -136,6 +137,7 @@ export default function TaskBank() {
                 <input type="checkbox" checked={allSelected} disabled={!filtered.length} onChange={e => setMany(filtered.map(t => t.id), e.target.checked)} />
                 izberi vse{anyFilter ? ' (v filtru)' : ''}
               </label>
+              <ImportTasks />
               <span style={{ flex: 1 }} />
               <input value={sheetTitle} onChange={e => setSheetTitle(e.target.value)} title="Naslov učnega lista" style={{ ...input, width: '170px', padding: '4px 8px' }} />
               <PrintTasks tasks={selectedInView} title={sheetTitle} />

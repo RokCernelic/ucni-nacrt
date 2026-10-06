@@ -64,7 +64,17 @@ export function useTasks() {
     set({ tasks: state.tasks.filter(t => t.id !== id) });
   }, []);
 
+  const importMany = useCallback(async (drafts: TaskDraft[], onProgress?: (done: number) => void) => {
+    const inserted: Task[] = [];
+    for (let i = 0; i < drafts.length; i += 25) {
+      inserted.push(...await insertTasks(drafts.slice(i, i + 25)));
+      onProgress?.(inserted.length);
+    }
+    set({ tasks: [...inserted, ...state.tasks] });
+    return inserted;
+  }, []);
+
   const reload = useCallback(() => { if (state.userId) void load(state.userId); }, []);
 
-  return { tasks: s.tasks, loaded: s.loaded, error: s.error, save, remove, reload };
+  return { tasks: s.tasks, loaded: s.loaded, error: s.error, save, remove, reload, importMany };
 }

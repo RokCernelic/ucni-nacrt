@@ -1,0 +1,66 @@
+Predmet: fizika
+
+# ------------------------------------------------------------------
+# PRIMER DATOTEKE ZA UVOZ NALOG V BAZO NALOG
+#
+# Pravila:
+#  - Vrstice, ki se začnejo z #, so komentarji.
+#  - "Predmet:" v prvi vrstici je neobvezen (privzeto fizika).
+#  - Naloge med seboj loči PRAZNA VRSTICA.
+#  - Prva vrstica je besedilo naloge (številka "1." je neobvezna);
+#    besedilo je lahko v več vrsticah.
+#  - Podnaloge: male črke  a) b) c) č) …
+#  - Izbirni odgovori: VELIKE črke  A) B) C) …, pravilnega označi z *, npr. *B)
+#    (drži / ne drži:   *- Drži   in   - Ne drži)
+#  - Številski odgovor:   = 9,81 ± 0,1 m/s²   (toleranca in enota sta neobvezni)
+#  - Neobvezne oznake (vsaka v svoji vrstici, velike/male črke niso pomembne):
+#      Tema: 6.1            (številka podpoglavja v učnem načrtu)
+#      Bloom: 3             (1 pomnjenje … 6 ustvarjanje)
+#      Težavnost: 2         (1 lahka, 2 srednja, 3 zahtevna)
+#      Tip: računska        (računska, besedilna, grafična, skica, eksperimentalna, povezovanje)
+#      Ključniki: delo, sila
+#      Rešitev: 900 J
+#      Postopek: A = F · s = 450 N · 2 m
+#      Točke: 2    Čas: 3    Vir: učbenik    Stanje: osnutek
+#  - Datoteko shrani kot navadno besedilo (.txt).
+# ------------------------------------------------------------------
+
+1. Zapiši enačbo za delo. Kako se imenuje enota za delo?
+Tema: 6.1
+Bloom: 1
+Težavnost: 1
+Tip: besedilna
+Rešitev: A = F · s, enota je joule (J)
+
+2. Miha je vzporedno s tlemi deloval na omaro s silo 450 N in jo potisnil 2 m daleč. Koliko dela je pri tem opravil?
+= 900 J
+Tema: 6.1
+Bloom: 3
+Težavnost: 1
+Tip: računska
+Ključniki: delo, sila, pot
+Postopek: A = F · s = 450 N · 2 m = 900 J
+
+3. Ana je potiskala zaboj s silo 200 N. Sila je bila vzporedna s premikom. Zaboj se je v 2 s premaknil za 1,5 m.
+a) Koliko dela je opravila Ana?
+b) S kolikšno močjo je opravila to delo?
+Tema: 6.4
+Bloom: 3
+Težavnost: 1
+Tip: računska
+Točke: 2
+
+4. Katera enota ni enota za energijo?
+A) J
+*B) W
+C) kJ
+D) Nm
+Tema: 6.2
+Bloom: 2
+Težavnost: 2
+
+5. Pri enakomernem dvigovanju bremena s pritrjenim škripcem potrebujemo manjšo silo kot brez škripca.
+- Drži
+*- Ne drži
+Tema: 6.3
+Bloom: 2
