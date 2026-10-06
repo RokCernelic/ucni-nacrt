@@ -173,6 +173,12 @@ export default function Nav() {
           )}
         </div>
 
+        {onQuizzes && !loading && user && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '8px' }}>
+            <Link href="/kvizi" style={pill(!path.startsWith('/kvizi/naloge'))}>Kvizi</Link>
+            <Link href="/kvizi/naloge" style={pill(path.startsWith('/kvizi/naloge'))}>Baza nalog</Link>
+          </div>
+        )}
         {onStudents && !loading && user && <Suspense fallback={null}><StudentRows path={path} /></Suspense>}
         {subjectBase && !loading && user && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '8px' }}>
