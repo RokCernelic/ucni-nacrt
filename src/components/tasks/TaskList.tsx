@@ -8,7 +8,7 @@ import TaskEditor from './TaskEditor';
 import { Rich, TaskBadges, TaskAnswer, btn } from './ui';
 
 /** Seznam nalog (vsaka v svojem okvirju): kljukica za izbor, Uredi, Izbriši, + Nova naloga. */
-export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyText, showAdd = true, startIndex = 0, hideTopic }: {
+export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyText, showAdd = true, startIndex = 0, hideTopic, hideChapter }: {
   tasks: Task[];
   /** nova naloga je že povezana s tem podpoglavjem */
   fixedTopic?: string;
@@ -20,6 +20,7 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
   startIndex?: number;
   /** podpoglavje, pod katerim je seznam (ne ponavljaj ga pri vsaki nalogi) */
   hideTopic?: string;
+  hideChapter?: string;
 }) {
   const { save, remove } = useTasks();
   const { selected, toggle } = useTaskSelection();
@@ -62,7 +63,7 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
                   {(t.answer || t.answer_kind === 'numeric') && (
                     <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Rešitev: <TaskAnswer task={t} /></div>
                   )}
-                  <TaskBadges task={t} showTopics={showTopics} hideTopic={hideTopic} />
+                  <TaskBadges task={t} showTopics={showTopics} hideTopic={hideTopic} hideChapter={hideChapter} />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flexShrink: 0 }}>
                   <button onClick={() => { setEditingId(t.id); setAdding(false); }} style={{ ...btn(), padding: '3px 9px', fontSize: '11px' }}>✎ Uredi</button>

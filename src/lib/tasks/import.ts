@@ -4,7 +4,7 @@
  */
 import { sanitizeRichHtml } from '@/lib/richText';
 import { parseNumber } from '@/lib/quiz/scoring';
-import { topicsOf } from './topics';
+import { topicsOf, chaptersOf } from './topics';
 import { emptyTask, type TaskDraft, type TaskKind, type BloomLevel, type Difficulty, type TaskOption } from './types';
 
 export interface ImportResult {
@@ -24,6 +24,15 @@ function resolveTopic(curriculum: string, ref: string): string | null {
   if (!r) return null;
   if (r.includes(':')) return topicsOf(r.split(':')[0]).some(t => t.key === r) ? r : null;
   return topicsOf(curriculum).find(t => t.number === r)?.key ?? null;
+}
+
+/** '6' (številka poglavja) ali celoten ključ poglavja → ključ poglavja. */
+function resolveChapter(curriculum: string, ref: string): string | null {
+  const r = ref.trim();
+  if (!r) return null;
+  if (r.includes(':')) return chaptersOf(r.split(':')[0]).some(c => c.key === r) ? r : null;
+  if (!/^\d+$/.test(r)) return null;
+  return chaptersOf(curriculum).find(c => c.number === r)?.key ?? null;
 }
 
 const KIND_WORDS: [RegExp, TaskKind[]][] = [
@@ -206,7 +215,8 @@ export function parseTex(text: string, curriculum: string): ImportResult {
 
     const label = keys.id ? `naloga ${keys.id}` : `naloga ${n}`;
     const topic = keys.un ? resolveTopic(curriculum, keys.un) : null;
-    if (keys.un && !topic) res.warnings.push(`${label}: podpoglavja »${keys.un}« ni v učnem načrtu — uvožena brez povezave`);
+    const chapter = keys.un && !topic ? resolveChapter(curriculum, keys.un) : null;
+    if (keys.un && !topic && !chapter) res.warnings.push(`${label}: podpoglavja »${keys.un}« ni v učnem načrtu — uvožena brez povezave`);
     const tags = [
       ...(keys.teme ? list(keys.teme) : []),
       ...(keys.predznanje ? [`predznanje ${keys.predznanje}`] : []),
@@ -220,8 +230,9 @@ export function parseTex(text: string, curriculum: string): ImportResult {
       bloom: keys.bloom ? toBloom(keys.bloom) : null,
       difficulty: keys.tezavnost ? toDifficulty(keys.tezavnost) : null,
       kinds: keys.tip ? kindsFrom(keys.tip) : [],
-      curriculum: topic ? curriculum : (keys.un ? curriculum : null),
+      curriculum: topic || chapter ? curriculum : (keys.un ? curriculum : null),
       topics: topic ? [topic] : [],
+      chapters: chapter ? [chapter] : [],
       tags: needsImage ? [...tags, 'manjka slika'] : tags,
       source: 'ucbenik',
       // naloge, ki potrebujejo sliko iz knjige, ostanejo osnutek, dokler slike ne dodaš
@@ -295,7 +306,8 @@ export function parseTxt(text: string, defaultCurriculum: string): ImportResult 
     if (!body.length) { res.errors.push(`vrstica ${at}: manjka besedilo naloge`); return; }
     const html = clean(`<p>${body.map(esc).join(' ')}</p>${subtasks.join('')}`);
     const topic = meta.topic ? resolveTopic(curriculum, meta.topic) : null;
-    if (meta.topic && !topic) res.warnings.push(`vrstica ${at}: podpoglavja »${meta.topic}« ni v učnem načrtu — uvožena brez povezave`);
+    const chapter = meta.topic && !topic ? resolveChapter(curriculum, meta.topic) : null;
+    if (meta.topic && !topic && !chapter) res.warnings.push(`vrstica ${at}: podpoglavja »${meta.topic}« ni v učnem načrtu — uvožena brez povezave`);
 
     let answerKind: TaskDraft['answer_kind'] = meta.answer ? 'short' : 'open';
     if (numeric) answerKind = 'numeric';
@@ -319,8 +331,9 @@ export function parseTxt(text: string, defaultCurriculum: string): ImportResult 
       bloom: meta.bloom ? toBloom(meta.bloom) : null,
       difficulty: meta.difficulty ? toDifficulty(meta.difficulty) : null,
       kinds: meta.kind ? kindsFrom(meta.kind) : [],
-      curriculum: topic ? curriculum : null,
+      curriculum: topic || chapter ? curriculum : null,
       topics: topic ? [topic] : [],
+      chapters: chapter ? [chapter] : [],
       tags: meta.tags ? list(meta.tags) : [],
       points: meta.points && parseNumber(meta.points) ? parseNumber(meta.points)! : 1,
       minutes: meta.minutes && parseNumber(meta.minutes) ? Math.round(parseNumber(meta.minutes)!) : null,

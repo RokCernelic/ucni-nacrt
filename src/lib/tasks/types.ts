@@ -24,6 +24,8 @@ export interface Task {
   bloom: BloomLevel | null;
   kinds: TaskKind[];
   curriculum: string | null;
+  /** poglavja brez podpoglavja: '<curriculum>:<poglavjeId>' */
+  chapters: string[];
   topics: string[];
   standards: string[];
   points: number;
@@ -37,7 +39,7 @@ export type TaskDraft = Omit<Task, 'id' | 'created_at' | 'updated_at'> & { id?: 
 
 export const emptyTask = (patch: Partial<TaskDraft> = {}): TaskDraft => ({
   body: '', answer: null, solution: null, answer_kind: 'open', options: null, correct: null, tolerance: null, unit: null,
-  difficulty: null, bloom: null, kinds: [], curriculum: null, topics: [], standards: [], points: 1, minutes: null,
+  difficulty: null, bloom: null, kinds: [], curriculum: null, chapters: [], topics: [], standards: [], points: 1, minutes: null,
   source: 'lastna', tags: [], status: 'verified', ...patch,
 });
 

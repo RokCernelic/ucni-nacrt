@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useTasks } from '@/hooks/useTasks';
 import { useTaskSelection } from '@/hooks/useTaskSelection';
 import { BLOOM, DIFFICULTY, KINDS, ANSWER_KINDS, SOURCES, type Task, type BloomLevel, type Difficulty, type TaskKind, type AnswerKind } from '@/lib/tasks/types';
-import { allCurricula, topicsOf, topicInfo, hasMinimalStandard } from '@/lib/tasks/topics';
+import { allCurricula, topicsOf, topicInfo, chaptersOf, chapterInfo, chapterKeysOf, hasMinimalStandard } from '@/lib/tasks/topics';
 import TaskList from './TaskList';
 import { plural } from '@/lib/quiz/format';
 import PrintTasks from './PrintTasks';
@@ -44,18 +44,17 @@ export default function TaskBank() {
   const [status, setStatus] = useState<'' | 'verified' | 'draft'>('');
   const [onlyMin, setOnlyMin] = useState(false);
   const [noTopic, setNoTopic] = useState(false);
+  const [unlinked, setUnlinked] = useState(false);
   const [sheetTitle, setSheetTitle] = useState('Učni list');
 
   // ponudba filtrov učnega načrta: vsak naslednji nivo le v okviru izbranega
+  const allChapters = useMemo(() => allCurricula().flatMap(c => chaptersOf(c.id)), []);
   const allTopics = useMemo(() => allCurricula().flatMap(c => topicsOf(c.id)), []);
-  const gradeOptions = useMemo(() => Array.from(new Set(allTopics.filter(t => !currs.size || currs.has(t.curriculum)).map(t => t.grade).filter((g): g is number => !!g))).sort((a, b) => b - a), [allTopics, currs]);
-  const inScope = useMemo(() => allTopics.filter(t => (!currs.size || currs.has(t.curriculum)) && (!grades.size || (t.grade !== null && grades.has(t.grade)))), [allTopics, currs, grades]);
-  const chapterOptions = useMemo(() => {
-    const m = new Map<string, { key: string; label: string; grade: number | null; predmet: string }>();
-    for (const t of inScope) if (!m.has(t.chapterKey)) m.set(t.chapterKey, { key: t.chapterKey, label: t.chapter, grade: t.grade, predmet: t.predmet });
-    return [...m.values()];
-  }, [inScope]);
-  const topicOptions = useMemo(() => inScope.filter(t => chapters.has(t.chapterKey)), [inScope, chapters]);
+  const gradeOptions = useMemo(() => Array.from(new Set(allChapters.filter(c => !currs.size || currs.has(c.curriculum)).map(c => c.grade).filter((g): g is number => !!g))).sort((a, b) => b - a), [allChapters, currs]);
+  const chapterOptions = useMemo(() => allChapters
+    .filter(c => (!currs.size || currs.has(c.curriculum)) && (!grades.size || (c.grade !== null && grades.has(c.grade))))
+    .map(c => ({ key: c.key, label: c.label, grade: c.grade, predmet: c.predmet })), [allChapters, currs, grades]);
+  const topicOptions = useMemo(() => allTopics.filter(t => chapters.has(t.chapterKey)), [allTopics, chapters]);
 
   const filtered = useMemo(() => {
     const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
@@ -64,9 +63,11 @@ export default function TaskBank() {
         const hay = `${plain(t.body)} ${plain(t.answer)} ${plain(t.solution)} ${t.tags.join(' ').toLowerCase()} ${(t.options ?? []).map(o => o.text).join(' ').toLowerCase()}`;
         if (!words.every(w => hay.includes(w))) return false;
       }
-      if (currs.size && !(t.curriculum && currs.has(t.curriculum)) && !t.topics.some(k => currs.has(k.split(':')[0]))) return false;
-      if (grades.size && !t.topics.some(k => { const g = topicInfo(k)?.grade; return g != null && grades.has(g); })) return false;
-      if (chapters.size && !t.topics.some(k => { const c = topicInfo(k)?.chapterKey; return !!c && chapters.has(c); })) return false;
+      // naloga je povezana s poglavjem neposredno (t.chapters) ali prek podpoglavja
+      const ckeys = chapterKeysOf(t);
+      if (currs.size && !(t.curriculum && currs.has(t.curriculum)) && !ckeys.some(k => currs.has(k.split(':')[0]))) return false;
+      if (grades.size && !ckeys.some(k => { const g = chapterInfo(k)?.grade; return g != null && grades.has(g); })) return false;
+      if (chapters.size && !ckeys.some(k => chapters.has(k))) return false;
       if (topicSel.size && !t.topics.some(k => topicSel.has(k))) return false;
       if (diff.size && !(t.difficulty && diff.has(t.difficulty))) return false;
       if (bloom.size && !(t.bloom && bloom.has(t.bloom))) return false;
@@ -76,9 +77,10 @@ export default function TaskBank() {
       if (status && t.status !== status) return false;
       if (onlyMin && !hasMinimalStandard(t.standards, t.topics)) return false;
       if (noTopic && t.topics.length) return false;
+      if (unlinked && (t.topics.length || t.chapters.length)) return false;
       return true;
     });
-  }, [tasks, q, currs, grades, chapters, topicSel, diff, bloom, kinds, aks, source, status, onlyMin, noTopic]);
+  }, [tasks, q, currs, grades, chapters, topicSel, diff, bloom, kinds, aks, source, status, onlyMin, noTopic, unlinked]);
 
   // dvojniki (enako besedilo) — npr. po dvakratnem uvozu iste datoteke; obdrži najstarejšo
   const duplicates = useMemo(() => {
@@ -97,37 +99,40 @@ export default function TaskBank() {
     try { await removeMany(duplicates); setMany(duplicates, false); } finally { setDedupBusy(false); }
   };
 
-  // vrstni red podpoglavij kot v učnem načrtu (po predmetih, razredih, poglavjih)
-  const topicOrder = useMemo(() => {
-    const m = new Map<string, number>();
-    let n = 0;
-    for (const c of allCurricula()) for (const t of topicsOf(c.id)) m.set(t.key, n++);
-    return m;
-  }, []);
-  const primaryTopic = useCallback((t: Task) => [...t.topics].sort((a, b) => (topicOrder.get(a) ?? 1e9) - (topicOrder.get(b) ?? 1e9))[0] ?? '', [topicOrder]);
-  const ordered = useMemo(() => [...filtered].sort((a, b) =>
-    (topicOrder.get(primaryTopic(a)) ?? 1e9) - (topicOrder.get(primaryTopic(b)) ?? 1e9) || a.created_at.localeCompare(b.created_at)),
-  [filtered, topicOrder, primaryTopic]);
-  // poglavje → podpoglavja → naloge (naloga z več podpoglavji je pri prvem)
+  // vrstni red kot v učnem načrtu: poglavje → (naloge samo s poglavjem) → podpoglavja
+  const chapterOrder = useMemo(() => new Map(allChapters.map((c, i) => [c.key, i])), [allChapters]);
+  const topicOrder = useMemo(() => new Map(allTopics.map((t, i) => [t.key, i])), [allTopics]);
+  const placeOf = useCallback((t: Task): { chapterKey: string; topicKey: string } => {
+    const topic = [...t.topics].sort((a, b) => (topicOrder.get(a) ?? 1e9) - (topicOrder.get(b) ?? 1e9))[0];
+    if (topic) return { chapterKey: topicInfo(topic)?.chapterKey ?? '', topicKey: topic };
+    const chapter = [...t.chapters].sort((a, b) => (chapterOrder.get(a) ?? 1e9) - (chapterOrder.get(b) ?? 1e9))[0];
+    return { chapterKey: chapter ?? '', topicKey: '' };
+  }, [topicOrder, chapterOrder]);
+  const ordered = useMemo(() => {
+    const rank = (t: Task) => { const p = placeOf(t); return [chapterOrder.get(p.chapterKey) ?? 1e9, p.topicKey ? (topicOrder.get(p.topicKey) ?? 1e9) : -1] as const; };
+    return [...filtered].sort((a, b) => { const ra = rank(a), rb = rank(b); return ra[0] - rb[0] || ra[1] - rb[1] || a.created_at.localeCompare(b.created_at); });
+  }, [filtered, placeOf, chapterOrder, topicOrder]);
+  // poglavje → podpoglavja → naloge (naloga z več podpoglavji je pri prvem; naloge samo s poglavjem so na začetku poglavja)
   const groups = useMemo(() => {
-    const out: { chapter: string; topics: { key: string; title: string; tasks: Task[] }[] }[] = [];
+    const out: { chapter: string; chapterKey: string; topics: { key: string; title: string; tasks: Task[] }[] }[] = [];
     for (const t of ordered) {
-      const key = primaryTopic(t);
-      const info = key ? topicInfo(key) : null;
-      const chapter = info ? `${info.grade ? `${info.grade}. razred · ` : ''}${info.chapter}` : 'Brez podpoglavja';
+      const p = placeOf(t);
+      const ci = p.chapterKey ? chapterInfo(p.chapterKey) : null;
+      const ti = p.topicKey ? topicInfo(p.topicKey) : null;
+      const chapter = ci ? `${ci.grade ? `${ci.grade}. razred · ` : ''}${ci.label}` : 'Brez poglavja';
       let g = out[out.length - 1];
-      if (!g || g.chapter !== chapter) { g = { chapter, topics: [] }; out.push(g); }
+      if (!g || g.chapterKey !== p.chapterKey) { g = { chapter, chapterKey: p.chapterKey, topics: [] }; out.push(g); }
       let sub = g.topics[g.topics.length - 1];
-      if (!sub || sub.key !== key) { sub = { key, title: info ? `${info.number} ${info.title}` : '', tasks: [] }; g.topics.push(sub); }
+      if (!sub || sub.key !== p.topicKey) { sub = { key: p.topicKey, title: ti ? `${ti.number} ${ti.title}` : ci ? 'Brez podpoglavja' : '', tasks: [] }; g.topics.push(sub); }
       sub.tasks.push(t);
     }
     return out;
-  }, [ordered, primaryTopic]);
+  }, [ordered, placeOf]);
 
   const selectedInView = ordered.filter(t => selected.has(t.id));
   const allSelected = filtered.length > 0 && selectedInView.length === filtered.length;
-  const anyFilter = q || currs.size || grades.size || chapters.size || topicSel.size || diff.size || bloom.size || kinds.size || aks.size || source || status || onlyMin || noTopic;
-  const reset = () => { setQ(''); setCurrs(new Set()); setGrades(new Set()); setChapters(new Set()); setTopicSel(new Set()); setDiff(new Set()); setBloom(new Set()); setKinds(new Set()); setAks(new Set()); setSource(''); setStatus(''); setOnlyMin(false); setNoTopic(false); };
+  const anyFilter = q || currs.size || grades.size || chapters.size || topicSel.size || diff.size || bloom.size || kinds.size || aks.size || source || status || onlyMin || noTopic || unlinked;
+  const reset = () => { setQ(''); setCurrs(new Set()); setGrades(new Set()); setChapters(new Set()); setTopicSel(new Set()); setDiff(new Set()); setBloom(new Set()); setKinds(new Set()); setAks(new Set()); setSource(''); setStatus(''); setOnlyMin(false); setNoTopic(false); setUnlinked(false); };
 
   if (loading) return null;
 
@@ -185,7 +190,8 @@ export default function TaskBank() {
                 <Chip active={status === 'verified'} onClick={() => setStatus(status === 'verified' ? '' : 'verified')}>preverjene</Chip>
                 <Chip active={status === 'draft'} color="#b7791f" onClick={() => setStatus(status === 'draft' ? '' : 'draft')}>osnutki</Chip>
                 <Chip active={onlyMin} onClick={() => setOnlyMin(!onlyMin)} title="Naloge, ki preverjajo vsaj en minimalni standard znanja">minimalni standardi (M)</Chip>
-                <Chip active={noTopic} onClick={() => setNoTopic(!noTopic)} title="Naloge, ki še niso povezane z učnim načrtom">brez podpoglavja</Chip>
+                <Chip active={noTopic} onClick={() => setNoTopic(!noTopic)} title="Naloge brez podpoglavja (tudi tiste, ki so povezane samo s poglavjem)">brez podpoglavja</Chip>
+                <Chip active={unlinked} onClick={() => setUnlinked(!unlinked)} title="Naloge, ki niso povezane z nobenim poglavjem ali podpoglavjem">nepovezane z učnim načrtom</Chip>
                 {anyFilter && <button onClick={reset} style={{ ...btn(), padding: '3px 9px', fontSize: '11px' }}>počisti filtre</button>}
               </Row>
             </div>
@@ -231,7 +237,7 @@ export default function TaskBank() {
                                 {sub.title} <span style={{ fontWeight: 400, color: 'var(--muted)' }}>· {sub.tasks.length}</span>
                               </h3>
                             )}
-                            <TaskList tasks={sub.tasks} hideTopic={sub.key} showAdd={false} startIndex={start} />
+                            <TaskList tasks={sub.tasks} hideTopic={sub.key} hideChapter={g.chapterKey} showAdd={false} startIndex={start} />
                           </div>
                         );
                       })}

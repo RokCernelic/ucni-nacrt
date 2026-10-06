@@ -8,7 +8,7 @@ import {
   BLOOM, DIFFICULTY, KINDS, ANSWER_KINDS, SOURCES, emptyTask,
   type TaskDraft, type AnswerKind, type TaskKind,
 } from '@/lib/tasks/types';
-import { topicsOf, topicInfo, topicLabel, allCurricula } from '@/lib/tasks/topics';
+import { topicsOf, topicInfo, topicLabel, chapterInfo, allCurricula } from '@/lib/tasks/topics';
 import { Chip, btn, tinyLabel, input } from './ui';
 
 const LETTERS = 'ABCDEF';
@@ -175,8 +175,18 @@ export default function TaskEditor({ initial, fixedTopic, onSave, onCancel }: {
         </Field>
       </div>
 
-      <Field label="Učni načrt — podpoglavja">
+      <Field label="Učni načrt — poglavje / podpoglavje">
         <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
+          {t.chapters.map(k => {
+            const ci = chapterInfo(k);
+            return (
+              <span key={k} title="Naloga je povezana s poglavjem (brez podpoglavja)" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: 'var(--forest)', border: '1px dashed var(--forest)', borderRadius: '4px', padding: '2px 4px 2px 8px' }}>
+                {ci ? `${ci.grade ? `${ci.grade}. r · ` : ''}${ci.label}` : k} <span style={{ color: 'var(--muted)' }}>(poglavje)</span>
+                <button type="button" onClick={() => up({ chapters: t.chapters.filter(x => x !== k) })}
+                  style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '14px', lineHeight: 1 }}>×</button>
+              </span>
+            );
+          })}
           {t.topics.map(k => (
             <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: 'var(--forest)', border: '1px solid var(--hairline)', borderRadius: '4px', padding: '2px 4px 2px 8px' }}>
               {topicLabel(k)}
@@ -196,9 +206,14 @@ export default function TaskEditor({ initial, fixedTopic, onSave, onCancel }: {
             ))}
           </select>
           <select value="" disabled={!pickChapter} title="Podpoglavje"
-            onChange={e => { const k = e.target.value; if (k && !t.topics.includes(k)) up({ topics: [...t.topics, k], curriculum: t.curriculum ?? pickCurr }); }}
+            onChange={e => {
+              const k = e.target.value;
+              if (k === '__chapter__') { if (!t.chapters.includes(pickChapter)) up({ chapters: [...t.chapters, pickChapter], curriculum: t.curriculum ?? pickCurr }); }
+              else if (k && !t.topics.includes(k)) up({ topics: [...t.topics, k], curriculum: t.curriculum ?? pickCurr });
+            }}
             style={{ ...input, padding: '4px 6px', maxWidth: '280px', opacity: pickChapter ? 1 : 0.5 }}>
             <option value="">{pickChapter ? '+ dodaj podpoglavje …' : 'najprej izberi poglavje'}</option>
+            {pickChapter && !t.chapters.includes(pickChapter) && <option value="__chapter__">★ samo poglavje (brez podpoglavja)</option>}
             {topicOptions.filter(o => !t.topics.includes(o.key)).map(o => (
               <option key={o.key} value={o.key}>{o.number} {o.title}</option>
             ))}

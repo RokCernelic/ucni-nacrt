@@ -2,7 +2,7 @@
 
 import { sanitizeRichHtml } from '@/lib/richText';
 import { BLOOM, DIFFICULTY, KINDS, ANSWER_KINDS, type Task } from '@/lib/tasks/types';
-import { topicLabel } from '@/lib/tasks/topics';
+import { topicLabel, chapterInfo } from '@/lib/tasks/topics';
 
 export const btn = (primary = false): React.CSSProperties => ({
   fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: primary ? 600 : 500,
@@ -41,7 +41,7 @@ const badge = (bg: string, color = '#fff'): React.CSSProperties => ({
   fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 700, color, background: bg, borderRadius: '4px', padding: '2px 6px', whiteSpace: 'nowrap',
 });
 
-export function TaskBadges({ task, showTopics = true, hideTopic }: { task: Task; showTopics?: boolean; hideTopic?: string }) {
+export function TaskBadges({ task, showTopics = true, hideTopic, hideChapter }: { task: Task; showTopics?: boolean; hideTopic?: string; hideChapter?: string }) {
   const b = BLOOM.find(x => x.level === task.bloom);
   const d = DIFFICULTY.find(x => x.level === task.difficulty);
   const ak = ANSWER_KINDS.find(x => x.id === task.answer_kind);
@@ -52,6 +52,7 @@ export function TaskBadges({ task, showTopics = true, hideTopic }: { task: Task;
       {b && <span style={badge(b.color)} title={`${b.name} — ${b.hint}`}>{b.level} · {b.name}</span>}
       {task.kinds.map(k => <span key={k} style={badge('var(--surface)', 'var(--body)')}>{KINDS.find(x => x.id === k)?.name ?? k}</span>)}
       {ak && <span style={badge('transparent', 'var(--muted)')} title={ak.quiz ? 'Uporabno v kvizu (samodejno ocenjevanje)' : 'Le za učne liste'}>{ak.name}{ak.quiz ? ' · kviz' : ''}</span>}
+      {showTopics && task.chapters.filter(c => c !== hideChapter).map(c => { const ci = chapterInfo(c); return <span key={c} style={badge('transparent', 'var(--forest)')} title="Poglavje učnega načrta (brez podpoglavja)">↳ {ci ? `${ci.grade ? `${ci.grade}. r · ` : ''}${ci.label}` : c}</span>; })}
       {showTopics && task.topics.filter(t => t !== hideTopic).map(t => <span key={t} style={badge('transparent', 'var(--forest)')} title="Podpoglavje učnega načrta">↳ {topicLabel(t)}</span>)}
     </div>
   );

@@ -41,6 +41,50 @@ export function topicsOf(curriculumId: string): TopicInfo[] {
   return out;
 }
 
+export interface ChapterInfo {
+  key: string;
+  curriculum: string;
+  predmet: string;
+  grade: number | null;
+  /** npr. "1" */
+  number: string;
+  title: string;
+  /** npr. "1 Vesolje" */
+  label: string;
+}
+
+const chapterCache = new Map<string, ChapterInfo[]>();
+
+/** Vsa poglavja učnega načrta z enakim oštevilčenjem kot v pogledu Učni načrt. */
+export function chaptersOf(curriculumId: string): ChapterInfo[] {
+  const hit = chapterCache.get(curriculumId);
+  if (hit) return hit;
+  const entry = getCurriculum(curriculumId);
+  if (!entry) return [];
+  const p = entry.predmet;
+  const continuous = p.continuousNumbering ?? false;
+  const perGrade = new Map<number, number>();
+  const out: ChapterInfo[] = p.poglavja.map((pg, gi) => {
+    const grade = pg.razred ?? 0;
+    const n = continuous ? gi + 1 : (perGrade.get(grade) ?? 0) + 1;
+    perGrade.set(grade, (perGrade.get(grade) ?? 0) + 1);
+    return { key: `${curriculumId}:${pg.id}`, curriculum: curriculumId, predmet: p.naslov, grade: pg.razred ?? null, number: String(n), title: pg.naslov, label: `${n} ${pg.naslov}` };
+  });
+  chapterCache.set(curriculumId, out);
+  return out;
+}
+
+export function chapterInfo(key: string): ChapterInfo | null {
+  return chaptersOf(key.split(':')[0]).find(c => c.key === key) ?? null;
+}
+
+/** Vsa poglavja, s katerimi je naloga povezana (neposredno ali prek podpoglavja). */
+export function chapterKeysOf(task: { chapters: string[]; topics: string[] }): string[] {
+  const out = new Set(task.chapters);
+  for (const k of task.topics) { const c = topicInfo(k)?.chapterKey; if (c) out.add(c); }
+  return [...out];
+}
+
 export function topicInfo(key: string): TopicInfo | null {
   const curriculum = key.split(':')[0];
   return topicsOf(curriculum).find(t => t.key === key) ?? null;
