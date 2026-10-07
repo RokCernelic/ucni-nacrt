@@ -100,7 +100,7 @@ html { scroll-behavior: smooth; }
 /* Strnjen tisk (2× na A4): pokončni A4, razrežeš po vodoravni sredini (2 traka) in prilepiš v zvezek.
    Brez glave, brez razmikov, 2 cm roba okoli vsake polovice. Velikost strani (@page) doda PrintTasks ob tisku. */
 .cp-half { box-sizing: border-box; padding: 20mm; font-family: var(--font-sans); font-size: 10pt; line-height: 1.3; color: #000; text-align: left; overflow: hidden; position: relative; }
-.cp-item { margin: 0 0 .8mm; break-inside: avoid; }
+.cp-item { margin: 0 0 .65em; break-inside: avoid; } /* pol vrstice (10 pt × 1,3 = 13 pt) */
 .cp-num { font-weight: 700; margin-right: .3em; }
 .cp-item > .rich-content, .cp-item > .rich-content > p:first-child { display: inline; }
 .cp-item .rich-content p { margin: 0; }
@@ -110,9 +110,11 @@ html { scroll-behavior: smooth; }
 @media print {
   html.printing-questions .print-questions.cp { display: flex; flex-direction: column; width: 210mm; height: 297mm; padding: 0; }
   .cp .cp-half { width: 210mm; height: 148.5mm; flex: none; }
-  /* razmik ob ločnici: skupaj 60 mm praznega med besediloma, lažji razrez */
-  .cp .cp-half:first-child { padding-bottom: 30mm; }
-  .cp .cp-half + .cp-half { padding-top: 30mm; }
+  /* razmik ob ločnici: 2 × 9 mm ≈ 4 vrstice praznega med besediloma polovic; zgornje besedilo leži ob ločnici
+     (pri dnu), spodnje pod njo — neizkoriščen prostor gre na zunanja roba lista */
+  .cp .cp-half:first-child { padding-bottom: 9mm; display: flex; flex-direction: column; justify-content: flex-end; }
+  .cp .cp-half + .cp-half { padding-top: 9mm; }
+  .cp .cp-item:last-child { margin-bottom: 0; }
   .cp .cp-half + .cp-half::before { content: ''; position: absolute; left: 0; right: 0; top: 0; border-top: .3mm dashed #aaa; }
 }
 

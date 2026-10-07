@@ -10,9 +10,9 @@ import { Rich, TaskAnswer, btn } from './ui';
 
 /**
  * Notranja površina ene polovice (pokončni A4 razrezan po vodoravni sredini = trak 210 × 148,5 mm), v mm:
- * 20 mm zunanji rob, ob ločnici 30 mm (dodatnih 10 mm, da je list lažje razrezati) → višina 148,5 − 20 − 30.
+ * 20 mm zunanji rob, ob ločnici 9 mm (skupaj okoli 4 vrstice razmika med polovicama) → višina 148,5 − 20 − 9.
  */
-const HALF = { w: 170, h: 98.5 } as const;
+const HALF = { w: 170, h: 119.5 } as const;
 
 /** Strnjen seznam nalog (brez glave, brez razmikov) — ena polovica lista. */
 function CompactList({ tasks }: { tasks: Task[] }) {
@@ -130,7 +130,7 @@ export default function PrintTasks({ tasks, title }: { tasks: Task[]; title: str
       {measuring && (
         <div aria-hidden style={{ position: 'fixed', left: '-10000px', top: 0, width: `${HALF.w}mm`, visibility: 'hidden', pointerEvents: 'none' }}>
           <div ref={probeRef} style={{ height: `${HALF.h}mm`, width: 0 }} />
-          <div ref={measureRef} className="cp-half" style={{ padding: 0, overflow: 'visible' }}><CompactList tasks={tasks} /></div>
+          <div ref={measureRef} className="cp-half" style={{ padding: 0, overflow: 'visible', display: 'flow-root' }}><CompactList tasks={tasks} /></div>
         </div>
       )}
 
