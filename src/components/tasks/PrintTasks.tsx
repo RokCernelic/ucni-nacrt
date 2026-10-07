@@ -8,8 +8,11 @@ import { exportTasksTex } from '@/lib/tasks/exportTex';
 import { OPTION_LETTERS } from '@/lib/tasks/latex';
 import { Rich, TaskAnswer, btn } from './ui';
 
-/** Notranja površina ene polovice (ležeči A4 razrezan po navpični sredini = A5 pokonci, − 2 × 20 mm roba), v mm. */
-const HALF = { w: 108.5, h: 170 } as const;
+/**
+ * Notranja površina ene polovice (pokončni A4 razrezan po vodoravni sredini = trak 210 × 148,5 mm), v mm:
+ * 20 mm zunanji rob, ob ločnici 30 mm (dodatnih 10 mm, da je list lažje razrezati) → višina 148,5 − 20 − 30.
+ */
+const HALF = { w: 170, h: 98.5 } as const;
 
 /** Strnjen seznam nalog (brez glave, brez razmikov) — ena polovica lista. */
 function CompactList({ tasks }: { tasks: Task[] }) {
@@ -62,11 +65,11 @@ export default function PrintTasks({ tasks, title }: { tasks: Task[]; title: str
   const print = () => {
     if (overflow) return;
     const root = document.documentElement;
-    // strnjen tisk: ležeči A4 brez robov (polovici s 2 cm roba sta del postavitve); velja le med tiskom
+    // strnjen tisk: pokončni A4 brez robov (polovici s 2 cm roba sta del postavitve); velja le med tiskom
     let pageStyle: HTMLStyleElement | null = null;
     if (compact) {
       pageStyle = document.createElement('style');
-      pageStyle.textContent = '@page { size: A4 landscape; margin: 0; }';
+      pageStyle.textContent = '@page { size: A4 portrait; margin: 0; }';
       document.head.appendChild(pageStyle);
     }
     const done = () => { root.classList.remove('printing-questions'); setPrinting(false); pageStyle?.remove(); window.removeEventListener('afterprint', done); };
@@ -99,7 +102,7 @@ export default function PrintTasks({ tasks, title }: { tasks: Task[]; title: str
   return (
     <>
       <button onClick={print} disabled={printDisabled}
-        title={overflow ? 'Izbrane naloge ne gredo na pol A4 — izberi manj nalog' : compact ? 'Natisne izbor 2× na ležeči A4; list razrežeš po navpični sredini' : undefined}
+        title={overflow ? 'Izbrane naloge ne gredo na pol A4 — izberi manj nalog' : compact ? 'Natisne izbor 2× na en A4; list razrežeš po vodoravni sredini' : undefined}
         style={{ ...btn(true), padding: '5px 10px', opacity: printDisabled ? 0.45 : 1, cursor: printDisabled ? 'not-allowed' : 'pointer' }}>
         🖨 {compact ? 'Natisni 2× na A4' : 'Natisni izbrane'} ({tasks.length})
       </button>
@@ -112,7 +115,7 @@ export default function PrintTasks({ tasks, title }: { tasks: Task[]; title: str
         <input type="checkbox" checked={withAnswers && !compact} disabled={compact} onChange={e => setWithAnswers(e.target.checked)} /> z rešitvami
       </label>
       <label style={small} title="Brez glave in razmikov; ves izbor se natisne 2× na A4 (robovi 2 cm), da list razrežeš na pol in učenci prilepijo v zvezek">
-        <input type="checkbox" checked={compact} onChange={e => { setCompact(e.target.checked); setFit(null); }} /> strnjeno (2× na A4, ležeče)
+        <input type="checkbox" checked={compact} onChange={e => { setCompact(e.target.checked); setFit(null); }} /> strnjeno (2× na A4)
       </label>
       {measuring && fit !== null && (
         <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: overflow ? '#c0392b' : 'var(--green-ok)' }}>
