@@ -8,9 +8,8 @@ import { exportTasksTex } from '@/lib/tasks/exportTex';
 import { OPTION_LETTERS } from '@/lib/tasks/latex';
 import { Rich, TaskAnswer, btn } from './ui';
 
-/** Notranja površina ene polovice (pol A4 − 2 × 20 mm roba), v mm. v = ležeči A4 (2 × A5 pokonci), h = pokončni A4 (2 trakova). */
-const HALF = { v: { w: 108.5, h: 170 }, h: { w: 170, h: 108.5 } } as const;
-type Cut = keyof typeof HALF;
+/** Notranja površina ene polovice (ležeči A4 razrezan po navpični sredini = A5 pokonci, − 2 × 20 mm roba), v mm. */
+const HALF = { w: 108.5, h: 170 } as const;
 
 /** Strnjen seznam nalog (brez glave, brez razmikov) — ena polovica lista. */
 function CompactList({ tasks }: { tasks: Task[] }) {
@@ -38,7 +37,6 @@ export default function PrintTasks({ tasks, title }: { tasks: Task[]; title: str
   const [printing, setPrinting] = useState(false);
   const [withAnswers, setWithAnswers] = useState(false);
   const [compact, setCompact] = useState(false);
-  const [cut, setCut] = useState<Cut>('v');
   /** zasedenost ene polovice: 1 = polna */
   const [fit, setFit] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
@@ -57,14 +55,21 @@ export default function PrintTasks({ tasks, title }: { tasks: Task[]; title: str
     const ro = new ResizeObserver(compute);
     ro.observe(m); ro.observe(p);
     return () => ro.disconnect();
-  }, [measuring, cut, tasks]);
+  }, [measuring, tasks]);
 
   const overflow = measuring && fit !== null && fit > 1.001;
 
   const print = () => {
     if (overflow) return;
     const root = document.documentElement;
-    const done = () => { root.classList.remove('printing-questions'); setPrinting(false); window.removeEventListener('afterprint', done); };
+    // strnjen tisk: ležeči A4 brez robov (polovici s 2 cm roba sta del postavitve); velja le med tiskom
+    let pageStyle: HTMLStyleElement | null = null;
+    if (compact) {
+      pageStyle = document.createElement('style');
+      pageStyle.textContent = '@page { size: A4 landscape; margin: 0; }';
+      document.head.appendChild(pageStyle);
+    }
+    const done = () => { root.classList.remove('printing-questions'); setPrinting(false); pageStyle?.remove(); window.removeEventListener('afterprint', done); };
     flushSync(() => setPrinting(true));
     root.classList.add('printing-questions');
     window.addEventListener('afterprint', done);
@@ -94,7 +99,7 @@ export default function PrintTasks({ tasks, title }: { tasks: Task[]; title: str
   return (
     <>
       <button onClick={print} disabled={printDisabled}
-        title={overflow ? 'Izbrane naloge ne gredo na pol A4 — izberi manj nalog' : compact ? 'Natisne izbor 2× na en A4; list razrežeš na pol' : undefined}
+        title={overflow ? 'Izbrane naloge ne gredo na pol A4 — izberi manj nalog' : compact ? 'Natisne izbor 2× na ležeči A4; list razrežeš po navpični sredini' : undefined}
         style={{ ...btn(true), padding: '5px 10px', opacity: printDisabled ? 0.45 : 1, cursor: printDisabled ? 'not-allowed' : 'pointer' }}>
         🖨 {compact ? 'Natisni 2× na A4' : 'Natisni izbrane'} ({tasks.length})
       </button>
@@ -107,16 +112,8 @@ export default function PrintTasks({ tasks, title }: { tasks: Task[]; title: str
         <input type="checkbox" checked={withAnswers && !compact} disabled={compact} onChange={e => setWithAnswers(e.target.checked)} /> z rešitvami
       </label>
       <label style={small} title="Brez glave in razmikov; ves izbor se natisne 2× na A4 (robovi 2 cm), da list razrežeš na pol in učenci prilepijo v zvezek">
-        <input type="checkbox" checked={compact} onChange={e => { setCompact(e.target.checked); setFit(null); }} /> strnjeno (2× na A4)
+        <input type="checkbox" checked={compact} onChange={e => { setCompact(e.target.checked); setFit(null); }} /> strnjeno (2× na A4, ležeče)
       </label>
-      {compact && (
-        <select value={cut} onChange={e => { setCut(e.target.value as Cut); setFit(null); }}
-          title="Kako razrežeš list"
-          style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--ink)', background: 'var(--canvas)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', padding: '3px 6px' }}>
-          <option value="v">navpični rez (2 × A5 pokonci, ležeči A4)</option>
-          <option value="h">vodoravni rez (2 traka, pokončni A4)</option>
-        </select>
-      )}
       {measuring && fit !== null && (
         <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: overflow ? '#c0392b' : 'var(--green-ok)' }}>
           {overflow
@@ -128,14 +125,14 @@ export default function PrintTasks({ tasks, title }: { tasks: Task[]; title: str
 
       {/* nevidno merilo: ista postavitev kot ena polovica, širina in višina notranje površine */}
       {measuring && (
-        <div aria-hidden style={{ position: 'fixed', left: '-10000px', top: 0, width: `${HALF[cut].w}mm`, visibility: 'hidden', pointerEvents: 'none' }}>
-          <div ref={probeRef} style={{ height: `${HALF[cut].h}mm`, width: 0 }} />
+        <div aria-hidden style={{ position: 'fixed', left: '-10000px', top: 0, width: `${HALF.w}mm`, visibility: 'hidden', pointerEvents: 'none' }}>
+          <div ref={probeRef} style={{ height: `${HALF.h}mm`, width: 0 }} />
           <div ref={measureRef} className="cp-half" style={{ padding: 0, overflow: 'visible' }}><CompactList tasks={tasks} /></div>
         </div>
       )}
 
       {printing && tasks.length > 0 && compact && createPortal(
-        <div className={`print-questions cp cp-${cut}`} aria-hidden>
+        <div className="print-questions cp" aria-hidden>
           <div className="cp-half"><CompactList tasks={tasks} /></div>
           <div className="cp-half"><CompactList tasks={tasks} /></div>
         </div>,

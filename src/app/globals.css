@@ -97,8 +97,8 @@ html { scroll-behavior: smooth; }
   .pq-solution { margin-top: 1mm; font-size: 10pt; color: #444; }
 }
 
-/* Strnjen tisk (2× na A4): list se razreže na pol in prilepi v zvezek. Brez glave, brez razmikov,
-   2 cm roba okoli vsake polovice. cp-v = ležeči A4, dve A5 pokonci; cp-h = pokončni A4, dva trakova. */
+/* Strnjen tisk (2× na A4): ležeči A4, razrežeš po navpični sredini (2 × A5 pokonci) in prilepiš v zvezek.
+   Brez glave, brez razmikov, 2 cm roba okoli vsake polovice. Velikost strani (@page) doda PrintTasks ob tisku. */
 .cp-half { box-sizing: border-box; padding: 20mm; font-family: var(--font-sans); font-size: 10pt; line-height: 1.3; color: #000; text-align: left; overflow: hidden; position: relative; }
 .cp-item { margin: 0 0 .8mm; break-inside: avoid; }
 .cp-num { font-weight: 700; margin-right: .3em; }
@@ -107,17 +107,10 @@ html { scroll-behavior: smooth; }
 .cp-item .rich-content img { max-width: 100%; max-height: 35mm; display: block; }
 .cp-item .rich-content ul, .cp-item .rich-content ol { margin: 0; padding-left: 5mm; }
 .cp-options { margin: 0 0 0 1em; }
-@page cp-v { size: A4 landscape; margin: 0; }
-@page cp-h { size: A4 portrait; margin: 0; }
 @media print {
-  html.printing-questions .print-questions.cp { display: flex; padding: 0; }
-  html.printing-questions .print-questions.cp-v { page: cp-v; flex-direction: row; width: 297mm; height: 210mm; }
-  html.printing-questions .print-questions.cp-h { page: cp-h; flex-direction: column; width: 210mm; height: 297mm; }
-  .cp-v .cp-half { width: 148.5mm; height: 210mm; flex: none; }
-  .cp-h .cp-half { width: 210mm; height: 148.5mm; flex: none; }
-  .cp-half + .cp-half::before { content: ''; position: absolute; border: 0 dashed #aaa; }
-  .cp-v .cp-half + .cp-half::before { left: 0; top: 0; bottom: 0; border-left-width: .3mm; }
-  .cp-h .cp-half + .cp-half::before { left: 0; right: 0; top: 0; border-top-width: .3mm; }
+  html.printing-questions .print-questions.cp { display: flex; flex-direction: row; width: 297mm; height: 210mm; padding: 0; }
+  .cp .cp-half { width: 148.5mm; height: 210mm; flex: none; }
+  .cp .cp-half + .cp-half::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; border-left: .3mm dashed #aaa; }
 }
 
 /* naslednji dan je samo za tisk */
