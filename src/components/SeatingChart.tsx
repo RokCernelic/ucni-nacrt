@@ -14,6 +14,13 @@ function genderStyle(g: string) {
   return { bg: 'var(--canvas)', border: 'var(--hairline)', color: 'var(--ink)' };
 }
 
+/** Barva sedeža: spol ostane viden (roza/modra), odtenek in rob pa prevzameta barvo šole (če je več šol). */
+function seatStyle(stud: Student | undefined, accent?: string) {
+  const gs = seatStyle(stud, accent);
+  if (!accent) return gs;
+  return { bg: `color-mix(in srgb, ${gs.bg} ${stud ? 72 : 90}%, ${accent})`, border: accent, color: gs.color };
+}
+
 type Drag = { from: 'seat'; cell: string } | { from: 'pool'; studentId: string } | null;
 
 /** Ročni razporedi po dnevih (kdo sedi kje). */
@@ -79,7 +86,7 @@ export function StaticSeatingGrid({ wrapClass, heading, contextLabel, dateISO, m
               const k = `${r}-${c}`;
               if (disabled.has(k)) return <div key={k} className="seating-cell" style={{ height: '96px' }} />;
               const stud = studentById.get(assign[k]);
-              const gs = stud ? genderStyle(stud.gender) : { bg: 'var(--canvas)', border: 'var(--hairline)', color: 'var(--muted)' };
+              const gs = seatStyle(stud, accent);
               return (
                 <div key={k} className="seating-cell" style={{ position: 'relative', height: '96px', borderRadius: '8px', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', textAlign: 'center', padding: '5px 16px', border: `1.5px solid ${gs.border}`, background: gs.bg, color: gs.color, fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500, lineHeight: 1.2, boxSizing: 'border-box' }}>
                   {stud?.frontRow && <span style={{ position: 'absolute', top: '3px', left: '4px', fontSize: '9px', fontWeight: 700, color: gs.color, opacity: 0.6 }}>1↓</span>}
@@ -405,7 +412,7 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
                 }
                 if (!isSeat) return <div key={k} className="seating-cell" style={{ height: '96px' }} />;
 
-                const gs = stud ? genderStyle(stud.gender) : { bg: 'var(--canvas)', border: 'var(--hairline)', color: 'var(--muted)' };
+                const gs = seatStyle(stud, accent);
                 return (
                   <div key={k}
                     className="seating-cell"
