@@ -6,7 +6,7 @@ import { studentsLabel } from '@/lib/quiz/format';
 import { useSeating, activeSeats, shuffleInto, makeRng, emptyHistory, bumpHistory, type Seating } from '@/hooks/useSeating';
 import { useRooms, type RoomPlan } from '@/hooks/useRooms';
 import { useFixedSeats, fixedMapForDate } from '@/hooks/useFixedSeats';
-import { themeForAccent } from '@/lib/schoolColor';
+import { shadeColors } from '@/lib/schoolColor';
 import { formatLessonDate, type Lesson } from '@/data/timetable';
 
 function genderStyle(g: string) {
@@ -15,13 +15,10 @@ function genderStyle(g: string) {
   return { bg: 'var(--canvas)', border: 'var(--hairline)', color: 'var(--ink)' };
 }
 
-/** Barva sedeža: brez šolske barve spol (roza/modra); ko je več šol, sedež prevzame družino šole, spol pa kaže pikica. */
-function seatStyle(stud: Student | undefined, accent?: string) {
+/** Barva sedeža: roza/modra po spolu; ko je več šol, ima vsaka šola svoj odtenek. */
+function seatStyle(stud: Student | undefined, shade?: number) {
   const gs = stud ? genderStyle(stud.gender) : { bg: 'var(--canvas)', border: 'var(--hairline)', color: 'var(--muted)' };
-  if (!accent) return { ...gs, dot: undefined as string | undefined };
-  const t = themeForAccent(accent);
-  const dot = stud ? (stud.gender === 'Ž' ? '#e0508a' : stud.gender === 'M' ? '#3b82c4' : undefined) : undefined;
-  return stud ? { bg: t.bg, border: t.border, color: t.text, dot } : { bg: `color-mix(in srgb, ${t.bg} 45%, #fff)`, border: t.border, color: t.text, dot };
+  return stud ? shadeColors(gs, shade) : gs;
 }
 
 type Drag = { from: 'seat'; cell: string } | { from: 'pool'; studentId: string } | null;
@@ -65,14 +62,14 @@ export function useDayLayouts(classId?: string) {
 }
 
 /** Bralni izris mreže (za tisk naslednjega dne / tisk celega dneva za več razredov). */
-export function StaticSeatingGrid({ wrapClass, heading, contextLabel, dateISO, metaLine, layout, assign, studentById, accent }: {
-  accent?: string; wrapClass: string; heading: string; contextLabel?: string; dateISO: string; metaLine: string;
+export function StaticSeatingGrid({ wrapClass, heading, contextLabel, dateISO, metaLine, layout, assign, studentById, shade }: {
+  shade?: number; wrapClass: string; heading: string; contextLabel?: string; dateISO: string; metaLine: string;
   layout: RoomPlan; assign: Record<string, string>; studentById: Map<string, Student>;
 }) {
   const disabled = new Set(layout.disabled);
   return (
     <div className={wrapClass}>
-      <div className="seating-head" style={{ marginBottom: '12px', ...(accent ? { borderLeft: `5px solid ${accent}`, paddingLeft: '10px' } : {}) }}>
+      <div className="seating-head" style={{ marginBottom: '12px' }}>
         <div style={{ fontFamily: 'var(--font-serif)', fontSize: '20px', color: 'var(--ink)' }}>
           {heading}
           {contextLabel && <span style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--muted)', marginLeft: '10px' }}>{contextLabel}</span>}
@@ -89,11 +86,10 @@ export function StaticSeatingGrid({ wrapClass, heading, contextLabel, dateISO, m
               const k = `${r}-${c}`;
               if (disabled.has(k)) return <div key={k} className="seating-cell" style={{ height: '96px' }} />;
               const stud = studentById.get(assign[k]);
-              const gs = seatStyle(stud, accent);
+              const gs = seatStyle(stud, shade);
               return (
                 <div key={k} className="seating-cell" style={{ position: 'relative', height: '96px', borderRadius: '8px', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', textAlign: 'center', padding: '5px 16px', border: `1.5px solid ${gs.border}`, background: gs.bg, color: gs.color, fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500, lineHeight: 1.2, boxSizing: 'border-box' }}>
                   {stud?.frontRow && <span style={{ position: 'absolute', top: '3px', left: '4px', fontSize: '9px', fontWeight: 700, color: gs.color, opacity: 0.6 }}>1↓</span>}
-                  {gs.dot && <span style={{ position: 'absolute', bottom: '4px', right: '4px', width: '7px', height: '7px', borderRadius: '50%', background: gs.dot }} />}
                   {stud ? stud.name : ''}
                 </div>
               );
@@ -101,14 +97,14 @@ export function StaticSeatingGrid({ wrapClass, heading, contextLabel, dateISO, m
           })}
         </div>
       </div>
-      <div className="seating-board" style={{ textAlign: 'center', margin: '14px auto 0', maxWidth: '640px', background: accent ?? 'var(--forest)', color: '#fff', borderRadius: 'var(--r-sm)', padding: '8px', fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, letterSpacing: '0.2em', textTransform: 'uppercase' }}>Tabla</div>
+      <div className="seating-board" style={{ textAlign: 'center', margin: '14px auto 0', maxWidth: '640px', background: 'var(--forest)', color: '#fff', borderRadius: 'var(--r-sm)', padding: '8px', fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, letterSpacing: '0.2em', textTransform: 'uppercase' }}>Tabla</div>
     </div>
   );
 }
 
-export default function SeatingChart({ classId, className, contextLabel, lessons = [], totalHours, accent }: {
-  /** barva šole (le če je več šol) */
-  accent?: string;
+export default function SeatingChart({ classId, className, contextLabel, lessons = [], totalHours, shade }: {
+  /** odtenek sedežev po šoli (le če je več šol) */
+  shade?: number;
   classId: string;
   className: string;
   contextLabel?: string;
@@ -377,7 +373,7 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
       <div className="print-root">
         <div className="print-seating">
           {/* Ime razreda + metapodatki */}
-          <div className="seating-head" style={{ marginBottom: '12px', ...(accent ? { borderLeft: `5px solid ${accent}`, paddingLeft: '10px' } : {}) }}>
+          <div className="seating-head" style={{ marginBottom: '12px' }}>
             <div style={{ fontFamily: 'var(--font-serif)', fontSize: '20px', color: 'var(--ink)' }}>
               {className}
               {contextLabel && (
@@ -416,7 +412,7 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
                 }
                 if (!isSeat) return <div key={k} className="seating-cell" style={{ height: '96px' }} />;
 
-                const gs = seatStyle(stud, accent);
+                const gs = seatStyle(stud, shade);
                 return (
                   <div key={k}
                     className="seating-cell"
@@ -459,7 +455,6 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
                         {fixedMap[k] === stud.id ? '📌' : ''}
                       </button>
                     )}
-                    {gs.dot && <span style={{ position: 'absolute', bottom: '4px', right: '4px', width: '7px', height: '7px', borderRadius: '50%', background: gs.dot }} />}
                     {stud ? stud.name : ''}
                   </div>
                 );
@@ -469,7 +464,7 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
           </div>
 
           {/* Tabla spodaj (spredaj v učilnici) */}
-          <div className="seating-board" style={{ textAlign: 'center', margin: '14px auto 0', maxWidth: '640px', background: accent ?? 'var(--forest)', color: '#fff', borderRadius: 'var(--r-sm)', padding: '8px', fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, letterSpacing: '0.2em', textTransform: 'uppercase' }}>
+          <div className="seating-board" style={{ textAlign: 'center', margin: '14px auto 0', maxWidth: '640px', background: 'var(--forest)', color: '#fff', borderRadius: 'var(--r-sm)', padding: '8px', fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, letterSpacing: '0.2em', textTransform: 'uppercase' }}>
             Tabla
           </div>
         </div>
@@ -478,7 +473,7 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
         {nextData && (
           <StaticSeatingGrid
             wrapClass="print-seating print-next"
-            accent={accent}
+            shade={shade}
             heading={className}
             contextLabel={contextLabel}
             dateISO={nextData.lesson.d}

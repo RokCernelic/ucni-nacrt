@@ -8,7 +8,7 @@ import { getCurriculum } from '@/data/registry';
 import { useMasterClasses, type MasterClass } from '@/hooks/useMasterClasses';
 import { useClassDayAssignments } from '@/hooks/useClassDayAssignments';
 import { StaticSeatingGrid } from '@/components/SeatingChart';
-import { schoolAccent } from '@/lib/schoolColor';
+import { schoolShade } from '@/lib/schoolColor';
 import { studentsLabel } from '@/lib/quiz/format';
 import { lessonsFor, canonLabel, formatLessonDate, schoolLetterFrom, SCHOOL_NAME, type LessonSubject, type Lesson } from '@/data/timetable';
 
@@ -26,8 +26,8 @@ const pagesWord = (n: number) => (n === 1 ? 'stran' : 'strani');
 const redWord = (n: number) => { const m = n % 100; return m === 1 ? 'sedežni red' : m === 2 ? 'sedežna reda' : m === 3 || m === 4 ? 'sedežni redi' : 'sedežnih redov'; };
 
 /** En razred: izračuna njegove ure za dani dan in jih izriše (0, 1 ali izjemoma več). */
-function ClassDayBlocks({ accent, cls, school, subjectCurriculum, subjectNaslov, targetDate, totalHours }: {
-  accent?: string; cls: MasterClass; school: 'B' | 'C'; subjectCurriculum?: string; subjectNaslov: string; targetDate: string; totalHours?: number;
+function ClassDayBlocks({ shade, cls, school, subjectCurriculum, subjectNaslov, targetDate, totalHours }: {
+  shade?: number; cls: MasterClass; school: 'B' | 'C'; subjectCurriculum?: string; subjectNaslov: string; targetDate: string; totalHours?: number;
 }) {
   const schoolHint = `${cls.name} ${cls.school}`;
   const results = useClassDayAssignments(cls.id, cls.name, schoolHint, targetDate, subjectCurriculum as LessonSubject | undefined);
@@ -42,7 +42,7 @@ function ClassDayBlocks({ accent, cls, school, subjectCurriculum, subjectNaslov,
           <StaticSeatingGrid
             key={`${cls.id}-${i}`}
             wrapClass="print-seating day-block"
-            accent={accent}
+            shade={shade}
             heading={cls.name}
             contextLabel={`${subjectNaslov} · ${SCHOOL_NAME[school]}`}
             dateISO={r.lesson.d}
@@ -187,7 +187,7 @@ export default function SedezniRedDanPage() {
             <ClassDayBlocks
               key={`${date}-${cls.id}`}
               cls={cls}
-              accent={schoolAccent(cls.school, master)}
+              shade={schoolShade(cls.school, master)}
               school={school!}
               subjectCurriculum={subject.curriculum}
               subjectNaslov={entry.predmet.naslov}
