@@ -7,6 +7,7 @@ import { useSubjects } from '@/hooks/useSubjects';
 import { getCurriculum } from '@/data/registry';
 import { useMasterClasses } from '@/hooks/useMasterClasses';
 import { useViewClasses } from '@/hooks/useViewClasses';
+import { schoolAccent } from '@/lib/schoolColor';
 import SeatingChart from '@/components/SeatingChart';
 import Countdown from '@/components/Countdown';
 import { lessonsFor, canonLabel, schoolLetterFrom } from '@/data/timetable';
@@ -98,7 +99,7 @@ export default function SedezniRedSubjectPage() {
             Dodaj razred z gumbom <b>+</b> zgoraj (razrede ustvariš v meniju <Link href="/ucenci" style={{ color: 'var(--forest)' }}>Učenci</Link>).
           </p>
         ) : (
-          <SeatingChart classId={activeId!} className={activeClass.name} contextLabel={context} lessons={lessons} totalHours={totalHours} />
+          <SeatingChart classId={activeId!} className={activeClass.name} contextLabel={context} lessons={lessons} totalHours={totalHours} accent={schoolAccent(activeClass.school, master)} />
         )}
       </div>
     </div>

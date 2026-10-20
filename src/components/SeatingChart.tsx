@@ -55,14 +55,14 @@ export function useDayLayouts(classId?: string) {
 }
 
 /** Bralni izris mreže (za tisk naslednjega dne / tisk celega dneva za več razredov). */
-export function StaticSeatingGrid({ wrapClass, heading, contextLabel, dateISO, metaLine, layout, assign, studentById }: {
-  wrapClass: string; heading: string; contextLabel?: string; dateISO: string; metaLine: string;
+export function StaticSeatingGrid({ wrapClass, heading, contextLabel, dateISO, metaLine, layout, assign, studentById, accent }: {
+  accent?: string; wrapClass: string; heading: string; contextLabel?: string; dateISO: string; metaLine: string;
   layout: RoomPlan; assign: Record<string, string>; studentById: Map<string, Student>;
 }) {
   const disabled = new Set(layout.disabled);
   return (
     <div className={wrapClass}>
-      <div className="seating-head" style={{ marginBottom: '12px' }}>
+      <div className="seating-head" style={{ marginBottom: '12px', ...(accent ? { borderLeft: `5px solid ${accent}`, paddingLeft: '10px' } : {}) }}>
         <div style={{ fontFamily: 'var(--font-serif)', fontSize: '20px', color: 'var(--ink)' }}>
           {heading}
           {contextLabel && <span style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--muted)', marginLeft: '10px' }}>{contextLabel}</span>}
@@ -90,12 +90,14 @@ export function StaticSeatingGrid({ wrapClass, heading, contextLabel, dateISO, m
           })}
         </div>
       </div>
-      <div className="seating-board" style={{ textAlign: 'center', margin: '14px auto 0', maxWidth: '640px', background: 'var(--forest)', color: '#fff', borderRadius: 'var(--r-sm)', padding: '8px', fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, letterSpacing: '0.2em', textTransform: 'uppercase' }}>Tabla</div>
+      <div className="seating-board" style={{ textAlign: 'center', margin: '14px auto 0', maxWidth: '640px', background: accent ?? 'var(--forest)', color: '#fff', borderRadius: 'var(--r-sm)', padding: '8px', fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, letterSpacing: '0.2em', textTransform: 'uppercase' }}>Tabla</div>
     </div>
   );
 }
 
-export default function SeatingChart({ classId, className, contextLabel, lessons = [], totalHours }: {
+export default function SeatingChart({ classId, className, contextLabel, lessons = [], totalHours, accent }: {
+  /** barva šole (le če je več šol) */
+  accent?: string;
   classId: string;
   className: string;
   contextLabel?: string;
@@ -364,7 +366,7 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
       <div className="print-root">
         <div className="print-seating">
           {/* Ime razreda + metapodatki */}
-          <div className="seating-head" style={{ marginBottom: '12px' }}>
+          <div className="seating-head" style={{ marginBottom: '12px', ...(accent ? { borderLeft: `5px solid ${accent}`, paddingLeft: '10px' } : {}) }}>
             <div style={{ fontFamily: 'var(--font-serif)', fontSize: '20px', color: 'var(--ink)' }}>
               {className}
               {contextLabel && (
@@ -455,7 +457,7 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
           </div>
 
           {/* Tabla spodaj (spredaj v učilnici) */}
-          <div className="seating-board" style={{ textAlign: 'center', margin: '14px auto 0', maxWidth: '640px', background: 'var(--forest)', color: '#fff', borderRadius: 'var(--r-sm)', padding: '8px', fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, letterSpacing: '0.2em', textTransform: 'uppercase' }}>
+          <div className="seating-board" style={{ textAlign: 'center', margin: '14px auto 0', maxWidth: '640px', background: accent ?? 'var(--forest)', color: '#fff', borderRadius: 'var(--r-sm)', padding: '8px', fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, letterSpacing: '0.2em', textTransform: 'uppercase' }}>
             Tabla
           </div>
         </div>
@@ -464,6 +466,7 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
         {nextData && (
           <StaticSeatingGrid
             wrapClass="print-seating print-next"
+            accent={accent}
             heading={className}
             contextLabel={contextLabel}
             dateISO={nextData.lesson.d}
