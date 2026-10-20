@@ -6,7 +6,7 @@ import { studentsLabel } from '@/lib/quiz/format';
 import { useSeating, activeSeats, shuffleInto, makeRng, emptyHistory, bumpHistory, type Seating } from '@/hooks/useSeating';
 import { useRooms, type RoomPlan } from '@/hooks/useRooms';
 import { useFixedSeats, fixedMapForDate } from '@/hooks/useFixedSeats';
-import { shadeColors } from '@/lib/schoolColor';
+import { seatColors } from '@/lib/schoolColor';
 import { formatLessonDate, type Lesson } from '@/data/timetable';
 
 function genderStyle(g: string) {
@@ -18,7 +18,7 @@ function genderStyle(g: string) {
 /** Barva sedeža: vijolična/zelena po spolu; ko je več šol, ima vsaka šola svoj odtenek. */
 function seatStyle(stud: Student | undefined, shade?: number) {
   const gs = stud ? genderStyle(stud.gender) : { bg: 'var(--canvas)', border: 'var(--hairline)', color: 'var(--muted)' };
-  return stud ? shadeColors(gs, shade) : gs;
+  return stud ? (seatColors(stud.gender, shade) ?? gs) : gs;
 }
 
 type Drag = { from: 'seat'; cell: string } | { from: 'pool'; studentId: string } | null;
@@ -494,7 +494,7 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
           </div>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             {pool.map(s => {
-              const gs = genderStyle(s.gender);
+              const gs = seatColors(s.gender, shade) ?? genderStyle(s.gender);
               return (
                 <div key={s.id} draggable onDragStart={() => { dragRef.current = { from: 'pool', studentId: s.id }; }}
                   style={{ padding: '6px 12px', borderRadius: '8px', border: `1.5px solid ${gs.border}`, background: gs.bg, color: gs.color, fontSize: '12px', fontWeight: 500, cursor: 'grab' }}>
