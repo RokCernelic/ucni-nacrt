@@ -16,7 +16,7 @@ function genderStyle(g: string) {
 
 /** Barva sedeža: spol ostane viden (roza/modra), odtenek in rob pa prevzameta barvo šole (če je več šol). */
 function seatStyle(stud: Student | undefined, accent?: string) {
-  const gs = seatStyle(stud, accent);
+  const gs = stud ? genderStyle(stud.gender) : { bg: 'var(--canvas)', border: 'var(--hairline)', color: 'var(--muted)' };
   if (!accent) return gs;
   return { bg: `color-mix(in srgb, ${gs.bg} ${stud ? 72 : 90}%, ${accent})`, border: accent, color: gs.color };
 }
