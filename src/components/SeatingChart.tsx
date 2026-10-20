@@ -77,11 +77,11 @@ export function StaticSeatingGrid({ wrapClass, heading, contextLabel, dateISO, m
             const r = layout.rows - 1 - ri;
             return Array.from({ length: layout.cols }).map((_, c) => {
               const k = `${r}-${c}`;
-              if (disabled.has(k)) return <div key={k} className="seating-cell" style={{ height: '76px' }} />;
+              if (disabled.has(k)) return <div key={k} className="seating-cell" style={{ height: '96px' }} />;
               const stud = studentById.get(assign[k]);
               const gs = stud ? genderStyle(stud.gender) : { bg: 'var(--canvas)', border: 'var(--hairline)', color: 'var(--muted)' };
               return (
-                <div key={k} className="seating-cell" style={{ position: 'relative', height: '76px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '4px 6px', border: `1.5px solid ${gs.border}`, background: gs.bg, color: gs.color, fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500, lineHeight: 1.2, boxSizing: 'border-box' }}>
+                <div key={k} className="seating-cell" style={{ position: 'relative', height: '96px', borderRadius: '8px', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', textAlign: 'center', padding: '5px 16px', border: `1.5px solid ${gs.border}`, background: gs.bg, color: gs.color, fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500, lineHeight: 1.2, boxSizing: 'border-box' }}>
                   {stud?.frontRow && <span style={{ position: 'absolute', top: '3px', left: '4px', fontSize: '9px', fontWeight: 700, color: gs.color, opacity: 0.6 }}>1↓</span>}
                   {stud ? stud.name : ''}
                 </div>
@@ -393,7 +393,7 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
                 if (editSeats) {
                   return (
                     <button key={k} className="seating-cell" onClick={() => toggleSeat(k)}
-                      style={{ height: '76px', borderRadius: '8px', cursor: 'pointer',
+                      style={{ height: '96px', borderRadius: '8px', cursor: 'pointer',
                         border: isSeat ? '1px solid var(--hairline)' : '1px dashed var(--hairline)',
                         background: isSeat ? 'var(--canvas)' : 'transparent',
                         color: isSeat ? 'var(--ink)' : 'var(--muted)', fontSize: '13px' }}>
@@ -401,7 +401,7 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
                     </button>
                   );
                 }
-                if (!isSeat) return <div key={k} className="seating-cell" style={{ height: '76px' }} />;
+                if (!isSeat) return <div key={k} className="seating-cell" style={{ height: '96px' }} />;
 
                 const gs = stud ? genderStyle(stud.gender) : { bg: 'var(--canvas)', border: 'var(--hairline)', color: 'var(--muted)' };
                 return (
@@ -411,7 +411,7 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
                     onDragStart={() => { if (stud) dragRef.current = { from: 'seat', cell: k }; }}
                     onDragOver={e => e.preventDefault()}
                     onDrop={e => { e.preventDefault(); dropOnSeat(k); }}
-                    style={{ position: 'relative', height: '76px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '4px 6px',
+                    style={{ position: 'relative', height: '96px', borderRadius: '8px', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', textAlign: 'center', padding: '5px 16px',
                       border: `1.5px solid ${gs.border}`, background: gs.bg, color: gs.color,
                       fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500, lineHeight: 1.2,
                       cursor: stud ? 'grab' : 'default', boxSizing: 'border-box' }}>
