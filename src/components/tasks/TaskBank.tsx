@@ -100,6 +100,14 @@ export default function TaskBank() {
     try { await removeMany(duplicates); setMany(duplicates, false); } finally { setDedupBusy(false); }
   };
 
+  const [delBusy, setDelBusy] = useState(false);
+  const deleteSelected = async (ids: string[]) => {
+    if (!ids.length) return;
+    if (!confirm(`Trajno izbrišem ${ids.length} ${plural(ids.length, 'izbrano nalogo', 'izbrani nalogi', 'izbrane naloge', 'izbranih nalog')}? Tega ni mogoče razveljaviti.`)) return;
+    setDelBusy(true);
+    try { await removeMany(ids); setMany(ids, false); } finally { setDelBusy(false); }
+  };
+
   // vrstni red kot v učnem načrtu; naloge samo s poglavjem so na začetku poglavja
   const ordered = useMemo(() => orderTasks(filtered), [filtered]);
   const groups = useMemo(() => groupTasks(ordered).map(g => ({
@@ -187,6 +195,13 @@ export default function TaskBank() {
                 <button onClick={() => void dedup()} disabled={dedupBusy}
                   style={{ ...btn(), color: '#b7791f', borderColor: '#ecd9a8', opacity: dedupBusy ? 0.5 : 1 }}>
                   {dedupBusy ? 'Odstranjujem …' : `⚠ ${duplicates.length} dvojnikov — odstrani`}
+                </button>
+              )}
+              {selectedInView.length > 0 && (
+                <button onClick={() => void deleteSelected(selectedInView.map(t => t.id))} disabled={delBusy}
+                  title="Trajno izbriše vse obkljukane naloge (le tiste, ki so trenutno vidne)"
+                  style={{ ...btn(), color: '#c0392b', borderColor: '#e8b4ad', opacity: delBusy ? 0.5 : 1 }}>
+                  {delBusy ? 'Brišem …' : `🗑 Izbriši izbrane (${selectedInView.length})`}
                 </button>
               )}
               <span style={{ flex: 1 }} />
