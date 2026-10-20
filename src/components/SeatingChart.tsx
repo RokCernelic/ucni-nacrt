@@ -10,12 +10,12 @@ import { shadeColors } from '@/lib/schoolColor';
 import { formatLessonDate, type Lesson } from '@/data/timetable';
 
 function genderStyle(g: string) {
-  if (g === 'Ž') return { bg: '#fbe7ef', border: '#e589ac', color: '#a61e4d' };
-  if (g === 'M') return { bg: '#e6f0f8', border: '#8fbfe0', color: '#1c5a86' };
+  if (g === 'Ž') return { bg: '#efe7f8', border: '#b79ce0', color: '#5b3a9b' };
+  if (g === 'M') return { bg: '#e2f3ee', border: '#82c4b0', color: '#17695a' };
   return { bg: 'var(--canvas)', border: 'var(--hairline)', color: 'var(--ink)' };
 }
 
-/** Barva sedeža: roza/modra po spolu; ko je več šol, ima vsaka šola svoj odtenek. */
+/** Barva sedeža: vijolična/zelena po spolu; ko je več šol, ima vsaka šola svoj odtenek. */
 function seatStyle(stud: Student | undefined, shade?: number) {
   const gs = stud ? genderStyle(stud.gender) : { bg: 'var(--canvas)', border: 'var(--hairline)', color: 'var(--muted)' };
   return stud ? shadeColors(gs, shade) : gs;
