@@ -6,6 +6,7 @@ import { studentsLabel } from '@/lib/quiz/format';
 import { useSeating, activeSeats, shuffleInto, makeRng, emptyHistory, bumpHistory, type Seating } from '@/hooks/useSeating';
 import { useRooms, type RoomPlan } from '@/hooks/useRooms';
 import { useFixedSeats, fixedMapForDate } from '@/hooks/useFixedSeats';
+import { themeForAccent } from '@/lib/schoolColor';
 import { formatLessonDate, type Lesson } from '@/data/timetable';
 
 function genderStyle(g: string) {
@@ -14,11 +15,13 @@ function genderStyle(g: string) {
   return { bg: 'var(--canvas)', border: 'var(--hairline)', color: 'var(--ink)' };
 }
 
-/** Barva sedeža: spol ostane viden (roza/modra), odtenek in rob pa prevzameta barvo šole (če je več šol). */
+/** Barva sedeža: brez šolske barve spol (roza/modra); ko je več šol, sedež prevzame družino šole, spol pa kaže pikica. */
 function seatStyle(stud: Student | undefined, accent?: string) {
   const gs = stud ? genderStyle(stud.gender) : { bg: 'var(--canvas)', border: 'var(--hairline)', color: 'var(--muted)' };
-  if (!accent) return gs;
-  return { bg: `color-mix(in srgb, ${gs.bg} ${stud ? 72 : 90}%, ${accent})`, border: accent, color: gs.color };
+  if (!accent) return { ...gs, dot: undefined as string | undefined };
+  const t = themeForAccent(accent);
+  const dot = stud ? (stud.gender === 'Ž' ? '#e0508a' : stud.gender === 'M' ? '#3b82c4' : undefined) : undefined;
+  return stud ? { bg: t.bg, border: t.border, color: t.text, dot } : { bg: `color-mix(in srgb, ${t.bg} 45%, #fff)`, border: t.border, color: t.text, dot };
 }
 
 type Drag = { from: 'seat'; cell: string } | { from: 'pool'; studentId: string } | null;
@@ -90,6 +93,7 @@ export function StaticSeatingGrid({ wrapClass, heading, contextLabel, dateISO, m
               return (
                 <div key={k} className="seating-cell" style={{ position: 'relative', height: '96px', borderRadius: '8px', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', textAlign: 'center', padding: '5px 16px', border: `1.5px solid ${gs.border}`, background: gs.bg, color: gs.color, fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500, lineHeight: 1.2, boxSizing: 'border-box' }}>
                   {stud?.frontRow && <span style={{ position: 'absolute', top: '3px', left: '4px', fontSize: '9px', fontWeight: 700, color: gs.color, opacity: 0.6 }}>1↓</span>}
+                  {gs.dot && <span style={{ position: 'absolute', bottom: '4px', right: '4px', width: '7px', height: '7px', borderRadius: '50%', background: gs.dot }} />}
                   {stud ? stud.name : ''}
                 </div>
               );
@@ -455,6 +459,7 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
                         {fixedMap[k] === stud.id ? '📌' : ''}
                       </button>
                     )}
+                    {gs.dot && <span style={{ position: 'absolute', bottom: '4px', right: '4px', width: '7px', height: '7px', borderRadius: '50%', background: gs.dot }} />}
                     {stud ? stud.name : ''}
                   </div>
                 );
