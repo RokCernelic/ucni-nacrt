@@ -88,6 +88,7 @@ html { scroll-behavior: smooth; }
   .pq-title { font-size: 16pt; font-weight: 600; }
   .pq-meta { font-size: 9.5pt; color: #444; margin-top: 2mm; }
   .pq-list { margin: 0; padding-left: 7mm; list-style: decimal outside; }
+  .pq-cols { column-count: 2; column-gap: 8mm; }
   .pq-item::marker { font-weight: 600; }
   .pq-item { margin-bottom: 5mm; break-inside: avoid; }
   .pq-item img { max-width: 100%; max-height: 90mm; }
@@ -107,6 +108,7 @@ html { scroll-behavior: smooth; }
 .cp-item .rich-content img { max-width: 100%; max-height: 35mm; display: block; }
 .cp-item .rich-content ul, .cp-item .rich-content ol { margin: 0; padding-left: 5mm; }
 .cp-options { margin: 0 0 0 1em; }
+.cp-cols { column-count: 2; column-gap: 8mm; }
 @media print {
   html.printing-questions .print-questions.cp { display: flex; flex-direction: column; width: 210mm; height: 297mm; padding: 0; }
   .cp .cp-half { width: 210mm; height: 148.5mm; flex: none; }
@@ -114,7 +116,7 @@ html { scroll-behavior: smooth; }
      (pri dnu), spodnje pod njo — neizkoriščen prostor gre na zunanja roba lista */
   .cp .cp-half:first-child { padding-bottom: 9mm; display: flex; flex-direction: column; justify-content: flex-end; }
   .cp .cp-half + .cp-half { padding-top: 9mm; }
-  .cp .cp-item:last-child { margin-bottom: 0; }
+  .cp .cp-half > :last-child .cp-item:last-child { margin-bottom: 0; }
   .cp .cp-half + .cp-half::before { content: ''; position: absolute; left: 0; right: 0; top: 0; border-top: .3mm dashed #aaa; }
 }
 

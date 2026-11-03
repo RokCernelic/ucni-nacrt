@@ -14,19 +14,41 @@ import { Rich, TaskAnswer, btn } from './ui';
  */
 const HALF = { w: 170, h: 119.5 } as const;
 
+const isChoice = (t: Task) => (t.answer_kind === 'mc' || t.answer_kind === 'tf') && !!t.options;
+
+/**
+ * Zaporedne izbirne naloge (ABCD, drži/ne drži) gredo v dva stolpca, ostale čez celo širino;
+ * vrstni red ostane enak. Posamezna izbirna naloga med navadnimi ostane v enem stolpcu.
+ */
+function runsOf(tasks: Task[]): { cols: boolean; start: number; tasks: Task[] }[] {
+  const out: { cols: boolean; start: number; tasks: Task[] }[] = [];
+  tasks.forEach((t, i) => {
+    const c = isChoice(t);
+    const last = out[out.length - 1];
+    if (last && (last.cols === c || (!c && !last.cols))) last.tasks.push(t);
+    else if (last && c && !last.cols) out.push({ cols: true, start: i + 1, tasks: [t] });
+    else out.push({ cols: c, start: i + 1, tasks: [t] });
+  });
+  // izbirna naloga brez soseda ne dobi stolpcev
+  return out.map(r => (r.cols && r.tasks.length < 2 ? { ...r, cols: false } : r));
+}
+
 /** Strnjen seznam nalog (brez glave, brez razmikov) — ena polovica lista. */
 function CompactList({ tasks }: { tasks: Task[] }) {
   return (
     <>
-      {tasks.map((t, i) => (
-        <div className="cp-item" key={t.id}>
-          <span className="cp-num">{i + 1}.</span>
-          <Rich html={t.body} />
-          {(t.answer_kind === 'mc' || t.answer_kind === 'tf') && t.options && (
-            <p className="cp-options">{t.options.map((o, k) => `${OPTION_LETTERS[k]}) ${o.text}`).join(', ')}</p>
-          )}
-        </div>
-      ))}
+      {runsOf(tasks).map(r => {
+        const items = r.tasks.map((t, k) => (
+          <div className="cp-item" key={t.id}>
+            <span className="cp-num">{r.start + k}.</span>
+            <Rich html={t.body} />
+            {(t.answer_kind === 'mc' || t.answer_kind === 'tf') && t.options && (
+              <p className="cp-options">{t.options.map((o, j) => `${OPTION_LETTERS[j]}) ${o.text}`).join(', ')}</p>
+            )}
+          </div>
+        ));
+        return r.cols ? <div className="cp-cols" key={r.start}>{items}</div> : <div key={r.start} style={{ display: 'contents' }}>{items}</div>;
+      })}
     </>
   );
 }
@@ -151,8 +173,9 @@ export default function PrintTasks({ tasks, title }: { tasks: Task[]; title: str
               {total > 0 && ` · ${String(total).replace('.', ',')} točk`}{minutes > 0 && ` · ${minutes} min`}
             </div>
           </div>
-          <ol className="pq-list">
-            {tasks.map(t => (
+          {runsOf(tasks).map(r => (
+            <ol key={r.start} className={`pq-list${r.cols ? ' pq-cols' : ''}`} start={r.start}>
+            {r.tasks.map(t => (
               <li key={t.id} className="pq-item">
                 <Rich html={t.body} />
                 {(t.answer_kind === 'mc' || t.answer_kind === 'tf') && t.options && (
@@ -166,7 +189,8 @@ export default function PrintTasks({ tasks, title }: { tasks: Task[]; title: str
                 ) : (t.answer_kind === 'short' || t.answer_kind === 'open' || t.answer_kind === 'numeric') && <div className="pq-space" />}
               </li>
             ))}
-          </ol>
+            </ol>
+          ))}
         </div>,
         document.body,
       )}
