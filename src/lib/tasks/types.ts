@@ -33,6 +33,8 @@ export interface Task {
   source: string | null;
   tags: string[];
   status: TaskStatus;
+  /** naloga, iz katere je bila ta generirana (prikaz ugnezdeno pod njo) */
+  parent_id: string | null;
 }
 
 export type TaskDraft = Omit<Task, 'id' | 'created_at' | 'updated_at'> & { id?: string };
@@ -40,7 +42,7 @@ export type TaskDraft = Omit<Task, 'id' | 'created_at' | 'updated_at'> & { id?: 
 export const emptyTask = (patch: Partial<TaskDraft> = {}): TaskDraft => ({
   body: '', answer: null, solution: null, answer_kind: 'open', options: null, correct: null, tolerance: null, unit: null,
   difficulty: null, bloom: null, kinds: [], curriculum: null, chapters: [], topics: [], standards: [], points: 1, minutes: null,
-  source: 'lastna', tags: [], status: 'verified', ...patch,
+  source: 'lastna', tags: [], status: 'verified', parent_id: null, ...patch,
 });
 
 export const BLOOM: { level: BloomLevel; name: string; hint: string; color: string }[] = [

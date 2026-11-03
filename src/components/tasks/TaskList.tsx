@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useTasks } from '@/hooks/useTasks';
 import { useTaskSelection } from '@/hooks/useTaskSelection';
 import type { Task, TaskDraft } from '@/lib/tasks/types';
+import { nestUnderParents, isNested } from '@/lib/tasks/order';
 import TaskEditor from './TaskEditor';
 import { Rich, TaskBadges, TaskAnswer, btn } from './ui';
 
@@ -55,17 +56,24 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
       {error && <p style={{ fontSize: '12px', color: '#c0392b', margin: 0 }}>{error}</p>}
       {tasks.length === 0 && !adding && emptyText && <p style={{ fontSize: '12px', color: 'var(--muted)', fontStyle: 'italic', margin: 0 }}>{emptyText}</p>}
 
-      {tasks.map((t, i) => {
+      {(() => {
+        const list = nestUnderParents(tasks);
+        const ids = new Set(list.map(t => t.id));
+        let num = startIndex;
+        return list.map(t => {
+        const nested = isNested(t, ids);
+        if (!nested) num++;
         const on = selected.has(t.id);
         return (
           <div key={t.id} style={{ border: `1px solid ${on ? 'var(--forest)' : 'var(--hairline)'}`, borderRadius: 'var(--r-md)',
-            background: editingId === t.id ? 'var(--surface)' : 'var(--canvas)', padding: '10px 12px', fontSize: '13px', color: 'var(--body)', lineHeight: 1.5 }}>
+            background: editingId === t.id ? 'var(--surface)' : 'var(--canvas)', padding: '10px 12px', fontSize: '13px', color: 'var(--body)', lineHeight: 1.5,
+            ...(nested ? { marginLeft: '28px', borderLeft: '4px solid var(--forest)' } : {}) }}>
             {editingId === t.id ? (
               <TaskEditor initial={t} onCancel={() => setEditingId(null)} onSave={async d => { await save({ ...d, id: t.id }); setEditingId(null); }} />
             ) : (
               <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
                 <input type="checkbox" checked={on} onChange={() => toggle(t.id)} title="Izberi (za tisk / kviz)" style={{ marginTop: '3px', cursor: 'pointer' }} />
-                <span style={{ color: 'var(--muted)', minWidth: '18px', fontVariantNumeric: 'tabular-nums' }}>{startIndex + i + 1}.</span>
+                <span style={{ color: 'var(--muted)', minWidth: '18px', fontVariantNumeric: 'tabular-nums' }}>{nested ? '↳' : `${num}.`}</span>
                 <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <Rich html={t.body} />
                   {(t.answer_kind === 'mc' || t.answer_kind === 'tf') && t.options && (
@@ -102,12 +110,13 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
               <div style={{ marginTop: '10px', border: '1px dashed var(--forest)', borderRadius: 'var(--r-md)', padding: '12px', background: 'var(--surface)' }}>
                 <div style={{ fontSize: '12px', color: 'var(--forest)', fontWeight: 600, marginBottom: '2px' }}>✨ Predlagana naloga (osnutek — preveri, popravi in shrani)</div>
                 {gen.note && <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '8px' }}>{gen.note}</div>}
-                <TaskEditor initial={gen.draft} onCancel={() => setGen(null)} onSave={async d => { await save(d); setGen(null); }} />
+                <TaskEditor initial={gen.draft} onCancel={() => setGen(null)} onSave={async d => { await save({ ...d, parent_id: t.parent_id ?? t.id }); setGen(null); }} />
               </div>
             )}
           </div>
         );
-      })}
+        });
+      })()}
 
       {!showAdd ? null : adding ? (
         <div style={{ border: '1px dashed var(--forest)', borderRadius: 'var(--r-md)', padding: '12px', background: 'var(--surface)' }}>

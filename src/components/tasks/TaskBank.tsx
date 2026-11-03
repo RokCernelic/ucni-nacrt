@@ -12,7 +12,7 @@ import { plural } from '@/lib/quiz/format';
 import PrintTasks from './PrintTasks';
 import ImportTasks from './ImportTasks';
 import { plainKey } from '@/lib/tasks/import';
-import { orderTasks, groupTasks } from '@/lib/tasks/order';
+import { orderTasks, groupTasks, isNested } from '@/lib/tasks/order';
 import { Chip, tinyLabel, input, btn } from './ui';
 
 const plain = (html: string | null) => (html ?? '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').toLowerCase();
@@ -87,7 +87,7 @@ export default function TaskBank() {
   const duplicates = useMemo(() => {
     const seen = new Map<string, Task>();
     const extra: string[] = [];
-    for (const t of [...tasks].sort((a, b) => a.created_at.localeCompare(b.created_at))) {
+    for (const t of [...tasks].filter(x => !x.parent_id).sort((a, b) => a.created_at.localeCompare(b.created_at))) { // generirane (ugnezdene) niso dvojniki
       const k = plainKey(t.body);
       if (seen.has(k)) extra.push(t.id); else seen.set(k, t);
     }
@@ -221,7 +221,7 @@ export default function TaskBank() {
                         {g.chapter}
                       </h2>
                       {g.topics.map(sub => {
-                        const start = n; n += sub.tasks.length;
+                        const start = n; { const ids = new Set(sub.tasks.map(x => x.id)); n += sub.tasks.filter(x => !isNested(x, ids)).length; }
                         return (
                           <div key={sub.key || 'none'} style={{ marginBottom: '18px' }}>
                             {sub.title && (

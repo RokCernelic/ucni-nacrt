@@ -27,10 +27,27 @@ export function placeOf(t: Pick<Task, 'topics' | 'chapters'>): { chapterKey: str
   return { chapterKey: ck ?? '', topicKey: '' };
 }
 
+/** Ali je naloga ugnezdena pod izvorno (izvorna je med podanimi nalogami)? */
+export const isNested = (t: Pick<Task, 'parent_id'>, ids: Set<string>) => !!t.parent_id && ids.has(t.parent_id);
+
+/** Ohrani vrstni red, le generirane naloge premakne takoj za izvorno (če je med nalogami). */
+export function nestUnderParents<T extends Task>(tasks: T[]): T[] {
+  const ids = new Set(tasks.map(t => t.id));
+  const kids = new Map<string, T[]>();
+  for (const t of tasks) if (isNested(t, ids)) kids.set(t.parent_id!, [...(kids.get(t.parent_id!) ?? []), t]);
+  return tasks.filter(t => !isNested(t, ids)).flatMap(r => [r, ...(kids.get(r.id) ?? [])]);
+}
+
+/** Vrstni red kot v učnem načrtu; generirane naloge sledijo svoji izvorni nalogi. */
 export function orderTasks<T extends Task>(tasks: T[]): T[] {
   const { chapter, topic } = getOrders();
+  const ids = new Set(tasks.map(t => t.id));
   const rank = (t: Task) => { const p = placeOf(t); return [chapter.get(p.chapterKey) ?? 1e9, p.topicKey ? (topic.get(p.topicKey) ?? 1e9) : -1] as const; };
-  return [...tasks].sort((a, b) => { const ra = rank(a), rb = rank(b); return ra[0] - rb[0] || ra[1] - rb[1] || a.created_at.localeCompare(b.created_at); });
+  const cmp = (a: Task, b: Task) => { const ra = rank(a), rb = rank(b); return ra[0] - rb[0] || ra[1] - rb[1] || a.created_at.localeCompare(b.created_at); };
+  const roots = tasks.filter(t => !isNested(t, ids)).sort(cmp);
+  const kids = new Map<string, T[]>();
+  for (const t of tasks) if (isNested(t, ids)) kids.set(t.parent_id!, [...(kids.get(t.parent_id!) ?? []), t]);
+  return roots.flatMap(r => [r, ...(kids.get(r.id) ?? []).sort((a, b) => a.created_at.localeCompare(b.created_at))]);
 }
 
 export interface TaskGroup {
@@ -47,8 +64,9 @@ export interface TaskGroup {
 /** Razporedi že urejene naloge v poglavja in podpoglavja. */
 export function groupTasks(ordered: Task[]): TaskGroup[] {
   const out: TaskGroup[] = [];
+  const byId = new Map(ordered.map(t => [t.id, t]));
   for (const t of ordered) {
-    const p = placeOf(t);
+    const p = placeOf(t.parent_id && byId.get(t.parent_id) ? byId.get(t.parent_id)! : t); // generirana naloga je v skupini izvorne
     const ci = p.chapterKey ? chapterInfo(p.chapterKey) : null;
     const ti = p.topicKey ? topicInfo(p.topicKey) : null;
     let g = out[out.length - 1];
