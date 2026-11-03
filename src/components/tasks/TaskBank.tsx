@@ -12,6 +12,7 @@ import { plural } from '@/lib/quiz/format';
 import PrintTasks from './PrintTasks';
 import ImportTasks from './ImportTasks';
 import { plainKey } from '@/lib/tasks/import';
+import { offerUndo } from '@/lib/undoStore';
 import { orderTasks, groupTasks, isNested } from '@/lib/tasks/order';
 import { Chip, tinyLabel, input, btn } from './ui';
 
@@ -29,7 +30,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 
 export default function TaskBank() {
   const { user, loading } = useAuth();
-  const { tasks, loaded, error, removeMany } = useTasks();
+  const { tasks, loaded, error, removeMany, restore } = useTasks();
   const { selected, setMany } = useTaskSelection();
 
   const [q, setQ] = useState('');
@@ -97,7 +98,11 @@ export default function TaskBank() {
   const dedup = async () => {
     if (!confirm(`Odstranim ${duplicates.length} podvojenih nalog (enako besedilo)? Od vsake ostane najstarejša.`)) return;
     setDedupBusy(true);
-    try { await removeMany(duplicates); setMany(duplicates, false); } finally { setDedupBusy(false); }
+    try {
+      const ids = [...duplicates];
+      const snap = await removeMany(ids); setMany(ids, false);
+      offerUndo(`${ids.length} dvojnikov odstranjenih`, async () => { await restore(snap); });
+    } finally { setDedupBusy(false); }
   };
 
   const [delBusy, setDelBusy] = useState(false);
@@ -105,7 +110,10 @@ export default function TaskBank() {
     if (!ids.length) return;
     if (!confirm(`Trajno izbrišem ${ids.length} ${plural(ids.length, 'izbrano nalogo', 'izbrani nalogi', 'izbrane naloge', 'izbranih nalog')}? Tega ni mogoče razveljaviti.`)) return;
     setDelBusy(true);
-    try { await removeMany(ids); setMany(ids, false); } finally { setDelBusy(false); }
+    try {
+      const snap = await removeMany(ids); setMany(ids, false);
+      offerUndo(`${ids.length} ${plural(ids.length, 'naloga izbrisana', 'nalogi izbrisani', 'naloge izbrisane', 'nalog izbrisanih')}`, async () => { await restore(snap); setMany(ids, true); });
+    } finally { setDelBusy(false); }
   };
 
   // vrstni red kot v učnem načrtu; naloge samo s poglavjem so na začetku poglavja

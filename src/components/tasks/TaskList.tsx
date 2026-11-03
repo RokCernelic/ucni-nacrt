@@ -5,6 +5,7 @@ import { useTasks } from '@/hooks/useTasks';
 import { useTaskSelection } from '@/hooks/useTaskSelection';
 import type { Task, TaskDraft } from '@/lib/tasks/types';
 import { nestUnderParents, isNested } from '@/lib/tasks/order';
+import { offerUndo } from '@/lib/undoStore';
 import { GEN_GROUPS } from '@/lib/tasks/genOptions';
 import TaskEditor from './TaskEditor';
 import { Rich, TaskBadges, TaskAnswer, Chip, btn, tinyLabel, input } from './ui';
@@ -24,7 +25,7 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
   hideTopic?: string;
   hideChapter?: string;
 }) {
-  const { save, remove } = useTasks();
+  const { save, remove, restore } = useTasks();
   const { selected, toggle } = useTaskSelection();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -55,8 +56,13 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
   };
 
   const del = async (t: Task) => {
-    if (!confirm('Izbrišem to nalogo iz baze? Izgine povsod (učni načrt, izbor).')) return;
-    try { await remove(t.id); toggle(t.id, false); } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    if (!confirm('Izbrišem to nalogo iz baze? Izgine povsod (učni načrt, izbor). ')) return;
+    const wasSelected = selected.has(t.id);
+    try {
+      const snap = await remove(t.id);
+      toggle(t.id, false);
+      offerUndo('Naloga izbrisana', async () => { await restore(snap); if (wasSelected) toggle(t.id, true); });
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
   };
 
   return (

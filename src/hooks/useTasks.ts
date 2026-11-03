@@ -2,13 +2,14 @@
 
 import { useEffect, useSyncExternalStore, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { listTasks, saveTask, deleteTask, deleteTasks, insertTasks } from '@/lib/tasks/api';
+import { listTasks, saveTask, deleteTasks, insertTasks, restoreTasksRaw, relinkTasks } from '@/lib/tasks/api';
 import { emptyTask, type Task, type TaskDraft, type BloomLevel } from '@/lib/tasks/types';
 
 /*
  * Ena skupna zaloga nalog za celo aplikacijo (baza nalog, učni načrt, kvizi):
  * naloži se enkrat po prijavi, spremembe se takoj vidijo povsod.
  */
+export type Snapshot = { tasks: Task[]; links: { id: string; parent_id: string }[] };
 type State = { tasks: Task[]; loaded: boolean; error: string | null; userId: string | null };
 let state: State = { tasks: [], loaded: false, error: null, userId: null };
 const listeners = new Set<() => void>();
@@ -62,15 +63,25 @@ export function useTasks() {
     return saved;
   }, []);
 
-  const remove = useCallback(async (id: string) => {
-    await deleteTask(id);
-    set({ tasks: state.tasks.filter(t => t.id !== id) });
+  /** Izbriše naloge; vrne posnetek, s katerim jih `restore` povrne (z vezmi na generirane naloge). */
+  const removeMany = useCallback(async (ids: string[]): Promise<Snapshot> => {
+    const gone = new Set(ids);
+    const snap: Snapshot = {
+      tasks: state.tasks.filter(t => gone.has(t.id)),
+      links: state.tasks.filter(t => !gone.has(t.id) && t.parent_id && gone.has(t.parent_id)).map(t => ({ id: t.id, parent_id: t.parent_id! })),
+    };
+    await deleteTasks(ids);
+    set({ tasks: state.tasks.filter(t => !gone.has(t.id)) });
+    return snap;
   }, []);
 
-  const removeMany = useCallback(async (ids: string[]) => {
-    await deleteTasks(ids);
-    const gone = new Set(ids);
-    set({ tasks: state.tasks.filter(t => !gone.has(t.id)) });
+  const remove = useCallback(async (id: string) => removeMany([id]), [removeMany]);
+
+  const restore = useCallback(async (snap: Snapshot) => {
+    const back = await restoreTasksRaw(snap.tasks);
+    if (snap.links.length) await relinkTasks(snap.links);
+    const linked = new Map(snap.links.map(l => [l.id, l.parent_id]));
+    set({ tasks: [...back, ...state.tasks.map(t => (linked.has(t.id) ? { ...t, parent_id: linked.get(t.id)! } : t))] });
   }, []);
 
   const importMany = useCallback(async (drafts: TaskDraft[], onProgress?: (done: number) => void) => {
@@ -85,5 +96,5 @@ export function useTasks() {
 
   const reload = useCallback(() => { if (state.userId) void load(state.userId); }, []);
 
-  return { tasks: s.tasks, loaded: s.loaded, error: s.error, save, remove, reload, importMany, removeMany };
+  return { tasks: s.tasks, loaded: s.loaded, error: s.error, save, remove, reload, importMany, removeMany, restore };
 }

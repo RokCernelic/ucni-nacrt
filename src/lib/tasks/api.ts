@@ -71,3 +71,19 @@ export async function deleteTasks(ids: string[]): Promise<void> {
     if (error) throw new Error(error.message);
   }
 }
+
+/** Ponovno vstavi izbrisane naloge z istimi id-ji in časi (razveljavitev brisanja). */
+export async function restoreTasksRaw(tasks: Task[]): Promise<Task[]> {
+  const rows = tasks.map(({ id, created_at, updated_at, ...rest }) => ({ id, created_at, updated_at, ...rest }));
+  const { data, error } = await getSupabaseBrowserClient().from('tasks').insert(rows).select();
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Task[];
+}
+
+/** Ponovno poveže generirane naloge z izvorno (po razveljavitvi brisanja izvorne). */
+export async function relinkTasks(links: { id: string; parent_id: string }[]): Promise<void> {
+  for (const l of links) {
+    const { error } = await getSupabaseBrowserClient().from('tasks').update({ parent_id: l.parent_id }).eq('id', l.id);
+    if (error) throw new Error(error.message);
+  }
+}
