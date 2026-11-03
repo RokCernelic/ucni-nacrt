@@ -102,6 +102,14 @@ export function useQuizLibrary() {
     return q.id;
   }, []);
 
+  /** Nov kviz iz že pripravljenih vprašanj (npr. iz izbranih nalog v bazi). */
+  const createQuizFrom = useCallback((title: string, questions: Question[], folderId: string | null = null) => {
+    const now = Date.now();
+    const q: Quiz = { id: uid(), title: title.trim() || 'Nov kviz', folderId, questions, createdAt: now, updatedAt: now };
+    write(QUIZZES, [...read<Quiz>(QUIZZES), q]);
+    return q.id;
+  }, []);
+
   const updateQuiz = useCallback((id: string, patch: Partial<Omit<Quiz, 'id' | 'createdAt'>>) => {
     write(QUIZZES, read<Quiz>(QUIZZES).map(q => q.id === id ? { ...q, ...patch, updatedAt: Date.now() } : q));
   }, []);
@@ -119,7 +127,7 @@ export function useQuizLibrary() {
     return copy.id;
   }, []);
 
-  return { loaded, quizzes, folders, createFolder, renameFolder, deleteFolder, moveFolder, createQuiz, updateQuiz, deleteQuiz, duplicateQuiz };
+  return { loaded, quizzes, folders, createFolder, renameFolder, deleteFolder, moveFolder, createQuiz, createQuizFrom, updateQuiz, deleteQuiz, duplicateQuiz };
 }
 
 /** Pot mape od korena, npr. ["8. razred", "Sile"]. */

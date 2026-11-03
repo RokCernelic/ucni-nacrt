@@ -1,6 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useQuizLibrary } from '@/hooks/useQuizLibrary';
+import { tasksToQuestions } from '@/lib/tasks/toQuiz';
 import { useAuth } from '@/hooks/useAuth';
 import { useTasks } from '@/hooks/useTasks';
 import { useTaskSelection } from '@/hooks/useTaskSelection';
@@ -17,9 +20,23 @@ export default function GlobalPrintBar() {
   const { tasks, loaded } = useTasks();
   const { selected, setMany } = useTaskSelection();
   const [title, setTitle] = useState('Učni list');
+  const router = useRouter();
+  const lib = useQuizLibrary();
 
   const onSheet = orderTasks(tasks.filter(t => selected.has(t.id)));
   if (!user || !loaded || onSheet.length === 0) return null;
+
+  const { questions, skipped } = tasksToQuestions(onSheet);
+  const makeQuiz = () => {
+    if (!questions.length) return;
+    const note = skipped.length ? `\n\n${skipped.length} ${skipped.length === 1 ? 'naloga ni primerna' : 'nalog ni primernih'} za kviz (odprte, kratek odgovor, več možnosti ali brez pravilnega odgovora) in ${skipped.length === 1 ? 'je izpuščena' : 'so izpuščene'}.` : '';
+    const name = window.prompt(`Naslov novega kviza (${questions.length} vprašanj)?${note}`, title === 'Učni list' ? 'Nov kviz' : title);
+    if (name === null) return;
+    try {
+      const id = lib.createQuizFrom(name, questions);
+      router.push(`/kvizi/${id}`);
+    } catch (e) { window.alert(e instanceof Error ? e.message : String(e)); }
+  };
 
   return (
     <>
@@ -34,6 +51,11 @@ export default function GlobalPrintBar() {
           <span style={{ flex: 1 }} />
           <input value={title} onChange={e => setTitle(e.target.value)} title="Naslov učnega lista" style={{ ...input, width: '170px', padding: '4px 8px' }} />
           <PrintTasks tasks={onSheet} title={title} />
+          <button onClick={makeQuiz} disabled={!questions.length}
+            title={questions.length ? 'Iz izbranih nalog (izbirne, drži/ne drži, številske) naredi nov kviz v zavihku Kvizi' : 'Med izbranimi ni nalog, primernih za kviz (izbirne, drži/ne drži, številske s pravilnim odgovorom)'}
+            style={{ ...btn(), padding: '5px 10px', opacity: questions.length ? 1 : 0.45, cursor: questions.length ? 'pointer' : 'not-allowed' }}>
+            🎯 Ustvari kviz ({questions.length})
+          </button>
         </div>
       </div>
     </>

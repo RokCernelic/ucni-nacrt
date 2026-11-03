@@ -93,16 +93,19 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
                 <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <Rich html={t.body} />
                   {isChoice(t.answer_kind) && t.options && (
-                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', fontSize: '12px' }}>
-                      {t.options.map((o, oi) => (
-                        <span key={o.id} style={{ color: correctIds(t).includes(o.id) ? 'var(--green-ok)' : 'var(--muted)', fontWeight: correctIds(t).includes(o.id) ? 600 : 400 }}>
-                          {LETTERS[oi]}) {o.text}
-                        </span>
-                      ))}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      {t.options.map((o, oi) => {
+                        const right = correctIds(t).includes(o.id);
+                        return (
+                          <div key={o.id} style={{ color: right ? 'var(--green-ok)' : undefined, fontWeight: right ? 600 : 400 }}>
+                            <b style={{ fontWeight: 700 }}>{LETTERS[oi]})</b> {o.text}{right && ' ✓'}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
-                  {(t.answer || t.answer_kind === 'numeric') && (
-                    <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Rešitev: <TaskAnswer task={t} /></div>
+                  {((t.answer && !isChoice(t.answer_kind)) || t.answer_kind === 'numeric' || (isChoice(t.answer_kind) && t.answer)) && (
+                    <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Rešitev: <TaskAnswer task={t} noChoice /></div>
                   )}
                   <TaskBadges task={t} showTopics={showTopics} hideTopic={hideTopic} hideChapter={hideChapter} />
                 </div>

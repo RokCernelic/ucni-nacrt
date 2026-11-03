@@ -59,11 +59,11 @@ export function TaskBadges({ task, showTopics = true, hideTopic, hideChapter }: 
 }
 
 /** Odgovor naloge v berljivi obliki (za seznam in tisk z rešitvami). */
-export function TaskAnswer({ task }: { task: Task }) {
+export function TaskAnswer({ task, noChoice }: { task: Task; /** brez besedila pravilne možnosti (že označena v seznamu) */ noChoice?: boolean }) {
   const right = task.options?.filter(o => correctIds(task).includes(o.id)) ?? [];
   return (
     <>
-      {isChoice(task.answer_kind) && right.length > 0 && <span>{right.map(o => o.text).join('; ')}</span>}
+      {!noChoice && isChoice(task.answer_kind) && right.length > 0 && <span>{right.map(o => o.text).join('; ')}</span>}
       {task.answer_kind === 'numeric' && task.correct && (
         <span>{task.correct}{task.tolerance ? ` ± ${String(task.tolerance).replace('.', ',')}` : ''}{task.unit ? ` ${task.unit}` : ''}</span>
       )}
