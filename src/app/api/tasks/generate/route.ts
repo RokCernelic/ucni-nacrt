@@ -77,9 +77,9 @@ export async function POST(request: Request) {
       system: 'Si slovenski učitelj naravoslovja in tehnike v osnovni šoli. Pišeš naloge v lepi slovenščini, primerne za učence, strokovno pravilne. ' +
         'Dobiš obstoječo nalogo in seznam podpoglavij učnega načrta s standardi znanja. Ugotovi, v katero podpoglavje naloga spada in katere standarde preverja, nato napiši PODOBNO novo nalogo: ' +
         'ista tema, isti standardi, ista težavnost, Bloomova stopnja, vrsta in oblika odgovora, podobna dolžina in struktura, vendar z drugimi podatki, drugačnim kontekstom in drugim izidom (ne le zamenjane številke). ' +
-        'Poskrbi, da so rešitev in odgovor pravilni (preveri račun). Uporabljaj SI enote. Odgovori samo prek orodja.',
+        'Poskrbi, da so rešitev in odgovor pravilni (preveri račun). Uporabljaj SI enote. Odgovori SAMO s klicem orodja »ustvari_nalogo« (brez besedila).',
       tools: [tool],
-      tool_choice: { type: 'tool', name: tool.name },
+      tool_choice: { type: 'auto' }, // model ne podpira prisilne izbire orodja; sistemsko navodilo zahteva klic
       messages: [{
         role: 'user',
         content: `SEZNAM PODPOGLAVIJ IN STANDARDOV:\n${catalog}\n\nORIGINALNA NALOGA (JSON):\n${JSON.stringify(original, null, 2)}`,
