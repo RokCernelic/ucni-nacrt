@@ -113,43 +113,51 @@ export default function PrintQuizDialog({ items, title, jobId, defaultClassId, o
           {sheets.map(sh => (
             <section className="pqz-sheet" key={sh.key}>
               <header className="pqz-head">
-                <div className="pqz-who">
-                  <div className="pqz-title">{title}</div>
-                  <div className="pqz-name">{sh.name ?? 'Ime in priimek: ____________________________'}</div>
-                  <div className="pqz-meta">{cls && sh.name ? `${cls.name} · ` : sh.name ? '' : 'Razred: ________ · '}{todayLabel()}</div>
-                </div>
+                <b className="pqz-title">{title}</b>
+                <span className="pqz-name">{sh.name ?? 'Ime in priimek: ______________________'}</span>
+                <span className="pqz-meta">{sh.name ? (cls ? `${cls.name} · ` : '') : 'Razred: ______ · '}{todayLabel()}</span>
               </header>
 
-              {(sh.layout.choice.length > 0 || sh.qr) && (
-                <div className="pqz-grid">
-                  <i className="pqz-mark" style={{ left: '2mm', top: '2mm' }} /><i className="pqz-mark" style={{ right: '2mm', top: '2mm' }} />
-                  <i className="pqz-mark" style={{ left: '2mm', bottom: '2mm' }} /><i className="pqz-mark" style={{ right: '2mm', bottom: '2mm' }} />
-                  <div className="pqz-gridtop">
-                    <div className="pqz-gridhead">Odgovori — pobarvaj krogec{sh.layout.choice.some(c => c.item.multi) ? ' (pri nekaterih je pravilnih več)' : ''}</div>
-                    {sh.qr && <img className="pqz-qr" src={sh.qr} alt="" />}
-                  </div>
-                  <div className="pqz-rows" style={{ columnCount: sh.layout.choice.length > 20 ? 3 : sh.layout.choice.length > 8 ? 2 : 1 }}>
-                    {sh.layout.choice.map(c => (
-                      <div className="pqz-row" key={c.n}>
-                        <span className="pqz-n">{c.n}</span>
-                        {c.options.map(o => <span className="pqz-bub" key={o.letter}>{o.letter}</span>)}
-                        {c.item.multi && <span className="pqz-multi">več</span>}
+              {(sh.layout.choice.length > 0 || sh.qr) && (() => {
+                const rows = Math.max(1, Math.ceil(sh.layout.choice.length / 4));
+                const maxOpts = Math.max(1, ...sh.layout.choice.map(c => c.options.length));
+                const bub = Math.max(3.4, Math.min(5.4, Math.floor(((25.5 - (maxOpts - 1) * 1.3) / maxOpts) * 10) / 10));
+                return (
+                  <div className="pqz-grid">
+                    <i className="pqz-mark" style={{ left: '1.5mm', top: '1.5mm' }} /><i className="pqz-mark" style={{ right: '1.5mm', top: '1.5mm' }} />
+                    <i className="pqz-mark" style={{ left: '1.5mm', bottom: '1.5mm' }} /><i className="pqz-mark" style={{ right: '1.5mm', bottom: '1.5mm' }} />
+                    <div className="pqz-gridhead">Odgovori — pobarvaj krogec{sh.layout.choice.some(c => c.item.multi) ? ' (pri označenih »več« je pravilnih več)' : ''}</div>
+                    <div className="pqz-gridbody">
+                      <div className="pqz-rows" style={{ gridTemplateRows: `repeat(${rows}, auto)`, ['--bub' as string]: `${bub}mm` }}>
+                        {sh.layout.choice.map(c => (
+                          <div className="pqz-row" key={c.n}>
+                            <span className="pqz-n">{c.n}</span>
+                            {c.options.map(o => <span className="pqz-bub" key={o.letter}>{o.letter}</span>)}
+                            {c.item.multi && <span className="pqz-multi">več</span>}
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                      {sh.qr && <img className="pqz-qr" src={sh.qr} alt="" />}
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
-              <ol className="pqz-list" style={{ listStyle: 'none', padding: 0 }}>
-                {[...sh.layout.choice, ...sh.layout.free].map(c => (
-                  <li className="pqz-item" key={c.n}>
-                    <div className="pqz-q"><b>{c.n}.</b><Rich html={c.item.html} /></div>
-                    {c.item.choice
-                      ? <div className="pqz-opts">{c.options.map(o => <div key={o.letter}><b>{o.letter})</b> {o.text}</div>)}</div>
-                      : <div className="pqz-free" style={{ height: `${c.item.space}mm` }} />}
-                  </li>
-                ))}
-              </ol>
+              {(['choice', 'free'] as const).map(g => sh.layout[g].length > 0 && (
+                <ol className={`pqz-list${g === 'choice' ? ' pqz-cols2' : ''}`} key={g} style={{ listStyle: 'none', padding: 0 }}>
+                  {sh.layout[g].map(c => {
+                    const inline = c.item.choice && c.options.length > 0 && c.options.every(o => o.text.length <= 18) && c.options.reduce((n, o) => n + o.text.length, 0) <= 56;
+                    return (
+                      <li className={`pqz-item${g === 'choice' ? ' pqz-c' : ''}`} key={c.n}>
+                        <div className="pqz-q"><b>{c.n}.</b><Rich html={c.item.html} /></div>
+                        {c.item.choice
+                          ? <div className={inline ? 'pqz-opts pqz-inline' : 'pqz-opts'}>{c.options.map(o => <div key={o.letter}><b>{o.letter})</b> {o.text}</div>)}</div>
+                          : <div className="pqz-free" style={{ height: `${c.item.space}mm` }} />}
+                      </li>
+                    );
+                  })}
+                </ol>
+              ))}
             </section>
           ))}
         </div>,
