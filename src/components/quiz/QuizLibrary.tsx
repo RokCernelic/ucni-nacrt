@@ -144,6 +144,7 @@ export default function QuizLibrary() {
               </nav>
               <button style={btn()} onClick={() => guard(() => { const id = lib.createFolder('Nova mapa', current); setRenaming(id); })}>+ Nova mapa</button>
               <button style={btn(true)} onClick={() => guard(() => { const id = lib.createQuiz(current); router.push(`/kvizi/${id}`); })}>+ Nov kviz</button>
+              <Link href="/kvizi/skener" style={{ ...btn(), textDecoration: 'none' }} title="Telefon kot skener natisnjenih kvizov (okvir z odgovori)">📷 Skener</Link>
             </div>
 
             {error && <p style={{ fontSize: '13px', color: '#c0392b', marginBottom: '12px' }}>{error}</p>}

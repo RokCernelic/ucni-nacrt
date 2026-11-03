@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuizLibrary } from '@/hooks/useQuizLibrary';
-import { tasksToQuestions } from '@/lib/tasks/toQuiz';
+import { tasksToQuestions, htmlToPlain } from '@/lib/tasks/toQuiz';
 import { useAuth } from '@/hooks/useAuth';
 import { useTasks } from '@/hooks/useTasks';
 import { useTaskSelection } from '@/hooks/useTaskSelection';
@@ -64,7 +64,7 @@ export default function GlobalPrintBar() {
           </button>
         </div>
       </div>
-      {quizPrint && <PrintQuizDialog items={itemsFromTasks(onSheet)} title={title === 'Učni list' ? 'Kviz' : title} jobId={quizPrint} onClose={() => setQuizPrint(null)} />}
+      {quizPrint && <PrintQuizDialog items={itemsFromTasks(onSheet, htmlToPlain)} title={title === 'Učni list' ? 'Kviz' : title} quizId={null} onClose={() => setQuizPrint(null)} />}
     </>
   );
 }

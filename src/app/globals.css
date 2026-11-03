@@ -172,20 +172,18 @@ body {
   .pqz-title { font-size: 10pt; color: #444; font-weight: 600; }
   .pqz-name { font-size: 13pt; font-weight: 700; flex: 1; overflow: hidden; text-overflow: ellipsis; }
   .pqz-meta { font-size: 9.5pt; color: #444; }
-  .pqz-grid { position: relative; border: .3mm solid #999; padding: 6mm 8mm 6.5mm; margin-bottom: 3mm; }
-  .pqz-mark { position: absolute; width: 4mm; height: 4mm; background: #000; }
-  .pqz-gridhead { font-size: 8pt; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; margin: 0 0 1.5mm; }
-  .pqz-gridbody { display: flex; align-items: flex-start; gap: 4mm; }
-  .pqz-rows { flex: 1; display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-flow: column; column-gap: 5mm; }
-  .pqz-row { display: flex; align-items: center; gap: 1.3mm; height: 6.8mm; }
-  .pqz-n { width: 5mm; text-align: right; font-weight: 700; font-size: 9pt; flex: none; }
-  .pqz-bub { width: var(--bub, 5.4mm); height: var(--bub, 5.4mm); flex: none; box-sizing: border-box; border: .35mm solid #000; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 6pt; color: #777; }
-  .pqz-multi { font-size: 6.5pt; color: #777; }
-  .pqz-qr { width: 22mm; height: 22mm; flex: none; image-rendering: pixelated; }
+  .pqz-grid { position: relative; box-sizing: border-box; border: .3mm solid #999; margin-bottom: 4mm; }
+  .pqz-grid > * , .pqz-grid > div > * { position: absolute; }
+  .pqz-grid > div:not(.pqz-gridhead) { position: static; }
+  .pqz-mark { width: 4mm; height: 4mm; background: #000; }
+  .pqz-gridhead { font-size: 7.5pt; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
+  .pqz-n { display: flex; align-items: center; justify-content: flex-end; font-weight: 700; font-size: 8.5pt; }
+  .pqz-bub { box-sizing: border-box; border: .35mm solid #000; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 6pt; color: #bbb; }
+  .pqz-qr { image-rendering: pixelated; }
   .pqz-list { margin: 0 0 2mm; }
   .pqz-cols2 { column-count: 2; column-gap: 8mm; }
   .pqz-item { margin-bottom: 5mm; break-inside: avoid; }
-  .pqz-item.pqz-c { margin-bottom: 3.5mm; }
+  .pqz-item.pqz-c { margin-bottom: 5.5mm; }
   .pqz-q { display: flex; gap: 1.5mm; }
   .pqz-q .rich-content { flex: 1; }
   .pqz-q .rich-content p { margin: 0 0 .5mm; }

@@ -153,7 +153,7 @@ export default function StartSessionDialog({ quiz, onClose }: { quiz: Quiz; onCl
           </button>
         </div>
       </div>
-      {printing && <PrintQuizDialog items={itemsFromQuiz(quiz)} title={quiz.title} jobId={quiz.id} defaultClassId={classId || undefined} onClose={() => setPrinting(false)} />}
+      {printing && <PrintQuizDialog items={itemsFromQuiz(quiz)} title={quiz.title} quizId={quiz.id} defaultClassId={classId || undefined} onClose={() => setPrinting(false)} />}
     </div>
   );
 }

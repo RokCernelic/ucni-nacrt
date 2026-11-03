@@ -6,15 +6,17 @@ import QRCode from 'qrcode';
 import { useMasterClasses } from '@/hooks/useMasterClasses';
 import { useRoster } from '@/hooks/useRoster';
 import { Rich } from '@/components/tasks/ui';
-import { layoutSheet, sheetToken, type PrintItem } from '@/lib/quiz/printSheet';
+import { layoutSheet, sheetToken, sheetSeed, frameGeometry, type PrintItem, type SheetLayout } from '@/lib/quiz/printSheet';
+import { createPaperSession } from '@/lib/quiz/paperSession';
+import Link from 'next/link';
 
-interface Sheet { key: string; name: string | null; qr: string | null; layout: ReturnType<typeof layoutSheet> }
+export interface Sheet { key: string; name: string | null; qr: string | null; layout: SheetLayout }
 
 const todayLabel = () => new Date().toLocaleDateString('sl-SI', { day: 'numeric', month: 'numeric', year: 'numeric' });
 
 /** Tiskanje kviza na A4: odgovorni obrazec (krogci) zgoraj, vprašanja pod njim; po želji list za vsakega učenca (ime, QR, drugačen vrstni red). */
-export default function PrintQuizDialog({ items, title, jobId, defaultClassId, onClose }: {
-  items: PrintItem[]; title: string; jobId: string; defaultClassId?: string; onClose: () => void;
+export default function PrintQuizDialog({ items, title, quizId, defaultClassId, onClose }: {
+  items: PrintItem[]; title: string; quizId: string | null; defaultClassId?: string; onClose: () => void;
 }) {
   const { classes } = useMasterClasses();
   const [pickedClass, setPickedClass] = useState('');
@@ -22,6 +24,9 @@ export default function PrintQuizDialog({ items, title, jobId, defaultClassId, o
   const [shuffle, setShuffle] = useState(true);
   const [sheets, setSheets] = useState<Sheet[] | null>(null);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  /** po tisku po učencih: seja za skener in rezultate */
+  const [printed, setPrinted] = useState<{ sessionId: string; scanQr: string } | null>(null);
   const classId = pickedClass || (classes.some(c => c.id === defaultClassId) ? defaultClassId! : classes[0]?.id ?? '');
   const { students } = useRoster(classId || undefined);
   const cls = classes.find(c => c.id === classId);
@@ -36,16 +41,20 @@ export default function PrintQuizDialog({ items, title, jobId, defaultClassId, o
   const canPrint = items.length > 0 && !busy && (!perStudent || students.length > 0);
 
   const print = async () => {
-    setBusy(true);
+    setBusy(true); setError(null);
     try {
-      const salt = Math.random().toString(36).slice(2, 8);
       let list: Sheet[];
       if (perStudent) {
-        list = await Promise.all(students.map(async s => {
-          const seed = shuffle ? `${salt}${s.id}` : '';
-          const token = sheetToken(jobId, s.id, shuffle ? salt + s.id : '-');
-          return { key: s.id, name: s.name, qr: await QRCode.toDataURL(token, { margin: 0, width: 220, errorCorrectionLevel: 'M' }), layout: layoutSheet(items, seed || null) };
-        }));
+        if (!cls) return;
+        // seja za skeniranje (odgovori gredo v skupno statistiko kvizov)
+        const session = await createPaperSession({ title, quizId, classId: cls.id, className: cls.name, students, items, shuffle });
+        const salt = session.paper!.salt;
+        list = await Promise.all(students.map(async st => ({
+          key: st.id, name: st.name,
+          qr: await QRCode.toDataURL(sheetToken(session.id, st.id), { margin: 0, width: 240, errorCorrectionLevel: 'M' }),
+          layout: layoutSheet(items, shuffle ? sheetSeed(salt, st.id) : null),
+        })));
+        setPrinted({ sessionId: session.id, scanQr: await QRCode.toDataURL(`${window.location.origin}/kvizi/skener`, { margin: 1, width: 220 }) });
       } else {
         list = [{ key: 'all', name: null, qr: null, layout: layoutSheet(items, null) }];
       }
@@ -58,6 +67,8 @@ export default function PrintQuizDialog({ items, title, jobId, defaultClassId, o
       root.classList.add('printing-questions');
       window.addEventListener('afterprint', done);
       window.print();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
     } finally { setBusy(false); }
   };
 
@@ -98,6 +109,18 @@ export default function PrintQuizDialog({ items, title, jobId, defaultClassId, o
             </div>
           )}
 
+          {error && <p style={{ fontSize: '13px', color: '#c0392b', margin: '8px 0 0' }}>{error}</p>}
+          {printed && (
+            <div style={{ display: 'flex', gap: '14px', alignItems: 'center', marginTop: '14px', padding: '12px', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', background: 'var(--surface)' }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={printed.scanQr} alt="" style={{ width: '110px', height: '110px', flex: 'none' }} />
+              <div style={{ fontSize: '13px', color: 'var(--ink)', lineHeight: 1.5 }}>
+                <b>Skeniranje:</b> s telefonom odpri to kodo (Učni načrt → Kvizi → Skener), prijavi se z istim računom in skeniraj okvirje z odgovori.
+                <div style={{ marginTop: '6px' }}><Link href={`/kvizi/seja/${printed.sessionId}`} style={{ color: 'var(--forest)', fontWeight: 600 }}>Rezultati tega tiska →</Link></div>
+              </div>
+            </div>
+          )}
+
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '18px' }}>
             <button onClick={onClose} style={{ fontSize: '13px', padding: '9px 16px', borderRadius: 'var(--r-sm)', border: '1px solid var(--hairline)', background: 'transparent', color: 'var(--ink)', cursor: 'pointer' }}>Prekliči</button>
             <button onClick={() => void print()} disabled={!canPrint}
@@ -111,58 +134,61 @@ export default function PrintQuizDialog({ items, title, jobId, defaultClassId, o
       {sheets && createPortal(
         <div className="print-questions pqz" aria-hidden>
           {sheets.map(sh => (
-            <section className="pqz-sheet" key={sh.key}>
-              <header className="pqz-head">
-                <b className="pqz-title">{title}</b>
-                <span className="pqz-name">{sh.name ?? 'Ime in priimek: ______________________'}</span>
-                <span className="pqz-meta">{sh.name ? (cls ? `${cls.name} · ` : '') : 'Razred: ______ · '}{todayLabel()}</span>
-              </header>
-
-              {(sh.layout.choice.length > 0 || sh.qr) && (() => {
-                const rows = Math.max(1, Math.ceil(sh.layout.choice.length / 4));
-                const maxOpts = Math.max(1, ...sh.layout.choice.map(c => c.options.length));
-                const bub = Math.max(3.4, Math.min(5.4, Math.floor(((25.5 - (maxOpts - 1) * 1.3) / maxOpts) * 10) / 10));
-                return (
-                  <div className="pqz-grid">
-                    <i className="pqz-mark" style={{ left: '1.5mm', top: '1.5mm' }} /><i className="pqz-mark" style={{ right: '1.5mm', top: '1.5mm' }} />
-                    <i className="pqz-mark" style={{ left: '1.5mm', bottom: '1.5mm' }} /><i className="pqz-mark" style={{ right: '1.5mm', bottom: '1.5mm' }} />
-                    <div className="pqz-gridhead">Odgovori — pobarvaj krogec{sh.layout.choice.some(c => c.item.multi) ? ' (pri označenih »več« je pravilnih več)' : ''}</div>
-                    <div className="pqz-gridbody">
-                      <div className="pqz-rows" style={{ gridTemplateRows: `repeat(${rows}, auto)`, ['--bub' as string]: `${bub}mm` }}>
-                        {sh.layout.choice.map(c => (
-                          <div className="pqz-row" key={c.n}>
-                            <span className="pqz-n">{c.n}</span>
-                            {c.options.map(o => <span className="pqz-bub" key={o.letter}>{o.letter}</span>)}
-                            {c.item.multi && <span className="pqz-multi">več</span>}
-                          </div>
-                        ))}
-                      </div>
-                      {sh.qr && <img className="pqz-qr" src={sh.qr} alt="" />}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {(['choice', 'free'] as const).map(g => sh.layout[g].length > 0 && (
-                <ol className={`pqz-list${g === 'choice' ? ' pqz-cols2' : ''}`} key={g} style={{ listStyle: 'none', padding: 0 }}>
-                  {sh.layout[g].map(c => {
-                    const inline = c.item.choice && c.options.length > 0 && c.options.every(o => o.text.length <= 18) && c.options.reduce((n, o) => n + o.text.length, 0) <= 56;
-                    return (
-                      <li className={`pqz-item${g === 'choice' ? ' pqz-c' : ''}`} key={c.n}>
-                        <div className="pqz-q"><b>{c.n}.</b><Rich html={c.item.html} /></div>
-                        {c.item.choice
-                          ? <div className={inline ? 'pqz-opts pqz-inline' : 'pqz-opts'}>{c.options.map(o => <div key={o.letter}><b>{o.letter})</b> {o.text}</div>)}</div>
-                          : <div className="pqz-free" style={{ height: `${c.item.space}mm` }} />}
-                      </li>
-                    );
-                  })}
-                </ol>
-              ))}
-            </section>
+            <QuizSheet key={sh.key} sheet={sh} title={title} className={cls?.name} />
           ))}
         </div>,
         document.body,
       )}
     </>
+  );
+}
+
+/** En natisnjen list (glava, okvir z odgovori, vprašanja). */
+export function QuizSheet({ sheet: sh, title, className }: { sheet: Sheet; title: string; className?: string }) {
+  const cls = className ? { name: className } : null;
+  return (
+    <section className="pqz-sheet">
+      <header className="pqz-head">
+        <b className="pqz-title">{title}</b>
+        <span className="pqz-name">{sh.name ?? 'Ime in priimek: ______________________'}</span>
+        <span className="pqz-meta">{sh.name ? (cls ? `${cls.name} · ` : '') : 'Razred: ______ · '}{todayLabel()}</span>
+      </header>
+
+      {(sh.layout.choice.length > 0 || sh.qr) && (() => {
+        const g = frameGeometry(sh.layout, !!sh.qr);
+        const mm = (v: number) => `${v}mm`;
+        return (
+          <div className="pqz-grid" style={{ width: mm(g.w), height: mm(g.h) }}>
+            {g.marks.map(([x, y], i) => <i key={i} className="pqz-mark" style={{ left: mm(x - 2), top: mm(y - 2) }} />)}
+            <div className="pqz-gridhead" style={{ left: mm(9), top: mm(5.2) }}>Odgovori — pobarvaj krogec{sh.layout.choice.some(c => c.item.multi) ? ' · pri številki s + je pravilnih več' : ''}</div>
+            {g.cells.map(c => (
+              <div key={c.n}>
+                <span className="pqz-n" style={{ left: mm(c.x), top: mm(c.y), width: mm(6), height: mm(6.8) }}>{c.n}{c.multi ? '+' : ''}</span>
+                {c.bubbles.map(b => (
+                  <span key={b.letter} className="pqz-bub" style={{ left: mm(b.cx - g.bub / 2), top: mm(b.cy - g.bub / 2), width: mm(g.bub), height: mm(g.bub) }}>{b.letter}</span>
+                ))}
+              </div>
+            ))}
+            {g.qr && sh.qr && <img className="pqz-qr" src={sh.qr} alt="" style={{ left: mm(g.qr.x), top: mm(g.qr.y), width: mm(g.qr.size), height: mm(g.qr.size) }} />}
+          </div>
+        );
+      })()}
+
+      {(['choice', 'free'] as const).map(g => sh.layout[g].length > 0 && (
+        <ol className={`pqz-list${g === 'choice' ? ' pqz-cols2' : ''}`} key={g} style={{ listStyle: 'none', padding: 0 }}>
+          {sh.layout[g].map(c => {
+            const inline = c.item.choice && c.options.length > 0 && c.options.every(o => o.text.length <= 18) && c.options.reduce((n, o) => n + o.text.length, 0) <= 56;
+            return (
+              <li className={`pqz-item${g === 'choice' ? ' pqz-c' : ''}`} key={c.n}>
+                <div className="pqz-q"><b>{c.n}.</b><Rich html={c.item.html} /></div>
+                {c.item.choice
+                  ? <div className={inline ? 'pqz-opts pqz-inline' : 'pqz-opts'}>{c.options.map(o => <div key={o.letter}><b>{o.letter})</b> {o.text}</div>)}</div>
+                  : <div className="pqz-free" style={{ height: `${c.item.space}mm` }} />}
+              </li>
+            );
+          })}
+        </ol>
+      ))}
+    </section>
   );
 }
