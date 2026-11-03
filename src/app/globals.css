@@ -184,8 +184,8 @@ body {
   .pqz-qr { width: 22mm; height: 22mm; flex: none; image-rendering: pixelated; }
   .pqz-list { margin: 0 0 2mm; }
   .pqz-cols2 { column-count: 2; column-gap: 8mm; }
-  .pqz-item { margin-bottom: 2.5mm; break-inside: avoid; }
-  .pqz-item.pqz-c { margin-bottom: 1.2mm; }
+  .pqz-item { margin-bottom: 5mm; break-inside: avoid; }
+  .pqz-item.pqz-c { margin-bottom: 3.5mm; }
   .pqz-q { display: flex; gap: 1.5mm; }
   .pqz-q .rich-content { flex: 1; }
   .pqz-q .rich-content p { margin: 0 0 .5mm; }
