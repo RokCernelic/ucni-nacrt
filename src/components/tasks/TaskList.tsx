@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useTasks } from '@/hooks/useTasks';
 import { useTaskSelection } from '@/hooks/useTaskSelection';
-import type { Task, TaskDraft } from '@/lib/tasks/types';
+import { isChoice, correctIds, LETTERS, type Task, type TaskDraft } from '@/lib/tasks/types';
 import { nestUnderParents, isNested } from '@/lib/tasks/order';
 import { offerUndo } from '@/lib/undoStore';
 import { GEN_GROUPS } from '@/lib/tasks/genOptions';
@@ -92,11 +92,11 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
                 <span style={{ color: 'var(--muted)', minWidth: '18px', fontVariantNumeric: 'tabular-nums' }}>{nested ? '↳' : `${num}.`}</span>
                 <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <Rich html={t.body} />
-                  {(t.answer_kind === 'mc' || t.answer_kind === 'tf') && t.options && (
+                  {isChoice(t.answer_kind) && t.options && (
                     <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', fontSize: '12px' }}>
                       {t.options.map((o, oi) => (
-                        <span key={o.id} style={{ color: o.id === t.correct ? 'var(--green-ok)' : 'var(--muted)', fontWeight: o.id === t.correct ? 600 : 400 }}>
-                          {'ABCDEF'[oi]}) {o.text}
+                        <span key={o.id} style={{ color: correctIds(t).includes(o.id) ? 'var(--green-ok)' : 'var(--muted)', fontWeight: correctIds(t).includes(o.id) ? 600 : 400 }}>
+                          {LETTERS[oi]}) {o.text}
                         </span>
                       ))}
                     </div>

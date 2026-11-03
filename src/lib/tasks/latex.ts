@@ -2,11 +2,11 @@
  * Izvoz nalog v LaTeX (.tex) v obliki zbirke nalog (okolje `naloga` z oznakami), ki jo bere tudi uvoz.
  * Isti model (skupine, oznake, oštevilčenje) uporablja LaTeX-videz tiska (PrintTasks).
  */
-import { BLOOM, KINDS, type Task } from './types';
+import { BLOOM, KINDS, isChoice, correctIds, type Task } from './types';
 import { chapterInfo, topicInfo } from './topics';
 import { orderTasks, groupTasks, placeOf, type TaskGroup } from './order';
 
-export const OPTION_LETTERS = ['a', 'b', 'c', 'č', 'd', 'e', 'f'];
+export const OPTION_LETTERS = ['a', 'b', 'c', 'č', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k'];
 
 // ───────────────────────── oznake (isti vir za tisk in izvoz) ─────────────────────────
 
@@ -30,7 +30,7 @@ const TIP_NAME: Record<string, string> = {
 export function tipOf(t: Pick<Task, 'kinds' | 'answer_kind'>): string {
   if (t.kinds.includes('racunska') && t.kinds.includes('besedilna')) return 'kombinirana';
   if (t.kinds.length) return TIP_NAME[t.kinds[0]] ?? KINDS.find(k => k.id === t.kinds[0])?.name ?? '';
-  if (t.answer_kind === 'mc' || t.answer_kind === 'tf') return 'izbira';
+  if (isChoice(t.answer_kind)) return 'izbira';
   return '';
 }
 
@@ -72,9 +72,9 @@ export function metaLine(t: Task): string {
 
 /** Besedilo odgovora (rešitev) kot navadno besedilo — za tisk z rešitvami in izvoz. */
 export function correctText(t: Task): string {
-  if ((t.answer_kind === 'mc' || t.answer_kind === 'tf') && t.options) {
-    const i = t.options.findIndex(o => o.id === t.correct);
-    return i >= 0 ? `${OPTION_LETTERS[i]}) ${t.options[i].text}` : '';
+  if (isChoice(t.answer_kind) && t.options) {
+    const ids = correctIds(t);
+    return t.options.map((o, i) => (ids.includes(o.id) ? `${OPTION_LETTERS[i]}) ${o.text}` : '')).filter(Boolean).join(', ');
   }
   if (t.answer_kind === 'numeric' && t.correct) {
     return `${t.correct}${t.tolerance ? ` ± ${String(t.tolerance).replace('.', ',')}` : ''}${t.unit ? ` ${t.unit}` : ''}`;
@@ -364,7 +364,7 @@ export function buildTex(tasks: Task[], opts: TexOptions, fileBase = 'naloge'): 
           ...(m.teme.length ? [keyVal('teme', m.teme.join(', '))] : []),
         ].join(', ');
         const parts = [htmlToTex(t.body, ctx)];
-        if ((t.answer_kind === 'mc' || t.answer_kind === 'tf') && t.options?.length) {
+        if (isChoice(t.answer_kind) && t.options?.length) {
           parts.push(`\\moznosti{${t.options.map((o, i) => `${OPTION_LETTERS[i]}) ${escapeTex(o.text)}`).join(', ')}}`);
         }
         const sol: string[] = [];

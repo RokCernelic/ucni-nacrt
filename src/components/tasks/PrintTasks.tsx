@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal, flushSync } from 'react-dom';
-import type { Task } from '@/lib/tasks/types';
+import { isChoice, type Task } from '@/lib/tasks/types';
 import { questionsLabel } from '@/lib/quiz/format';
 import { exportTasksTex } from '@/lib/tasks/exportTex';
 import { OPTION_LETTERS } from '@/lib/tasks/latex';
@@ -14,7 +14,7 @@ import { Rich, TaskAnswer, btn } from './ui';
  */
 const HALF = { w: 170, h: 119.5 } as const;
 
-const isChoice = (t: Task) => (t.answer_kind === 'mc' || t.answer_kind === 'tf') && !!t.options;
+const isChoiceTask = (t: Task) => isChoice(t.answer_kind) && !!t.options;
 
 /**
  * Zaporedne izbirne naloge (ABCD, drži/ne drži) gredo v dva stolpca, ostale čez celo širino;
@@ -23,7 +23,7 @@ const isChoice = (t: Task) => (t.answer_kind === 'mc' || t.answer_kind === 'tf')
 function runsOf(tasks: Task[]): { cols: boolean; start: number; tasks: Task[] }[] {
   const out: { cols: boolean; start: number; tasks: Task[] }[] = [];
   tasks.forEach((t, i) => {
-    const c = isChoice(t);
+    const c = isChoiceTask(t);
     const last = out[out.length - 1];
     if (last && (last.cols === c || (!c && !last.cols))) last.tasks.push(t);
     else if (last && c && !last.cols) out.push({ cols: true, start: i + 1, tasks: [t] });
@@ -42,7 +42,7 @@ function CompactList({ tasks }: { tasks: Task[] }) {
           <div className="cp-item" key={t.id}>
             <span className="cp-num">{r.start + k}.</span>
             <Rich html={t.body} />
-            {(t.answer_kind === 'mc' || t.answer_kind === 'tf') && t.options && (
+            {isChoice(t.answer_kind) && t.options && (
               <p className="cp-options">{t.options.map((o, j) => `${OPTION_LETTERS[j]}) ${o.text}`).join(', ')}</p>
             )}
           </div>
@@ -178,7 +178,7 @@ export default function PrintTasks({ tasks, title }: { tasks: Task[]; title: str
             {r.tasks.map(t => (
               <li key={t.id} className="pq-item">
                 <Rich html={t.body} />
-                {(t.answer_kind === 'mc' || t.answer_kind === 'tf') && t.options && (
+                {isChoice(t.answer_kind) && t.options && (
                   <ol className="pq-options">{t.options.map(o => <li key={o.id}>{o.text}</li>)}</ol>
                 )}
                 {withAnswers ? (

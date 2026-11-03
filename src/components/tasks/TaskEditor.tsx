@@ -5,23 +5,22 @@ import RichField from '@/components/RichField';
 import { isRichEmpty, sanitizeRichHtml } from '@/lib/richText';
 import { parseNumber } from '@/lib/quiz/scoring';
 import {
-  BLOOM, DIFFICULTY, KINDS, ANSWER_KINDS, SOURCES, emptyTask,
+  BLOOM, DIFFICULTY, KINDS, ANSWER_KINDS, SOURCES, emptyTask, isChoice, correctIds, LETTERS,
   type TaskDraft, type AnswerKind, type TaskKind,
 } from '@/lib/tasks/types';
 import { splitChoices, stripDuplicateChoices } from '@/lib/tasks/choices';
 import { topicsOf, topicInfo, topicLabel, chapterInfo, allCurricula } from '@/lib/tasks/topics';
 import { Chip, btn, tinyLabel, input } from './ui';
 
-const LETTERS = 'ABCDEF';
 const uid = () => crypto.randomUUID();
 
 function problemsOf(t: TaskDraft): string[] {
   const p: string[] = [];
   if (isRichEmpty(t.body)) p.push('vpiši besedilo naloge');
-  if (t.answer_kind === 'mc' || t.answer_kind === 'tf') {
+  if (isChoice(t.answer_kind)) {
     const filled = (t.options ?? []).filter(o => o.text.trim());
     if (filled.length < 2) p.push('potrebni sta vsaj 2 možnosti');
-    if (!t.correct || !filled.some(o => o.id === t.correct)) p.push('označi pravilno možnost');
+    if (!correctIds(t).some(id => filled.some(o => o.id === id))) p.push(t.answer_kind === 'multi' ? 'označi vsaj eno pravilno možnost' : 'označi pravilno možnost');
   }
   if (t.answer_kind === 'numeric' && parseNumber(t.correct ?? '') === null) p.push('vpiši pravilno številsko vrednost');
   return p;
@@ -57,13 +56,17 @@ export default function TaskEditor({ initial, fixedTopic, onSave, onCancel }: {
 
   const setKind = (k: AnswerKind) => {
     if (k === 'tf') up({ answer_kind: k, options: [{ id: uid(), text: 'Drži' }, { id: uid(), text: 'Ne drži' }], correct: null });
-    else if (k === 'mc') {
-      const keep = t.answer_kind === 'mc' && t.options;
+    else if (k === 'mc' || k === 'multi') {
+      const keep = (t.answer_kind === 'mc' || t.answer_kind === 'multi') && t.options;
       const hasText = (t.options ?? []).some(o => o.text.trim());
       // besedilo že vsebuje »A) … B) …« in polja za možnosti so prazna → možnosti preselimo v polja (nič se ne izgubi)
       const sp = !hasText ? splitChoices(t.body) : null;
       if (sp) up({ answer_kind: k, body: sp.stem, options: sp.options.map(text => ({ id: uid(), text })), correct: null });
-      else up({ answer_kind: k, options: keep ? t.options : [0, 1, 2, 3].map(() => ({ id: uid(), text: '' })), correct: keep ? t.correct : null });
+      else {
+        // mc ↔ multi: pravilne možnosti ostanejo (multi → mc obdrži prvo)
+        const ids = keep ? correctIds(t) : [];
+        up({ answer_kind: k, options: keep ? t.options : [0, 1, 2, 3].map(() => ({ id: uid(), text: '' })), correct: !ids.length ? null : k === 'multi' ? ids.join(',') : ids[0] });
+      }
     }
     else up({ answer_kind: k, options: null, correct: k === 'numeric' ? (t.answer_kind === 'numeric' ? t.correct : '') : null });
   };
@@ -108,19 +111,19 @@ export default function TaskEditor({ initial, fixedTopic, onSave, onCancel }: {
         </div>
       </Field>
 
-      <Field label={t.answer_kind === 'mc' || t.answer_kind === 'tf' ? 'Vprašanje (možnosti A–D so spodaj)' : 'Besedilo naloge'}>
-        <RichField value={t.body} onChange={v => up({ body: v })} minHeight={t.answer_kind === 'mc' || t.answer_kind === 'tf' ? 40 : 70} allowImage onSubmit={() => void save()}
+      <Field label={isChoice(t.answer_kind) ? 'Vprašanje (možnosti A–D so spodaj)' : 'Besedilo naloge'}>
+        <RichField value={t.body} onChange={v => up({ body: v })} minHeight={isChoice(t.answer_kind) ? 40 : 70} allowImage onSubmit={() => void save()}
           placeholder="Besedilo naloge … (prilepi lahko iz Worda — enačbe, ulomki, x², √ ostanejo; slika = skica)" />
       </Field>
 
-      {(t.answer_kind === 'mc' || t.answer_kind === 'tf') && (
-        <Field label="Možnosti — označi pravilno">
+      {isChoice(t.answer_kind) && (
+        <Field label={t.answer_kind === 'multi' ? 'Možnosti — označi vse pravilne (lahko jih je več)' : 'Možnosti — označi pravilno'}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
             {(t.options ?? []).map((o, i) => {
-              const right = t.correct === o.id;
+              const right = correctIds(t).includes(o.id);
               return (
                 <div key={o.id} style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                  <button type="button" onClick={() => up({ correct: o.id })} title={right ? 'Pravilen odgovor' : 'Označi kot pravilen'}
+                  <button type="button" onClick={() => up({ correct: t.answer_kind === 'multi' ? (right ? correctIds(t).filter(x => x !== o.id) : [...correctIds(t), o.id]).join(',') || null : o.id })} title={right ? 'Pravilen odgovor' : 'Označi kot pravilen'}
                     style={{ width: '28px', height: '28px', flexShrink: 0, borderRadius: '50%', cursor: 'pointer', fontSize: '12px', fontWeight: 700,
                       border: `2px solid ${right ? 'var(--green-ok)' : 'var(--hairline)'}`, background: right ? 'var(--green-ok)' : 'transparent', color: right ? '#fff' : 'var(--muted)' }}>
                     {right ? '✓' : LETTERS[i]}
@@ -128,14 +131,14 @@ export default function TaskEditor({ initial, fixedTopic, onSave, onCancel }: {
                   <input value={o.text} disabled={t.answer_kind === 'tf'} placeholder={`Možnost ${LETTERS[i]}`}
                     onChange={e => up({ options: t.options!.map(x => (x.id === o.id ? { ...x, text: e.target.value } : x)) })}
                     style={{ ...input, flex: 1, borderColor: right ? 'var(--green-ok)' : 'var(--hairline)' }} />
-                  {t.answer_kind === 'mc' && t.options!.length > 2 && (
-                    <button type="button" onClick={() => up({ options: t.options!.filter(x => x.id !== o.id), correct: right ? null : t.correct })}
+                  {(t.answer_kind === 'mc' || t.answer_kind === 'multi') && t.options!.length > 2 && (
+                    <button type="button" onClick={() => up({ options: t.options!.filter(x => x.id !== o.id), correct: t.answer_kind === 'multi' ? (correctIds(t).filter(x => x !== o.id).join(',') || null) : right ? null : t.correct })}
                       style={{ ...btn(), padding: '4px 8px', color: '#c0392b' }}>×</button>
                   )}
                 </div>
               );
             })}
-            {t.answer_kind === 'mc' && (t.options?.length ?? 0) < 6 && (
+            {(t.answer_kind === 'mc' ? (t.options?.length ?? 0) < 6 : t.answer_kind === 'multi' && (t.options?.length ?? 0) < LETTERS.length) && (
               <button type="button" onClick={() => up({ options: [...(t.options ?? []), { id: uid(), text: '' }] })} style={{ ...btn(), alignSelf: 'flex-start' }}>+ Možnost</button>
             )}
           </div>

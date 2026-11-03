@@ -1,6 +1,6 @@
 /** Baza nalog (supabase/migrations/20261006120000_naloge.sql). */
 
-export type AnswerKind = 'mc' | 'tf' | 'numeric' | 'short' | 'open';
+export type AnswerKind = 'mc' | 'multi' | 'tf' | 'numeric' | 'short' | 'open';
 export type Difficulty = 1 | 2 | 3;
 export type BloomLevel = 1 | 2 | 3 | 4 | 5 | 6;
 export type TaskKind = 'racunska' | 'besedilna' | 'graficna' | 'skica' | 'eksperimentalna' | 'povezovanje';
@@ -69,8 +69,16 @@ export const KINDS: { id: TaskKind; name: string }[] = [
   { id: 'povezovanje', name: 'povezovanje / razvrščanje' },
 ];
 
+/** Izbirne oblike (možnosti A, B, C …): ena pravilna (mc), več pravilnih (multi), drži / ne drži (tf). */
+export const isChoice = (k: AnswerKind) => k === 'mc' || k === 'multi' || k === 'tf';
+/** Id-ji pravilnih možnosti (multi: v `correct` ločeni z vejico). */
+export const correctIds = (t: { answer_kind: AnswerKind; correct: string | null }): string[] =>
+  t.answer_kind === 'multi' ? (t.correct ?? '').split(',').filter(Boolean) : t.correct ? [t.correct] : [];
+export const LETTERS = 'ABCDEFGHIJKL';
+
 export const ANSWER_KINDS: { id: AnswerKind; name: string; quiz: boolean }[] = [
   { id: 'mc', name: 'izbirno (A–F)', quiz: true },
+  { id: 'multi', name: 'več možnosti', quiz: false },
   { id: 'tf', name: 'drži / ne drži', quiz: true },
   { id: 'numeric', name: 'številsko', quiz: true },
   { id: 'short', name: 'kratek odgovor', quiz: false },

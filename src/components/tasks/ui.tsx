@@ -1,7 +1,7 @@
 'use client';
 
 import { sanitizeRichHtml } from '@/lib/richText';
-import { BLOOM, DIFFICULTY, KINDS, ANSWER_KINDS, type Task } from '@/lib/tasks/types';
+import { BLOOM, DIFFICULTY, KINDS, ANSWER_KINDS, isChoice, correctIds, type Task } from '@/lib/tasks/types';
 import { topicLabel, chapterInfo } from '@/lib/tasks/topics';
 
 export const btn = (primary = false): React.CSSProperties => ({
@@ -60,10 +60,10 @@ export function TaskBadges({ task, showTopics = true, hideTopic, hideChapter }: 
 
 /** Odgovor naloge v berljivi obliki (za seznam in tisk z rešitvami). */
 export function TaskAnswer({ task }: { task: Task }) {
-  const opt = task.options?.find(o => o.id === task.correct);
+  const right = task.options?.filter(o => correctIds(task).includes(o.id)) ?? [];
   return (
     <>
-      {(task.answer_kind === 'mc' || task.answer_kind === 'tf') && opt && <span>{opt.text}</span>}
+      {isChoice(task.answer_kind) && right.length > 0 && <span>{right.map(o => o.text).join('; ')}</span>}
       {task.answer_kind === 'numeric' && task.correct && (
         <span>{task.correct}{task.tolerance ? ` ± ${String(task.tolerance).replace('.', ',')}` : ''}{task.unit ? ` ${task.unit}` : ''}</span>
       )}

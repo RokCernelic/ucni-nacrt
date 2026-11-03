@@ -29,7 +29,7 @@ export function splitChoices(html: string): { stem: string; options: string[] } 
 
 /** Možnosti A–D v besedilu so že tudi v poljih za možnosti → vrne nalogo brez podvojenega seznama v besedilu (sicer null). */
 export function stripDuplicateChoices<T extends Pick<TaskDraft, 'answer_kind' | 'options' | 'body'>>(t: T): T | null {
-  if (t.answer_kind !== 'mc' || !t.options?.length) return null;
+  if ((t.answer_kind !== 'mc' && t.answer_kind !== 'multi') || !t.options?.length) return null;
   const sp = splitChoices(t.body);
   if (!sp || sp.options.length !== t.options.length) return null;
   if (!sp.options.every((o, i) => norm(o) === norm(t.options![i].text))) return null;

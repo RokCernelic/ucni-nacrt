@@ -13,7 +13,7 @@ const cleanHtml = (h: string) => h
   .replace(/javascript:/gi, '');
 
 const MODEL = 'claude-sonnet-5-5';
-const ANSWER_KINDS: AnswerKind[] = ['mc', 'tf', 'numeric', 'short', 'open'];
+const ANSWER_KINDS: AnswerKind[] = ['mc', 'multi', 'tf', 'numeric', 'short', 'open'];
 const KIND_IDS: TaskKind[] = ['racunska', 'besedilna', 'graficna', 'skica', 'eksperimentalna', 'povezovanje'];
 
 const SIMILAR_SYSTEM = 'Si slovenski učitelj naravoslovja in tehnike v osnovni šoli. Pišeš naloge v lepi slovenščini, primerne za učence, strokovno pravilne. ' +
@@ -44,8 +44,9 @@ const tool: Anthropic.Tool = {
       standard_ids: { type: 'array', items: { type: 'string' }, description: 'ID-ji standardov izbranega podpoglavja, ki jih nova naloga preverja (natančno kot v seznamu).' },
       body: { type: 'string', description: 'Besedilo nove naloge kot preprost HTML (<p>, <b>, <i>, <sub>, <sup>, <ul>/<ol>/<li>, <br>). Brez LaTeXa, brez slik. Podnaloge a), b), c) v svojih <p> z <b>a)</b>.' },
       answer_kind: { type: 'string', enum: ANSWER_KINDS },
-      options: { type: 'array', items: { type: 'string' }, description: 'Besedila možnosti (samo za mc; za tf pusti prazno).' },
+      options: { type: 'array', items: { type: 'string' }, description: 'Besedila možnosti (za mc in multi; za tf pusti prazno).' },
       correct_index: { type: ['integer', 'null'], description: 'Indeks pravilne možnosti (mc: 0 = A …; tf: 0 = Drži, 1 = Ne drži).' },
+      correct_indices: { type: 'array', items: { type: 'integer' }, description: 'Indeksi vseh pravilnih možnosti (samo za multi; 0 = A).' },
       correct_numeric: { type: ['string', 'null'], description: 'Pravilna številska vrednost (samo za numeric), npr. "42,5".' },
       unit: { type: ['string', 'null'] },
       tolerance: { type: ['number', 'null'], description: 'Dovoljen odmik za numeric (absolutni), sicer null.' },
@@ -128,6 +129,10 @@ export async function POST(request: Request) {
     if (kind === 'mc') {
       options = optTexts.map(text => ({ id: crypto.randomUUID(), text }));
       correct = ci !== null && options[ci] ? options[ci].id : null;
+    } else if (kind === 'multi') {
+      options = optTexts.map(text => ({ id: crypto.randomUUID(), text }));
+      const idx = Array.isArray(o.correct_indices) ? (o.correct_indices as unknown[]).filter((n): n is number => typeof n === 'number') : [];
+      correct = idx.map(i => options![i]?.id).filter(Boolean).join(',') || null;
     } else if (kind === 'tf') {
       options = [{ id: crypto.randomUUID(), text: 'Drži' }, { id: crypto.randomUUID(), text: 'Ne drži' }];
       correct = ci === 0 || ci === 1 ? options[ci].id : null;
@@ -159,7 +164,7 @@ export async function POST(request: Request) {
       const sameKind = keepKind || draft.answer_kind === (src.answer_kind ?? 'open');
       const filled = (v: string | null | undefined) => !!v && v.replace(/<[^>]*>/g, '').trim() !== '';
       Object.assign(draft, {
-        body: draft.answer_kind === 'mc' && src.answer_kind !== 'mc' ? draft.body : src.body,
+        body: (draft.answer_kind === 'mc' || draft.answer_kind === 'multi') && src.answer_kind !== 'mc' && src.answer_kind !== 'multi' ? draft.body : src.body,
         answer_kind: keepKind ? src.answer_kind : draft.answer_kind,
         options: sameKind && src.options?.length ? src.options : draft.options,
         correct: sameKind && src.correct ? src.correct : draft.correct,
