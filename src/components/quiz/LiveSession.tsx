@@ -5,7 +5,7 @@ import Link from 'next/link';
 import QRCode from 'qrcode';
 import { useAuth } from '@/hooks/useAuth';
 import {
-  loadSession, updateSession, resolveDevice, joinChannel, isLive, TEACHER_NAME,
+  loadSession, updateSession, resolveDevice, joinChannel, isLive, participated, TEACHER_NAME,
   type QuizSession, type SessionStudent, type SessionAnswer,
 } from '@/lib/quiz/sessionApi';
 import { isCorrect, answerStatus, scoreAnswers, parseNumber } from '@/lib/quiz/scoring';
@@ -160,7 +160,7 @@ function SessionResults({ session, students, answers, teacher, teacherAnswers }:
 }) {
   const [sortBy, setSortBy] = useState<'name' | 'points'>('name');
   const questions = session.quiz.questions;
-  const joinedCount = students.filter(s => s.device_id).length;
+  const joinedCount = students.filter(participated).length;
 
   const answersByStudent = useMemo(() => {
     const m = new Map<string, Record<string, string>>();
@@ -185,7 +185,7 @@ function SessionResults({ session, students, answers, teacher, teacherAnswers }:
   const avgPct = rows.length ? Math.round(rows.reduce((s, r) => s + r.sc.percent, 0) / rows.length) : 0;
 
   const exportCsv = () => {
-    const csv = sessionResultsCsv(session.quiz, students.map(s => ({ name: s.name, participated: !!s.device_id, answers: answersByStudent.get(s.student_id) ?? {} })));
+    const csv = sessionResultsCsv(session.quiz, students.map(s => ({ name: s.name, participated: participated(s), answers: answersByStudent.get(s.student_id) ?? {} })));
     const date = new Date(session.ended_at ?? session.created_at).toISOString().slice(0, 10);
     downloadCsv(`${safeFilename(session.quiz_title, session.class_name, date)}.csv`, csv);
   };
@@ -220,8 +220,8 @@ function SessionResults({ session, students, answers, teacher, teacherAnswers }:
             <th style={{ padding: '8px 6px' }}>Pravilno / narobe / brez</th>
           </tr></thead>
           <tbody>{rows.map(({ s, sc }) => (
-            <tr key={s.student_id} style={{ borderTop: '1px solid var(--hairline)', color: s.device_id ? 'var(--ink)' : 'var(--muted)' }}>
-              <td style={{ padding: '8px 6px' }}>{s.name}{!s.device_id && ' (ni sodeloval)'}</td>
+            <tr key={s.student_id} style={{ borderTop: '1px solid var(--hairline)', color: participated(s) ? 'var(--ink)' : 'var(--muted)' }}>
+              <td style={{ padding: '8px 6px' }}>{s.name}{!participated(s) && ' (ni sodeloval)'}</td>
               <td style={{ padding: '8px 6px', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(sc.points)} / {formatNumber(sc.maxPoints)}</td>
               <td style={{ padding: '8px 6px', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(sc.percent)} %</td>
               <td style={{ padding: '8px 6px', fontVariantNumeric: 'tabular-nums' }}>
@@ -255,7 +255,7 @@ function SessionResults({ session, students, answers, teacher, teacherAnswers }:
               </tr></thead>
               <tbody>{rows.map(({ s, ans }) => (
                 <tr key={s.student_id}>
-                  <td style={{ position: 'sticky', left: 0, background: '#fff', padding: '6px 12px', borderBottom: '1px solid var(--hairline)', whiteSpace: 'nowrap', color: s.device_id ? 'var(--ink)' : 'var(--muted)' }}>{s.name}</td>
+                  <td style={{ position: 'sticky', left: 0, background: '#fff', padding: '6px 12px', borderBottom: '1px solid var(--hairline)', whiteSpace: 'nowrap', color: participated(s) ? 'var(--ink)' : 'var(--muted)' }}>{s.name}</td>
                   {questions.map(q => {
                     const st = answerStatus(q, ans[q.id]);
                     const sym = st === 'correct' ? '✓' : st === 'wrong' ? '✗' : '–';

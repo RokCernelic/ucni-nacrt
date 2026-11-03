@@ -175,8 +175,9 @@ export default function Nav() {
 
         {onQuizzes && !loading && user && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '8px' }}>
-            <Link href="/kvizi" style={pill(!path.startsWith('/kvizi/naloge'))}>Kvizi</Link>
+            <Link href="/kvizi" style={pill(!path.startsWith('/kvizi/naloge') && !path.startsWith('/kvizi/statistika'))}>Kvizi</Link>
             <Link href="/kvizi/naloge" style={pill(path.startsWith('/kvizi/naloge'))}>Baza nalog</Link>
+            <Link href="/kvizi/statistika" style={pill(path.startsWith('/kvizi/statistika'))}>Statistika</Link>
           </div>
         )}
         {onStudents && !loading && user && <Suspense fallback={null}><StudentRows path={path} /></Suspense>}

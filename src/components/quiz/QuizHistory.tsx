@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuizLibrary } from '@/hooks/useQuizLibrary';
-import { loadQuizHistory, isLive, type QuizSession } from '@/lib/quiz/sessionApi';
+import { loadQuizHistory, isLive, participated, type QuizSession } from '@/lib/quiz/sessionApi';
 import { scoreAnswers } from '@/lib/quiz/scoring';
 import { studentsLabel } from '@/lib/quiz/format';
 
@@ -15,7 +15,9 @@ function fmtDate(iso: string) {
 type HistoryData = Awaited<ReturnType<typeof loadQuizHistory>>;
 
 /** Čist prikaz (brez omrežja) — ločeno, da ga je mogoče preizkusiti neodvisno od Supabase/prijave. */
-export function QuizHistoryBody({ quizTitle, data }: { quizTitle: string; data: HistoryData }) {
+export function QuizHistoryBody({ quizTitle, data, back = { href: '/kvizi', label: '← Kvizi' }, note }: {
+  quizTitle: string; data: HistoryData; back?: { href: string; label: string }; note?: string;
+}) {
   // seje, ki še tečejo, so na strani Kvizi pod »Aktivne seje«
   const sessions = data.sessions.filter(s => !isLive(s));
   const avgPercentFor = (sessionId: string) => {
@@ -23,7 +25,7 @@ export function QuizHistoryBody({ quizTitle, data }: { quizTitle: string; data: 
     const a = data.answersBySession.get(sessionId) ?? [];
     const byStudent = new Map<string, Record<string, string>>();
     for (const x of a) byStudent.set(x.student_id, { ...(byStudent.get(x.student_id) ?? {}), [x.question_id]: x.value });
-    const joined = s.filter(x => x.device_id);
+    const joined = s.filter(participated);
     if (!joined.length) return null;
     const session = sessions.find(x => x.id === sessionId)!;
     const pct = joined.reduce((sum, st) => sum + scoreAnswers(session.quiz, byStudent.get(st.student_id) ?? {}).percent, 0) / joined.length;
@@ -50,9 +52,10 @@ export function QuizHistoryBody({ quizTitle, data }: { quizTitle: string; data: 
     <div>
       <div style={{ background: 'var(--forest)', padding: '28px 32px 24px' }}>
         <div style={{ maxWidth: '900px', margin: '0 auto', width: '100%' }}>
-          <Link href="/kvizi" style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'rgba(255,255,255,0.6)', textDecoration: 'none' }}>← Kvizi</Link>
+          <Link href={back.href} style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'rgba(255,255,255,0.6)', textDecoration: 'none' }}>{back.label}</Link>
           <p style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', margin: '10px 0 6px' }}>Zgodovina kviza</p>
           <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(28px,4vw,42px)', fontWeight: 300, color: '#fff', lineHeight: 1 }}>{quizTitle}</h1>
+          {note && <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'rgba(255,255,255,0.6)', margin: '8px 0 0' }}>{note}</p>}
         </div>
       </div>
 
@@ -82,7 +85,7 @@ export function QuizHistoryBody({ quizTitle, data }: { quizTitle: string; data: 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {sessions.map(s => {
                 const students = data.studentsBySession.get(s.id) ?? [];
-                const joined = students.filter(x => x.device_id).length;
+                const joined = students.filter(participated).length;
                 const pct = avgPercentFor(s.id);
                 return (
                   <Link key={s.id} href={`/kvizi/seja/${s.id}`} style={{ ...card, display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', textDecoration: 'none' }}>
@@ -91,7 +94,7 @@ export function QuizHistoryBody({ quizTitle, data }: { quizTitle: string; data: 
                         {fmtDate(s.created_at)}
                       </div>
                       <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '2px' }}>
-                        {s.class_name} · {s.mode === 'teacher' ? 'vodi učitelj' : 'vsak sam'}
+                        {s.class_name} · {(s as QuizSession & { paper?: unknown }).paper ? 'natisnjen (skener)' : s.mode === 'teacher' ? 'vodi učitelj' : 'vsak sam'}
                       </div>
                     </div>
                     <div style={{ fontSize: '13px', color: 'var(--muted)' }}>{studentsLabel(joined)} sodelovalo</div>

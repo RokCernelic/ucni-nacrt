@@ -162,6 +162,32 @@ export async function loadQuizHistory(quizId: string) {
   return { sessions, studentsBySession, answersBySession };
 }
 
+/** Ali je učenec sodeloval: povezal napravo (kviz v živo) ali oddal odgovore (natisnjen kviz, skener). */
+export const participated = (s: { device_id: string | null; submitted_at: string | null }) => !!s.device_id || !!s.submitted_at;
+
+/** Vse seje učitelja (tudi za kvize, ki so že izbrisani — posnetek vprašanj je v seji). */
+export async function loadAllHistory() {
+  const sb = getSupabaseBrowserClient();
+  const { data, error } = await sb.from('quiz_sessions').select('*').order('created_at', { ascending: false });
+  if (error) throw new Error(error.message);
+  const sessions = (data ?? []) as QuizSession[];
+  const ids = sessions.map(s => s.id);
+  const studentsBySession = new Map<string, SessionStudent[]>();
+  const answersBySession = new Map<string, SessionAnswer[]>();
+  for (let i = 0; i < ids.length; i += 100) {
+    const chunk = ids.slice(i, i + 100);
+    const [st, a] = await Promise.all([
+      sb.from('quiz_session_students').select('*').in('session_id', chunk),
+      sb.from('quiz_answers').select('*').in('session_id', chunk),
+    ]);
+    if (st.error) throw new Error(st.error.message);
+    if (a.error) throw new Error(a.error.message);
+    for (const x of ((st.data ?? []) as SessionStudent[]).filter(x => !isTeacherRow(x))) studentsBySession.set(x.session_id, [...(studentsBySession.get(x.session_id) ?? []), x]);
+    for (const x of ((a.data ?? []) as SessionAnswer[]).filter(x => !isTeacherRow(x))) answersBySession.set(x.session_id, [...(answersBySession.get(x.session_id) ?? []), x]);
+  }
+  return { sessions, studentsBySession, answersBySession };
+}
+
 export interface ActiveSession {
   session: QuizSession;
   joined: number;
