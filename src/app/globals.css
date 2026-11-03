@@ -168,12 +168,10 @@ body {
 @media print {
   .pqz-sheet { position: relative; box-sizing: border-box; width: 210mm; min-height: 276mm; padding: 0 16mm; break-after: page; page-break-after: always; font-size: 10pt; line-height: 1.25; }
   .pqz-sheet:last-child { break-after: auto; page-break-after: auto; }
-  .pqz-head { display: grid; grid-template-columns: 1fr auto 1fr; align-items: baseline; gap: 5mm; white-space: nowrap; border-bottom: .3mm solid #000; padding-bottom: 1.5mm; margin-bottom: 3mm; }
-  .pqz-left { overflow: hidden; text-overflow: ellipsis; }
-  .pqz-class { font-size: 12pt; font-weight: 700; text-align: center; }
+  .pqz-head { display: flex; align-items: baseline; gap: 5mm; white-space: nowrap; overflow: hidden; border-bottom: .3mm solid #000; padding-bottom: 1.5mm; margin-bottom: 3mm; }
   .pqz-title { font-size: 10pt; color: #444; font-weight: 600; }
-  .pqz-name { font-size: 13pt; font-weight: 700; margin-left: 3mm; }
-  .pqz-meta { font-size: 9.5pt; color: #444; text-align: right; }
+  .pqz-name { font-size: 13pt; font-weight: 700; flex: 1; overflow: hidden; text-overflow: ellipsis; }
+  .pqz-meta { font-size: 9.5pt; color: #444; }
   .pqz-grid { position: relative; box-sizing: border-box; border: .3mm solid #999; margin-bottom: 4mm; }
   .pqz-grid > * , .pqz-grid > div > * { position: absolute; }
   .pqz-grid > div:not(.pqz-gridhead) { position: static; }

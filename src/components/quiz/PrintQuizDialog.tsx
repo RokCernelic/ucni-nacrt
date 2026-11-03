@@ -149,9 +149,9 @@ export function QuizSheet({ sheet: sh, title, className }: { sheet: Sheet; title
   return (
     <section className="pqz-sheet">
       <header className="pqz-head">
-        <span className="pqz-left"><b className="pqz-title">{title}</b> <span className="pqz-name">{sh.name ?? 'Ime in priimek: ____________________'}</span></span>
-        <span className="pqz-class">{sh.name ? (cls?.name ?? '') : 'Razred: ______'}</span>
-        <span className="pqz-meta">{todayLabel()}</span>
+        <b className="pqz-title">{title}</b>
+        <span className="pqz-name">{sh.name ?? 'Ime in priimek: ______________________'}</span>
+        <span className="pqz-meta">{sh.name ? (cls ? `${cls.name} · ` : '') : 'Razred: ______ · '}{todayLabel()}</span>
       </header>
 
       {(sh.layout.choice.length > 0 || sh.qr) && (() => {
