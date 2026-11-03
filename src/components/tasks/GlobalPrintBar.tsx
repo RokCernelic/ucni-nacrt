@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useQuizLibrary } from '@/hooks/useQuizLibrary';
 import { tasksToQuestions, htmlToPlain } from '@/lib/tasks/toQuiz';
 import { useAuth } from '@/hooks/useAuth';
@@ -13,8 +13,11 @@ import { itemsFromTasks } from '@/lib/quiz/printSheet';
 import PrintTasks from './PrintTasks';
 import { btn, input } from './ui';
 
+/** Strani z nalogami, kjer je vrstica smiselna: baza nalog in učni načrt predmeta. */
+const showOn = (path: string) => path === '/kvizi/naloge' || /^\/predmet\/[^/]+\/?$/.test(path);
+
 /**
- * Globalna vrstica izbora: vidna povsod, ko je kaj obkljukano (baza nalog, učni načrt …).
+ * Vrstica izbora: vidna le na straneh z nalogami (baza nalog, učni načrt), ko je kaj obkljukano.
  * Tisk / .tex / strnjeno zajamejo vse izbrane naloge, ne glede na poglavje.
  */
 export default function GlobalPrintBar() {
@@ -25,9 +28,10 @@ export default function GlobalPrintBar() {
   const router = useRouter();
   const [quizPrint, setQuizPrint] = useState<string | null>(null);
   const lib = useQuizLibrary();
+  const pathname = usePathname();
 
   const onSheet = orderTasks(tasks.filter(t => selected.has(t.id)));
-  if (!user || !loaded || onSheet.length === 0) return null;
+  if (!user || !loaded || onSheet.length === 0 || !showOn(pathname ?? '')) return null;
 
   const { questions, skipped } = tasksToQuestions(onSheet);
   const makeQuiz = () => {
