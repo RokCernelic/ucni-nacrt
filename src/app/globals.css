@@ -169,18 +169,19 @@ body {
   .pqz-sheet { position: relative; box-sizing: border-box; width: 210mm; min-height: 296mm; padding: 14mm 16mm; break-after: page; page-break-after: always; font-size: 10.5pt; line-height: 1.35; }
   .pqz-sheet:last-child { break-after: auto; page-break-after: auto; }
   .pqz-mark { position: absolute; width: 5mm; height: 5mm; background: #000; }
+  .pqz-gridtop { display: flex; justify-content: space-between; align-items: flex-start; gap: 6mm; padding: 0 9mm 2mm; }
   .pqz-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8mm; border-bottom: .4mm solid #000; padding-bottom: 3mm; margin-bottom: 4mm; }
   .pqz-title { font-size: 11pt; color: #444; }
   .pqz-name { font-size: 17pt; font-weight: 700; margin: 1mm 0; }
   .pqz-meta { font-size: 10pt; color: #444; }
-  .pqz-qr { width: 26mm; height: 26mm; image-rendering: pixelated; }
+  .pqz-qr { width: 24mm; height: 24mm; image-rendering: pixelated; }
   .pqz-gridhead { font-size: 9pt; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; margin-bottom: 2mm; }
-  .pqz-rows { column-gap: 8mm; }
+  .pqz-rows { column-gap: 8mm; padding: 0 9mm; }
   .pqz-row { display: flex; align-items: center; gap: 2mm; height: 7.6mm; break-inside: avoid; }
   .pqz-n { width: 6mm; text-align: right; font-weight: 700; font-size: 9.5pt; }
   .pqz-bub { width: 5.6mm; height: 5.6mm; box-sizing: border-box; border: .4mm solid #000; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 6.5pt; color: #777; }
   .pqz-multi { font-size: 7pt; color: #777; margin-left: 1mm; }
-  .pqz-grid { border: .3mm solid #999; border-radius: 2mm; padding: 3mm 4mm; margin-bottom: 5mm; }
+  .pqz-grid { position: relative; border: .3mm solid #999; padding: 9mm 4mm; margin-bottom: 5mm; }
   .pqz-list { margin: 0; }
   .pqz-item { margin-bottom: 4mm; break-inside: avoid; }
   .pqz-q { display: flex; gap: 2mm; }

@@ -112,20 +112,22 @@ export default function PrintQuizDialog({ items, title, jobId, defaultClassId, o
         <div className="print-questions pqz" aria-hidden>
           {sheets.map(sh => (
             <section className="pqz-sheet" key={sh.key}>
-              <i className="pqz-mark" style={{ left: '7mm', top: '7mm' }} /><i className="pqz-mark" style={{ right: '7mm', top: '7mm' }} />
-              <i className="pqz-mark" style={{ left: '7mm', bottom: '7mm' }} /><i className="pqz-mark" style={{ right: '7mm', bottom: '7mm' }} />
               <header className="pqz-head">
                 <div className="pqz-who">
                   <div className="pqz-title">{title}</div>
                   <div className="pqz-name">{sh.name ?? 'Ime in priimek: ____________________________'}</div>
                   <div className="pqz-meta">{cls && sh.name ? `${cls.name} · ` : sh.name ? '' : 'Razred: ________ · '}{todayLabel()}</div>
                 </div>
-                {sh.qr && <img className="pqz-qr" src={sh.qr} alt="" />}
               </header>
 
-              {sh.layout.choice.length > 0 && (
+              {(sh.layout.choice.length > 0 || sh.qr) && (
                 <div className="pqz-grid">
-                  <div className="pqz-gridhead">Odgovori — pobarvaj krogec{sh.layout.choice.some(c => c.item.multi) ? ' (pri nekaterih je pravilnih več)' : ''}</div>
+                  <i className="pqz-mark" style={{ left: '2mm', top: '2mm' }} /><i className="pqz-mark" style={{ right: '2mm', top: '2mm' }} />
+                  <i className="pqz-mark" style={{ left: '2mm', bottom: '2mm' }} /><i className="pqz-mark" style={{ right: '2mm', bottom: '2mm' }} />
+                  <div className="pqz-gridtop">
+                    <div className="pqz-gridhead">Odgovori — pobarvaj krogec{sh.layout.choice.some(c => c.item.multi) ? ' (pri nekaterih je pravilnih več)' : ''}</div>
+                    {sh.qr && <img className="pqz-qr" src={sh.qr} alt="" />}
+                  </div>
                   <div className="pqz-rows" style={{ columnCount: sh.layout.choice.length > 20 ? 3 : sh.layout.choice.length > 8 ? 2 : 1 }}>
                     {sh.layout.choice.map(c => (
                       <div className="pqz-row" key={c.n}>
