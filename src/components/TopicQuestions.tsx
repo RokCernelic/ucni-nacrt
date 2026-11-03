@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useTasks } from '@/hooks/useTasks';
 import { useTaskSelection } from '@/hooks/useTaskSelection';
 import { BLOOM, type BloomLevel } from '@/lib/tasks/types';
+import { orderTasks } from '@/lib/tasks/order';
 import TaskList from '@/components/tasks/TaskList';
 import PrintTasks from '@/components/tasks/PrintTasks';
 import { Chip, tinyLabel } from '@/components/tasks/ui';
@@ -25,6 +26,8 @@ export default function TopicQuestions({ topicKey, title }: { topicKey: string; 
   const visible = filter.size ? mine.filter(t => t.bloom && filter.has(t.bloom)) : mine;
   const chosen = visible.filter(t => selected.has(t.id));
   const allOn = visible.length > 0 && chosen.length === visible.length;
+  // na list gredo vse obkljukane naloge, tudi iz drugih podpoglavij/poglavij
+  const onSheet = orderTasks(tasks.filter(t => selected.has(t.id)));
   const toggleFilter = (l: BloomLevel) => setFilter(prev => { const n = new Set(prev); if (n.has(l)) n.delete(l); else n.add(l); return n; });
 
   return (
@@ -36,7 +39,8 @@ export default function TopicQuestions({ topicKey, title }: { topicKey: string; 
             <input type="checkbox" checked={allOn} onChange={e => setMany(visible.map(t => t.id), e.target.checked)} />
             izberi vse{filter.size ? ' (v filtru)' : ''}
           </label>
-          <PrintTasks tasks={chosen} title={title} />
+          <PrintTasks tasks={onSheet} title={title} />
+          {onSheet.length !== chosen.length && <span style={{ fontSize: '11px', color: 'var(--muted)' }}>(skupaj iz vseh podpoglavij; tu {chosen.length})</span>}
           <span style={{ flex: 1 }} />
           <span style={tinyLabel}>Filter:</span>
           {BLOOM.map(b => <Chip key={b.level} square active={filter.has(b.level)} color={b.color} title={`${b.level} · ${b.name} — ${b.hint}`} onClick={() => toggleFilter(b.level)}>{b.level}</Chip>)}
