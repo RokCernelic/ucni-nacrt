@@ -105,7 +105,7 @@ export const FRAME = {
   w: 178,          // širina (A4 210 mm − 2 × 16 mm rob)
   mark: 4,         // stranica črnega kvadratka
   markInset: 1.5,  // odmik kvadratka od roba okvirja
-  rowY0: 11.5,     // prva vrstica krogcev
+  rowY0: 3.5,      // prva vrstica krogcev (brez naslova v okvirju)
   rowH: 6.8,
   padX: 9,
   qr: 22,
@@ -113,7 +113,7 @@ export const FRAME = {
   colGap: 5,
   numW: 6,         // številka vprašanja
   bubGap: 1.3,
-  bottom: 6.5,
+  bottom: 3.5,
 } as const;
 
 export interface FrameGeometry {

@@ -149,9 +149,9 @@ export function QuizSheet({ sheet: sh, title, className }: { sheet: Sheet; title
   return (
     <section className="pqz-sheet">
       <header className="pqz-head">
-        <b className="pqz-title">{title}</b>
-        <span className="pqz-name">{sh.name ?? 'Ime in priimek: ______________________'}</span>
-        <span className="pqz-meta">{sh.name ? (cls ? `${cls.name} · ` : '') : 'Razred: ______ · '}{todayLabel()}</span>
+        <span className="pqz-left"><b className="pqz-title">{title}</b> <span className="pqz-name">{sh.name ?? 'Ime in priimek: ____________________'}</span></span>
+        <span className="pqz-class">{sh.name ? (cls?.name ?? '') : 'Razred: ______'}</span>
+        <span className="pqz-meta">{todayLabel()}</span>
       </header>
 
       {(sh.layout.choice.length > 0 || sh.qr) && (() => {
@@ -160,7 +160,6 @@ export function QuizSheet({ sheet: sh, title, className }: { sheet: Sheet; title
         return (
           <div className="pqz-grid" style={{ width: mm(g.w), height: mm(g.h) }}>
             {g.marks.map(([x, y], i) => <i key={i} className="pqz-mark" style={{ left: mm(x - 2), top: mm(y - 2) }} />)}
-            <div className="pqz-gridhead" style={{ left: mm(9), top: mm(5.2) }}>Odgovori — pobarvaj krogec{sh.layout.choice.some(c => c.item.multi) ? ' · pri številki s + je pravilnih več' : ''}</div>
             {g.cells.map(c => (
               <div key={c.n}>
                 <span className="pqz-n" style={{ left: mm(c.x), top: mm(c.y), width: mm(6), height: mm(6.8) }}>{c.n}{c.multi ? '+' : ''}</span>

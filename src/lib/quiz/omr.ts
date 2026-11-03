@@ -253,8 +253,8 @@ export function readWithMarks(g: Gray, geom: FrameGeometry, marks: Pt[], pxPerMm
   const black = marks.reduce((s, m) => s + meanDisk(g, m[0], m[1], side * 0.25), 0) / 4;
   const whites: number[] = [];
   for (let r = 0; r < geom.rows; r++) {
-    const [wx, wy] = project(H, 5.5, 11.5 + (r + 0.5) * 6.8);
-    whites.push(meanDisk(g, wx, wy, pxPerMm * 1));
+    const [wx, wy] = project(H, 7.3, FRAME.rowY0 + (r + 0.5) * FRAME.rowH);
+    whites.push(meanDisk(g, wx, wy, pxPerMm * 0.7));
   }
   whites.sort((a, b) => a - b);
   const white = whites[Math.floor(whites.length / 2)] ?? 255;
