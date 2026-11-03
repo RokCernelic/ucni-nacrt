@@ -123,6 +123,8 @@ export default function TaskBank() {
   })), [ordered]);
 
   const selectedInView = ordered.filter(t => selected.has(t.id));
+  // vse obkljukane naloge, tudi iz drugih poglavij/filtrov (za skupni list)
+  const selectedAll = useMemo(() => orderTasks(tasks.filter(t => selected.has(t.id))), [tasks, selected]);
   const allSelected = filtered.length > 0 && selectedInView.length === filtered.length;
   const anyFilter = q || currs.size || grades.size || chapters.size || topicSel.size || diff.size || bloom.size || kinds.size || aks.size || source || status || onlyMin || noTopic || unlinked;
   const reset = () => { setQ(''); setCurrs(new Set()); setGrades(new Set()); setChapters(new Set()); setTopicSel(new Set()); setDiff(new Set()); setBloom(new Set()); setKinds(new Set()); setAks(new Set()); setSource(''); setStatus(''); setOnlyMin(false); setNoTopic(false); setUnlinked(false); };
@@ -205,16 +207,23 @@ export default function TaskBank() {
                   {dedupBusy ? 'Odstranjujem …' : `⚠ ${duplicates.length} dvojnikov — odstrani`}
                 </button>
               )}
+              {selectedAll.length > 0 && (
+                <span style={{ fontSize: '12px', color: 'var(--forest)', fontWeight: 600 }}>
+                  Na listu: {selectedAll.length}{selectedAll.length !== selectedInView.length ? ` (v pogledu ${selectedInView.length})` : ''}{' '}
+                  <button onClick={() => setMany(selectedAll.map(t => t.id), false)} title="Počisti ves izbor (tudi v drugih poglavjih)"
+                    style={{ ...btn(), padding: '2px 8px', fontSize: '11px', marginLeft: '4px' }}>× počisti izbor</button>
+                </span>
+              )}
               {selectedInView.length > 0 && (
                 <button onClick={() => void deleteSelected(selectedInView.map(t => t.id))} disabled={delBusy}
-                  title="Trajno izbriše vse obkljukane naloge (le tiste, ki so trenutno vidne)"
+                  title="Trajno izbriše obkljukane naloge, ki so trenutno vidne (izbor iz drugih poglavij ostane)"
                   style={{ ...btn(), color: '#c0392b', borderColor: '#e8b4ad', opacity: delBusy ? 0.5 : 1 }}>
-                  {delBusy ? 'Brišem …' : `🗑 Izbriši izbrane (${selectedInView.length})`}
+                  {delBusy ? 'Brišem …' : `🗑 Izbriši izbrane v pogledu (${selectedInView.length})`}
                 </button>
               )}
               <span style={{ flex: 1 }} />
               <input value={sheetTitle} onChange={e => setSheetTitle(e.target.value)} title="Naslov učnega lista" style={{ ...input, width: '170px', padding: '4px 8px' }} />
-              <PrintTasks tasks={selectedInView} title={sheetTitle} />
+              <PrintTasks tasks={selectedAll} title={sheetTitle} />
             </div>
 
             {error && <p style={{ color: '#c0392b', fontSize: '13px' }}>{error}</p>}
