@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
 import { topicsOf, topicInfo, allCurricula } from '@/lib/tasks/topics';
+import { genInstruction } from '@/lib/tasks/genOptions';
 import { emptyTask, type TaskDraft, type AnswerKind, type TaskKind } from '@/lib/tasks/types';
 
 export const maxDuration = 60;
@@ -18,6 +19,7 @@ const KIND_IDS: TaskKind[] = ['racunska', 'besedilna', 'graficna', 'skica', 'eks
 const SIMILAR_SYSTEM = 'Si slovenski učitelj naravoslovja in tehnike v osnovni šoli. Pišeš naloge v lepi slovenščini, primerne za učence, strokovno pravilne. ' +
   'Dobiš obstoječo nalogo in seznam podpoglavij učnega načrta s standardi znanja. Ugotovi, v katero podpoglavje naloga spada in katere standarde preverja, nato napiši PODOBNO novo nalogo: ' +
   'ista tema, isti standardi, ista težavnost, Bloomova stopnja, vrsta in oblika odgovora, podobna dolžina in struktura, vendar z drugimi podatki, drugačnim kontekstom in drugim izidom (ne le zamenjane številke). ' +
+  'Če so podane ZAHTEVANE SPREMEMBE, imajo prednost pred zahtevo po enakosti z originalom (npr. druga težavnost ali oblika odgovora). Za izbirne naloge (mc) podaj natanko toliko možnosti, kot jih zahteva naloga (običajno 4) in correct_index. ' +
   'Poskrbi, da so rešitev in odgovor pravilni (preveri račun). Uporabljaj SI enote. Odgovori SAMO s klicem orodja »ustvari_nalogo« (brez besedila).';
 
 const VARIANT_SYSTEM = 'Si slovenski učitelj naravoslovja in tehnike v osnovni šoli. Dobiš obstoječo nalogo in seznam podpoglavij s standardi. ' +
@@ -64,8 +66,18 @@ export async function POST(request: Request) {
   if (!apiKey) return Response.json({ error: 'Na strežniku ni nastavljen ANTHROPIC_API_KEY.' }, { status: 503 });
 
   let src: Partial<TaskDraft>;
-  const mode = new URL(request.url).searchParams.get('mode') === 'variant' ? 'variant' : 'similar';
-  try { src = await request.json(); } catch { return Response.json({ error: 'Neveljavna zahteva.' }, { status: 400 }); }
+  let mode: 'similar' | 'variant' = 'similar';
+  let changes: string[] = [];
+  try {
+    const req = await request.json() as { task?: Partial<TaskDraft>; mode?: string; mods?: unknown; extra?: unknown };
+    src = req.task ?? {};
+    if (req.mode === 'variant') mode = 'variant';
+    else {
+      changes = (Array.isArray(req.mods) ? req.mods : []).map(m => genInstruction(String(m))).filter((x): x is string => !!x);
+      const extra = typeof req.extra === 'string' ? req.extra.trim().slice(0, 600) : '';
+      if (extra) changes.push(`Dodatno navodilo učitelja: ${extra}`);
+    }
+  } catch { return Response.json({ error: 'Neveljavna zahteva.' }, { status: 400 }); }
   if (!src.body || typeof src.body !== 'string') return Response.json({ error: 'Naloga nima besedila.' }, { status: 400 });
 
   // Kandidati za umestitev: podpoglavja (z standardi) predmeta naloge; če predmet ni znan, vsi predmeti.
@@ -92,7 +104,8 @@ export async function POST(request: Request) {
       tool_choice: { type: 'auto' }, // model ne podpira prisilne izbire orodja; sistemsko navodilo zahteva klic
       messages: [{
         role: 'user',
-        content: `SEZNAM PODPOGLAVIJ IN STANDARDOV:\n${catalog}\n\nORIGINALNA NALOGA (JSON):\n${JSON.stringify(original, null, 2)}`,
+        content: `SEZNAM PODPOGLAVIJ IN STANDARDOV:\n${catalog}\n\nORIGINALNA NALOGA (JSON):\n${JSON.stringify(original, null, 2)}` +
+          (changes.length ? `\n\nZAHTEVANE SPREMEMBE (uveljavi jih; vse ostalo naj ostane podobno originalu — tema, standardi; težavnost, Bloomovo stopnjo, vrsto, obliko odgovora, točke in minute pa uskladi z novo nalogo):\n${changes.map(c => `- ${c}`).join('\n')}` : ''),
       }],
     });
     const block = res.content.find((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use');

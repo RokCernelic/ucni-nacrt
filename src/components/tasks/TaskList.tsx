@@ -5,8 +5,9 @@ import { useTasks } from '@/hooks/useTasks';
 import { useTaskSelection } from '@/hooks/useTaskSelection';
 import type { Task, TaskDraft } from '@/lib/tasks/types';
 import { nestUnderParents, isNested } from '@/lib/tasks/order';
+import { GEN_GROUPS } from '@/lib/tasks/genOptions';
 import TaskEditor from './TaskEditor';
-import { Rich, TaskBadges, TaskAnswer, btn } from './ui';
+import { Rich, TaskBadges, TaskAnswer, Chip, btn, tinyLabel, input } from './ui';
 
 /** Seznam nalog (vsaka v svojem okvirju): kljukica za izbor, Uredi, Izbriši, + Nova naloga. */
 export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyText, showAdd = true, startIndex = 0, hideTopic, hideChapter }: {
@@ -28,20 +29,27 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
   const [editingId, setEditingId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  /** naloga, za katero se generira podobna (id) */
+  /** naloga, ki ima odprto okno ✨ Generiraj */
+  const [genOpen, setGenOpen] = useState<string | null>(null);
+  const [mods, setMods] = useState<Record<string, string>>({});   // skupina → izbrana možnost
+  const [variant, setVariant] = useState(false);
+  const [extra, setExtra] = useState('');
   const [genBusy, setGenBusy] = useState<string | null>(null);
   /** generiran osnutek, prikazan pod nalogo `forId`, preden ga shraniš */
   const [gen, setGen] = useState<{ forId: string; draft: TaskDraft; note: string } | null>(null);
 
-  const generate = async (t: Task, mode: 'similar' | 'variant' = 'similar') => {
-    setGenBusy(`${mode}:${t.id}`); setError(null);
+  const openGen = (t: Task) => { setGenOpen(genOpen === t.id ? null : t.id); setMods({}); setVariant(false); setExtra(''); setGen(null); setEditingId(null); setAdding(false); };
+
+  const generate = async (t: Task) => {
+    setGenBusy(t.id); setError(null);
     try {
-      const { id: _id, created_at: _c, updated_at: _u, ...src } = t; // eslint-disable-line @typescript-eslint/no-unused-vars
-      const res = await fetch(`/api/tasks/generate?mode=${mode}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(src) });
+      const { id: _id, created_at: _c, updated_at: _u, ...task } = t; // eslint-disable-line @typescript-eslint/no-unused-vars
+      const res = await fetch('/api/tasks/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ task, mode: variant ? 'variant' : 'similar', mods: Object.values(mods), extra }) });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? `Napaka ${res.status}`);
       setGen({ forId: t.id, draft: data.draft, note: data.note ?? '' });
-      setEditingId(null); setAdding(false);
+      setGenOpen(null);
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     finally { setGenBusy(null); }
   };
@@ -92,17 +100,40 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flexShrink: 0 }}>
                   <button onClick={() => { setEditingId(t.id); setAdding(false); }} style={{ ...btn(), padding: '3px 9px', fontSize: '11px' }}>✎ Uredi</button>
-                  <button onClick={() => void generate(t)} disabled={genBusy !== null}
-                    title="Z umetno inteligenco (Claude) ugotovi poglavje in standarde te naloge ter ustvari podobno nalogo"
-                    style={{ ...btn(), padding: '3px 9px', fontSize: '11px', color: 'var(--forest)', opacity: genBusy !== null ? 0.5 : 1 }}>
-                    {genBusy === `similar:${t.id}` ? '… generiram' : '✨ Generiraj podobno'}
-                  </button>
-                  <button onClick={() => void generate(t, 'variant')} disabled={genBusy !== null}
-                    title="Nalogo minimalno spremeni: zamenja številke (po potrebi tudi kakšno besedo), vse ostalo ostane"
-                    style={{ ...btn(), padding: '3px 9px', fontSize: '11px', color: 'var(--forest)', opacity: genBusy !== null ? 0.5 : 1 }}>
-                    {genBusy === `variant:${t.id}` ? '… spreminjam' : '🔢 Zamenjaj številke'}
+                  <button onClick={() => openGen(t)} disabled={genBusy !== null}
+                    title="Z umetno inteligenco (Claude) ustvari novo nalogo iz te: podobno, težjo, lažjo, drugačne oblike …"
+                    style={{ ...btn(genOpen === t.id), padding: '3px 9px', fontSize: '11px', opacity: genBusy !== null ? 0.5 : 1 }}>
+                    ✨ Generiraj
                   </button>
                   <button onClick={() => void del(t)} style={{ ...btn(), padding: '3px 9px', fontSize: '11px', color: '#c0392b', borderColor: '#e0b4ae' }}>× Izbriši</button>
+                </div>
+              </div>
+            )}
+            {genOpen === t.id && (
+              <div style={{ marginTop: '10px', border: '1px dashed var(--forest)', borderRadius: 'var(--r-md)', padding: '12px', background: 'var(--surface)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ fontSize: '12px', color: 'var(--forest)', fontWeight: 600 }}>✨ Generiraj iz te naloge</div>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <span style={{ ...tinyLabel, minWidth: '120px' }}>Osnova</span>
+                  <Chip active={!variant} onClick={() => setVariant(false)} title="Nova, podobna naloga (druga situacija, podatki, izid)">podobna naloga</Chip>
+                  <Chip active={variant} onClick={() => setVariant(true)} title="Minimalna sprememba: zamenja številke (po potrebi kakšno besedo)">le zamenjaj številke</Chip>
+                </div>
+                {!variant && GEN_GROUPS.map(g => (
+                  <div key={g.id} style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <span style={{ ...tinyLabel, minWidth: '120px' }}>{g.label}</span>
+                    {g.options.map(o => (
+                      <Chip key={o.id} active={mods[g.id] === o.id} title={o.instruction}
+                        onClick={() => setMods(m => { const n = { ...m }; if (n[g.id] === o.id) delete n[g.id]; else n[g.id] = o.id; return n; })}>
+                        {o.label}
+                      </Chip>
+                    ))}
+                  </div>
+                ))}
+                {!variant && <input value={extra} onChange={e => setExtra(e.target.value)} maxLength={600} placeholder="Dodatno navodilo (neobvezno), npr. »naj gre za dvigalo na gradbišču«" style={{ ...input, width: '100%', boxSizing: 'border-box' }} />}
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button onClick={() => void generate(t)} disabled={genBusy !== null} style={{ ...btn(true), padding: '5px 14px', opacity: genBusy !== null ? 0.6 : 1 }}>
+                    {genBusy === t.id ? '… generiram' : 'Generiraj'}
+                  </button>
+                  <button onClick={() => setGenOpen(null)} disabled={genBusy !== null} style={{ ...btn(), padding: '5px 12px' }}>Prekliči</button>
                 </div>
               </div>
             )}
