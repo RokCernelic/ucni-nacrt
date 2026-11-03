@@ -26,7 +26,7 @@ export default function UndoToast() {
 
   return (
     <div role="status" className="no-print" style={{
-      position: 'fixed', left: '50%', bottom: '24px', transform: 'translateX(-50%)', zIndex: 1000,
+      position: 'fixed', left: '50%', bottom: '84px', transform: 'translateX(-50%)', zIndex: 1000,
       display: 'flex', alignItems: 'center', gap: '14px', background: '#1f2a24', color: '#fff', borderRadius: '10px',
       padding: '10px 14px', fontFamily: 'var(--font-sans)', fontSize: '13px', boxShadow: '0 6px 24px rgba(0,0,0,.25)',
     }}>

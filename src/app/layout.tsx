@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import GlobalPrintBar from '@/components/tasks/GlobalPrintBar';
 import UndoToast from '@/components/UndoToast';
 import Nav from '@/components/Nav';
 import SyncProvider from '@/components/SyncProvider';
@@ -16,6 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <SyncProvider>
           <Nav />
           {children}
+          <GlobalPrintBar />
           <UndoToast />
         </SyncProvider>
       </body>
