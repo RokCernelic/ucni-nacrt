@@ -22,6 +22,11 @@ const SIMILAR_SYSTEM = 'Si slovenski učitelj naravoslovja in tehnike v osnovni 
   'Če so podane ZAHTEVANE SPREMEMBE, imajo prednost pred zahtevo po enakosti z originalom (npr. druga težavnost ali oblika odgovora). Za izbirne naloge (mc) podaj natanko toliko možnosti, kot jih zahteva naloga (običajno 4) in correct_index. ' +
   'Poskrbi, da so rešitev in odgovor pravilni (preveri račun). Uporabljaj SI enote. Odgovori SAMO s klicem orodja »ustvari_nalogo« (brez besedila).';
 
+const COMPLETE_SYSTEM = 'Si slovenski učitelj naravoslovja in tehnike v osnovni šoli. Dobiš obstoječo nalogo (morda nepopolno ali nepravilno oblikovano) in seznam podpoglavij s standardi. ' +
+  'Besedila naloge NE spreminjaj (razen da ločiš vprašanje od naštetih možnosti A), B), C) … ) — le dopolni manjkajoče: pravilno obliko odgovora (answer_kind) in možnosti s pravilnim odgovorom, ' +
+  'kratek odgovor, rešitev s postopkom (preprost HTML, jasno razložena za učenca), podpoglavje in standarde, težavnost, Bloomovo stopnjo, vrste naloge, točke in čas. ' +
+  'Že izpolnjene vrednosti prepiši nespremenjene. Če naloga vsebuje A) B) C) D) možnosti, jih vrni v polju options (brez črk), v body pa samo vprašanje. Rešitev preveri z računom. Odgovori SAMO s klicem orodja »ustvari_nalogo« (brez besedila).';
+
 const VARIANT_SYSTEM = 'Si slovenski učitelj naravoslovja in tehnike v osnovni šoli. Dobiš obstoječo nalogo in seznam podpoglavij s standardi. ' +
   'Naredi MINIMALNO različico iste naloge (za drugo skupino učencev): besedilo, zgradba, podnaloge, kontekst, enote in oblika odgovora ostanejo enaki. ' +
   'Zamenjaj številske podatke (tako, da so smiselni in da račun še vedno lepo izide ali ima razumen rezultat), po želji lahko zamenjaš še kakšno besedo ali ime. ' +
@@ -66,12 +71,13 @@ export async function POST(request: Request) {
   if (!apiKey) return Response.json({ error: 'Na strežniku ni nastavljen ANTHROPIC_API_KEY.' }, { status: 503 });
 
   let src: Partial<TaskDraft>;
-  let mode: 'similar' | 'variant' = 'similar';
+  let mode: 'similar' | 'variant' | 'complete' = 'similar';
   let changes: string[] = [];
   try {
     const req = await request.json() as { task?: Partial<TaskDraft>; mode?: string; mods?: unknown; extra?: unknown };
     src = req.task ?? {};
     if (req.mode === 'variant') mode = 'variant';
+    else if (req.mode === 'complete') mode = 'complete';
     else {
       changes = (Array.isArray(req.mods) ? req.mods : []).map(m => genInstruction(String(m))).filter((x): x is string => !!x);
       const extra = typeof req.extra === 'string' ? req.extra.trim().slice(0, 600) : '';
@@ -99,7 +105,7 @@ export async function POST(request: Request) {
     const res = await client.messages.create({
       model: MODEL,
       max_tokens: 4000,
-      system: mode === 'variant' ? VARIANT_SYSTEM : SIMILAR_SYSTEM,
+      system: mode === 'variant' ? VARIANT_SYSTEM : mode === 'complete' ? COMPLETE_SYSTEM : SIMILAR_SYSTEM,
       tools: [tool],
       tool_choice: { type: 'auto' }, // model ne podpira prisilne izbire orodja; sistemsko navodilo zahteva klic
       messages: [{
@@ -147,6 +153,33 @@ export async function POST(request: Request) {
       minutes: num(o.minutes) ?? src.minutes ?? null,
       source: 'ai', status: 'draft',
     });
+    if (mode === 'complete') {
+      // Že izpolnjeno ostane, kot je; model le dopolni manjkajoče.
+      const keepKind = !['open', 'short'].includes(src.answer_kind ?? 'open');
+      const sameKind = keepKind || draft.answer_kind === (src.answer_kind ?? 'open');
+      const filled = (v: string | null | undefined) => !!v && v.replace(/<[^>]*>/g, '').trim() !== '';
+      Object.assign(draft, {
+        body: draft.answer_kind === 'mc' && src.answer_kind !== 'mc' ? draft.body : src.body,
+        answer_kind: keepKind ? src.answer_kind : draft.answer_kind,
+        options: sameKind && src.options?.length ? src.options : draft.options,
+        correct: sameKind && src.correct ? src.correct : draft.correct,
+        unit: src.unit ?? draft.unit,
+        tolerance: src.tolerance ?? draft.tolerance,
+        answer: filled(src.answer) ? src.answer : draft.answer,
+        solution: filled(src.solution) ? src.solution : draft.solution,
+        difficulty: src.difficulty ?? draft.difficulty,
+        bloom: src.bloom ?? draft.bloom,
+        kinds: src.kinds?.length ? src.kinds : draft.kinds,
+        curriculum: (src.topics ?? []).length ? src.curriculum : draft.curriculum,
+        topics: (src.topics ?? []).length ? src.topics : draft.topics,
+        chapters: (src.topics ?? []).length ? src.chapters : draft.chapters,
+        standards: (src.standards ?? []).length ? src.standards : draft.standards,
+        points: src.points ?? draft.points,
+        minutes: src.minutes ?? draft.minutes,
+        source: src.source ?? draft.source,
+        status: src.status ?? draft.status,
+      });
+    }
     return Response.json({ draft, note: typeof o.note === 'string' ? o.note : '' });
   } catch (e) {
     const msg = e instanceof Anthropic.APIError ? `Napaka API (${e.status}): ${e.message}` : e instanceof Error ? e.message : String(e);

@@ -8,6 +8,7 @@ import {
   BLOOM, DIFFICULTY, KINDS, ANSWER_KINDS, SOURCES, emptyTask,
   type TaskDraft, type AnswerKind, type TaskKind,
 } from '@/lib/tasks/types';
+import { splitChoices, stripDuplicateChoices } from '@/lib/tasks/choices';
 import { topicsOf, topicInfo, topicLabel, chapterInfo, allCurricula } from '@/lib/tasks/topics';
 import { Chip, btn, tinyLabel, input } from './ui';
 
@@ -42,8 +43,10 @@ export default function TaskEditor({ initial, fixedTopic, onSave, onCancel }: {
   onSave: (draft: TaskDraft) => Promise<unknown>;
   onCancel: () => void;
 }) {
-  const [t, setT] = useState<TaskDraft>(() => initial ?? emptyTask(fixedTopic
-    ? { topics: [fixedTopic], curriculum: fixedTopic.split(':')[0] } : {}));
+  const [t, setT] = useState<TaskDraft>(() => {
+    const base = initial ?? emptyTask(fixedTopic ? { topics: [fixedTopic], curriculum: fixedTopic.split(':')[0] } : {});
+    return stripDuplicateChoices(base) ?? base; // možnosti A–D so v poljih spodaj, ne še enkrat v besedilu
+  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tagText, setTagText] = useState((initial?.tags ?? []).join(', '));
@@ -54,7 +57,14 @@ export default function TaskEditor({ initial, fixedTopic, onSave, onCancel }: {
 
   const setKind = (k: AnswerKind) => {
     if (k === 'tf') up({ answer_kind: k, options: [{ id: uid(), text: 'Drži' }, { id: uid(), text: 'Ne drži' }], correct: null });
-    else if (k === 'mc') up({ answer_kind: k, options: t.answer_kind === 'mc' && t.options ? t.options : [0, 1, 2, 3].map(() => ({ id: uid(), text: '' })), correct: t.answer_kind === 'mc' ? t.correct : null });
+    else if (k === 'mc') {
+      const keep = t.answer_kind === 'mc' && t.options;
+      const hasText = (t.options ?? []).some(o => o.text.trim());
+      // besedilo že vsebuje »A) … B) …« in polja za možnosti so prazna → možnosti preselimo v polja (nič se ne izgubi)
+      const sp = !hasText ? splitChoices(t.body) : null;
+      if (sp) up({ answer_kind: k, body: sp.stem, options: sp.options.map(text => ({ id: uid(), text })), correct: null });
+      else up({ answer_kind: k, options: keep ? t.options : [0, 1, 2, 3].map(() => ({ id: uid(), text: '' })), correct: keep ? t.correct : null });
+    }
     else up({ answer_kind: k, options: null, correct: k === 'numeric' ? (t.answer_kind === 'numeric' ? t.correct : '') : null });
   };
   const toggleKindTag = (k: TaskKind) => up({ kinds: t.kinds.includes(k) ? t.kinds.filter(x => x !== k) : [...t.kinds, k] });
@@ -98,8 +108,8 @@ export default function TaskEditor({ initial, fixedTopic, onSave, onCancel }: {
         </div>
       </Field>
 
-      <Field label="Besedilo naloge">
-        <RichField value={t.body} onChange={v => up({ body: v })} minHeight={70} allowImage onSubmit={() => void save()}
+      <Field label={t.answer_kind === 'mc' || t.answer_kind === 'tf' ? 'Vprašanje (možnosti A–D so spodaj)' : 'Besedilo naloge'}>
+        <RichField value={t.body} onChange={v => up({ body: v })} minHeight={t.answer_kind === 'mc' || t.answer_kind === 'tf' ? 40 : 70} allowImage onSubmit={() => void save()}
           placeholder="Besedilo naloge … (prilepi lahko iz Worda — enačbe, ulomki, x², √ ostanejo; slika = skica)" />
       </Field>
 

@@ -33,23 +33,25 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
   /** naloga, ki ima odprto okno ✨ Generiraj */
   const [genOpen, setGenOpen] = useState<string | null>(null);
   const [mods, setMods] = useState<Record<string, string>>({});   // skupina → izbrana možnost
-  const [variant, setVariant] = useState(false);
+  const [kindMode, setKindMode] = useState<'similar' | 'variant' | 'complete'>('similar');
+  const variant = kindMode === 'variant';
+  const complete = kindMode === 'complete';
   const [extra, setExtra] = useState('');
   const [genBusy, setGenBusy] = useState<string | null>(null);
   /** generiran osnutek, prikazan pod nalogo `forId`, preden ga shraniš */
-  const [gen, setGen] = useState<{ forId: string; draft: TaskDraft; note: string } | null>(null);
+  const [gen, setGen] = useState<{ forId: string; draft: TaskDraft; note: string; mode: 'similar' | 'variant' | 'complete' } | null>(null);
 
-  const openGen = (t: Task) => { setGenOpen(genOpen === t.id ? null : t.id); setMods({}); setVariant(false); setExtra(''); setGen(null); setEditingId(null); setAdding(false); };
+  const openGen = (t: Task) => { setGenOpen(genOpen === t.id ? null : t.id); setMods({}); setKindMode('similar'); setExtra(''); setGen(null); setEditingId(null); setAdding(false); };
 
   const generate = async (t: Task) => {
     setGenBusy(t.id); setError(null);
     try {
       const { id: _id, created_at: _c, updated_at: _u, ...task } = t; // eslint-disable-line @typescript-eslint/no-unused-vars
       const res = await fetch('/api/tasks/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ task, mode: variant ? 'variant' : 'similar', mods: Object.values(mods), extra }) });
+        body: JSON.stringify({ task, mode: kindMode, mods: Object.values(mods), extra }) });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? `Napaka ${res.status}`);
-      setGen({ forId: t.id, draft: data.draft, note: data.note ?? '' });
+      setGen({ forId: t.id, draft: data.draft, note: data.note ?? '', mode: kindMode });
       setGenOpen(null);
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     finally { setGenBusy(null); }
@@ -120,10 +122,11 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
                 <div style={{ fontSize: '12px', color: 'var(--forest)', fontWeight: 600 }}>✨ Generiraj iz te naloge</div>
                 <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
                   <span style={{ ...tinyLabel, minWidth: '120px' }}>Osnova</span>
-                  <Chip active={!variant} onClick={() => setVariant(false)} title="Nova, podobna naloga (druga situacija, podatki, izid)">podobna naloga</Chip>
-                  <Chip active={variant} onClick={() => setVariant(true)} title="Minimalna sprememba: zamenja številke (po potrebi kakšno besedo)">le zamenjaj številke</Chip>
+                  <Chip active={kindMode === 'similar'} onClick={() => setKindMode('similar')} title="Nova, podobna naloga (druga situacija, podatki, izid)">podobna naloga</Chip>
+                  <Chip active={variant} onClick={() => setKindMode('variant')} title="Minimalna sprememba: zamenja številke (po potrebi kakšno besedo)">le zamenjaj številke</Chip>
+                  <Chip active={complete} onClick={() => setKindMode('complete')} title="Ista naloga: dopolni manjkajoče (rešitev, pojasnilo, težavnost, Bloom, oblika odgovora, poglavje, standardi) in uredi obliko">dopolni to nalogo</Chip>
                 </div>
-                {!variant && GEN_GROUPS.map(g => (
+                {kindMode === 'similar' && GEN_GROUPS.map(g => (
                   <div key={g.id} style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
                     <span style={{ ...tinyLabel, minWidth: '120px' }}>{g.label}</span>
                     {g.options.map(o => (
@@ -134,10 +137,10 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
                     ))}
                   </div>
                 ))}
-                {!variant && <input value={extra} onChange={e => setExtra(e.target.value)} maxLength={600} placeholder="Dodatno navodilo (neobvezno), npr. »naj gre za dvigalo na gradbišču«" style={{ ...input, width: '100%', boxSizing: 'border-box' }} />}
+                {kindMode === 'similar' && <input value={extra} onChange={e => setExtra(e.target.value)} maxLength={600} placeholder="Dodatno navodilo (neobvezno), npr. »naj gre za dvigalo na gradbišču«" style={{ ...input, width: '100%', boxSizing: 'border-box' }} />}
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button onClick={() => void generate(t)} disabled={genBusy !== null} style={{ ...btn(true), padding: '5px 14px', opacity: genBusy !== null ? 0.6 : 1 }}>
-                    {genBusy === t.id ? '… generiram' : 'Generiraj'}
+                    {genBusy === t.id ? '… generiram' : complete ? 'Dopolni' : 'Generiraj'}
                   </button>
                   <button onClick={() => setGenOpen(null)} disabled={genBusy !== null} style={{ ...btn(), padding: '5px 12px' }}>Prekliči</button>
                 </div>
@@ -145,9 +148,9 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
             )}
             {gen?.forId === t.id && (
               <div style={{ marginTop: '10px', border: '1px dashed var(--forest)', borderRadius: 'var(--r-md)', padding: '12px', background: 'var(--surface)' }}>
-                <div style={{ fontSize: '12px', color: 'var(--forest)', fontWeight: 600, marginBottom: '2px' }}>✨ Predlagana naloga (osnutek — preveri, popravi in shrani)</div>
+                <div style={{ fontSize: '12px', color: 'var(--forest)', fontWeight: 600, marginBottom: '2px' }}>{gen.mode === 'complete' ? '✨ Dopolnjena naloga (preveri in shrani — prepiše to nalogo)' : '✨ Predlagana naloga (osnutek — preveri, popravi in shrani)'}</div>
                 {gen.note && <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '8px' }}>{gen.note}</div>}
-                <TaskEditor initial={gen.draft} onCancel={() => setGen(null)} onSave={async d => { await save({ ...d, parent_id: t.parent_id ?? t.id }); setGen(null); }} />
+                <TaskEditor initial={gen.draft} onCancel={() => setGen(null)} onSave={async d => { await save(gen.mode === 'complete' ? { ...d, id: t.id, parent_id: t.parent_id } : { ...d, parent_id: t.parent_id ?? t.id }); setGen(null); }} />
               </div>
             )}
           </div>
