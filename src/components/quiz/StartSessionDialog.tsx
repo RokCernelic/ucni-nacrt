@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMasterClasses } from '@/hooks/useMasterClasses';
+import PrintQuizDialog from '@/components/quiz/PrintQuizDialog';
+import { itemsFromQuiz } from '@/lib/quiz/printSheet';
 import { useRoster } from '@/hooks/useRoster';
 import { useQuizLibrary } from '@/hooks/useQuizLibrary';
 import { questionProblems } from '@/lib/quiz/scoring';
@@ -20,6 +22,7 @@ export default function StartSessionDialog({ quiz, onClose }: { quiz: Quiz; onCl
   const [mode, setMode] = useState<SessionMode>('teacher');
   const [shuffle, setShuffle] = useState(true);
   const [showSolutions, setShowSolutions] = useState(false);
+  const [printing, setPrinting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { students, save } = useRoster(classId || undefined);
@@ -141,6 +144,8 @@ export default function StartSessionDialog({ quiz, onClose }: { quiz: Quiz; onCl
         {error && <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: '#c0392b', margin: '0 0 12px' }}>{error}</p>}
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+          <button onClick={() => setPrinting(true)} disabled={!quiz.questions.length} title="Natisni kviz na A4 za ročno reševanje (obrazec s krogci in QR kodo)"
+            style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', padding: '9px 16px', borderRadius: 'var(--r-sm)', border: '1px solid var(--hairline)', background: 'transparent', color: 'var(--ink)', cursor: 'pointer', marginRight: 'auto' }}>🖨 Natisni kviz</button>
           <button onClick={onClose} style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', padding: '9px 16px', borderRadius: 'var(--r-sm)', border: '1px solid var(--hairline)', background: 'transparent', color: 'var(--ink)', cursor: 'pointer' }}>Prekliči</button>
           <button onClick={start} disabled={!canStart}
             style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600, padding: '9px 18px', borderRadius: 'var(--r-sm)', border: 'none', background: 'var(--forest)', color: '#fff', cursor: canStart ? 'pointer' : 'not-allowed', opacity: canStart ? 1 : 0.5 }}>
@@ -148,6 +153,7 @@ export default function StartSessionDialog({ quiz, onClose }: { quiz: Quiz; onCl
           </button>
         </div>
       </div>
+      {printing && <PrintQuizDialog items={itemsFromQuiz(quiz)} title={quiz.title} jobId={quiz.id} defaultClassId={classId || undefined} onClose={() => setPrinting(false)} />}
     </div>
   );
 }

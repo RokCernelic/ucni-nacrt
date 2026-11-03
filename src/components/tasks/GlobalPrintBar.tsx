@@ -8,6 +8,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useTasks } from '@/hooks/useTasks';
 import { useTaskSelection } from '@/hooks/useTaskSelection';
 import { orderTasks } from '@/lib/tasks/order';
+import PrintQuizDialog from '@/components/quiz/PrintQuizDialog';
+import { itemsFromTasks } from '@/lib/quiz/printSheet';
 import PrintTasks from './PrintTasks';
 import { btn, input } from './ui';
 
@@ -21,6 +23,7 @@ export default function GlobalPrintBar() {
   const { selected, setMany } = useTaskSelection();
   const [title, setTitle] = useState('Učni list');
   const router = useRouter();
+  const [quizPrint, setQuizPrint] = useState<string | null>(null);
   const lib = useQuizLibrary();
 
   const onSheet = orderTasks(tasks.filter(t => selected.has(t.id)));
@@ -51,6 +54,9 @@ export default function GlobalPrintBar() {
           <span style={{ flex: 1 }} />
           <input value={title} onChange={e => setTitle(e.target.value)} title="Naslov učnega lista" style={{ ...input, width: '170px', padding: '4px 8px' }} />
           <PrintTasks tasks={onSheet} title={title} />
+          <button onClick={() => setQuizPrint(crypto.randomUUID())}
+            title="Natisne vse izbrane naloge kot kviz: izbirne v obrazcu s krogci na vrhu, ostale pod njimi; po želji list za vsakega učenca z QR kodo"
+            style={{ ...btn(), padding: '5px 10px' }}>🧾 Natisni kviz</button>
           <button onClick={makeQuiz} disabled={!questions.length}
             title={questions.length ? 'Iz izbranih nalog (izbirne, drži/ne drži, številske) naredi nov kviz v zavihku Kvizi' : 'Med izbranimi ni nalog, primernih za kviz (izbirne, drži/ne drži, številske s pravilnim odgovorom)'}
             style={{ ...btn(), padding: '5px 10px', opacity: questions.length ? 1 : 0.45, cursor: questions.length ? 'pointer' : 'not-allowed' }}>
@@ -58,6 +64,7 @@ export default function GlobalPrintBar() {
           </button>
         </div>
       </div>
+      {quizPrint && <PrintQuizDialog items={itemsFromTasks(onSheet)} title={title === 'Učni list' ? 'Kviz' : title} jobId={quizPrint} onClose={() => setQuizPrint(null)} />}
     </>
   );
 }
