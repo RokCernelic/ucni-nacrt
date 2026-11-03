@@ -15,6 +15,18 @@ const MODEL = 'claude-sonnet-5-5';
 const ANSWER_KINDS: AnswerKind[] = ['mc', 'tf', 'numeric', 'short', 'open'];
 const KIND_IDS: TaskKind[] = ['racunska', 'besedilna', 'graficna', 'skica', 'eksperimentalna', 'povezovanje'];
 
+const SIMILAR_SYSTEM = 'Si slovenski učitelj naravoslovja in tehnike v osnovni šoli. Pišeš naloge v lepi slovenščini, primerne za učence, strokovno pravilne. ' +
+  'Dobiš obstoječo nalogo in seznam podpoglavij učnega načrta s standardi znanja. Ugotovi, v katero podpoglavje naloga spada in katere standarde preverja, nato napiši PODOBNO novo nalogo: ' +
+  'ista tema, isti standardi, ista težavnost, Bloomova stopnja, vrsta in oblika odgovora, podobna dolžina in struktura, vendar z drugimi podatki, drugačnim kontekstom in drugim izidom (ne le zamenjane številke). ' +
+  'Poskrbi, da so rešitev in odgovor pravilni (preveri račun). Uporabljaj SI enote. Odgovori SAMO s klicem orodja »ustvari_nalogo« (brez besedila).';
+
+const VARIANT_SYSTEM = 'Si slovenski učitelj naravoslovja in tehnike v osnovni šoli. Dobiš obstoječo nalogo in seznam podpoglavij s standardi. ' +
+  'Naredi MINIMALNO različico iste naloge (za drugo skupino učencev): besedilo, zgradba, podnaloge, kontekst, enote in oblika odgovora ostanejo enaki. ' +
+  'Zamenjaj številske podatke (tako, da so smiselni in da račun še vedno lepo izide ali ima razumen rezultat), po želji lahko zamenjaš še kakšno besedo ali ime. ' +
+  'Nič drugega ne spreminjaj. Če so možnosti izbirne, ostanejo enake po zgradbi (spremeni le številke in pravilni odgovor ustrezno preračunaj). ' +
+  'Popolnoma na novo izračunaj odgovor in rešitev ter ju preveri. Težavnost, Bloomovo stopnjo, vrste, točke in minute prepiši iz originala. ' +
+  'Podpoglavje in standarde določi enako kot pri originalu. Odgovori SAMO s klicem orodja »ustvari_nalogo« (brez besedila).';
+
 const tool: Anthropic.Tool = {
   name: 'ustvari_nalogo',
   description: 'Vrne podobno novo nalogo in njeno umestitev v učni načrt.',
@@ -52,6 +64,7 @@ export async function POST(request: Request) {
   if (!apiKey) return Response.json({ error: 'Na strežniku ni nastavljen ANTHROPIC_API_KEY.' }, { status: 503 });
 
   let src: Partial<TaskDraft>;
+  const mode = new URL(request.url).searchParams.get('mode') === 'variant' ? 'variant' : 'similar';
   try { src = await request.json(); } catch { return Response.json({ error: 'Neveljavna zahteva.' }, { status: 400 }); }
   if (!src.body || typeof src.body !== 'string') return Response.json({ error: 'Naloga nima besedila.' }, { status: 400 });
 
@@ -74,10 +87,7 @@ export async function POST(request: Request) {
     const res = await client.messages.create({
       model: MODEL,
       max_tokens: 4000,
-      system: 'Si slovenski učitelj naravoslovja in tehnike v osnovni šoli. Pišeš naloge v lepi slovenščini, primerne za učence, strokovno pravilne. ' +
-        'Dobiš obstoječo nalogo in seznam podpoglavij učnega načrta s standardi znanja. Ugotovi, v katero podpoglavje naloga spada in katere standarde preverja, nato napiši PODOBNO novo nalogo: ' +
-        'ista tema, isti standardi, ista težavnost, Bloomova stopnja, vrsta in oblika odgovora, podobna dolžina in struktura, vendar z drugimi podatki, drugačnim kontekstom in drugim izidom (ne le zamenjane številke). ' +
-        'Poskrbi, da so rešitev in odgovor pravilni (preveri račun). Uporabljaj SI enote. Odgovori SAMO s klicem orodja »ustvari_nalogo« (brez besedila).',
+      system: mode === 'variant' ? VARIANT_SYSTEM : SIMILAR_SYSTEM,
       tools: [tool],
       tool_choice: { type: 'auto' }, // model ne podpira prisilne izbire orodja; sistemsko navodilo zahteva klic
       messages: [{
