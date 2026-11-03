@@ -24,22 +24,29 @@ export const quizReady = (t: Task) =>
   : t.answer_kind === 'numeric' ? !!t.correct?.trim()
   : false;
 
-/** Naloge → vprašanja kviza (naloge, ki niso primerne za kviz, so v `skipped`). */
+/**
+ * Naloge → vprašanja kviza. Vse naloge gredo zraven: izbirne (ena pravilna) na začetek,
+ * nato številske in odprte (te učitelj pregleda ročno), v izvirnem vrstnem redu.
+ */
 export function tasksToQuestions(tasks: Task[]): { questions: Question[]; skipped: Task[] } {
-  const questions: Question[] = [];
-  const skipped: Task[] = [];
+  const choice: Question[] = [];
+  const rest: Question[] = [];
   for (const t of tasks) {
-    if (!quizReady(t)) { skipped.push(t); continue; }
     const image = firstImage(t.body);
     const base = { id: crypto.randomUUID(), points: t.points > 0 ? t.points : 1, ...(image ? { image } : {}) };
     let prompt = htmlToPlain(t.body);
-    if (t.answer_kind === 'numeric') {
+    if (quizReady(t) && t.answer_kind !== 'numeric') {
+      choice.push({ ...base, kind: 'mc', prompt, options: t.options!.map(o => ({ id: o.id, text: o.text })), correct: t.correct });
+    } else if (quizReady(t)) {
       if (t.unit) prompt += `\n(odgovor v ${t.unit})`;
-      questions.push({ ...base, kind: 'numeric', prompt, correct: t.correct!.trim(), tolerance: t.tolerance ?? 0 });
+      rest.push({ ...base, kind: 'numeric', prompt, correct: t.correct!.trim(), tolerance: t.tolerance ?? 0 });
     } else {
-      const options = t.options!.map(o => ({ id: o.id, text: o.text }));
-      questions.push({ ...base, kind: 'mc', prompt, options, correct: t.correct });
+      // odprte, kratek odgovor, več možnosti, naloge brez pravilnega odgovora
+      if (t.options?.length) prompt += '\n' + t.options.map((o, i) => `${'ABCDEFGHIJKL'[i]}) ${o.text}`).join('\n');
+      const sol = [t.answer, t.solution].filter(Boolean).map(h => htmlToPlain(h!)).join('\n');
+      rest.push({ ...base, kind: 'open', prompt, html: t.body, ...(sol ? { answer: sol } : {}),
+        space: t.answer_kind === 'short' ? 30 : t.answer_kind === 'numeric' ? 30 : 50 });
     }
   }
-  return { questions, skipped };
+  return { questions: [...choice, ...rest], skipped: [] };
 }

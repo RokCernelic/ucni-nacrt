@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import {
   useQuizLibrary, folderPath, cloneQuestion, QuizStorageFullError,
-  newMcQuestion, newTrueFalseQuestion, newNumericQuestion,
+  newMcQuestion, newTrueFalseQuestion, newNumericQuestion, newOpenQuestion,
 } from '@/hooks/useQuizLibrary';
 import { questionProblems, parseNumber } from '@/lib/quiz/scoring';
 import { downscaleImage } from '@/lib/quiz/image';
@@ -74,7 +74,7 @@ function QuestionCard({ q, index, total, onChange, onMove, onDuplicate, onDelete
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px', flexWrap: 'wrap' }}>
         <span style={{ fontFamily: 'var(--font-serif)', fontSize: '22px', color: 'var(--forest)', lineHeight: 1, minWidth: '26px' }}>{index + 1}</span>
         <span style={{ ...label, background: 'var(--cream, #f3efe6)', padding: '3px 8px', borderRadius: '4px' }}>
-          {q.kind === 'numeric' ? 'Številsko' : 'Izbirno'}
+          {q.kind === 'numeric' ? 'Številsko' : q.kind === 'open' ? 'Odprto (ročni pregled)' : 'Izbirno'}
         </span>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--muted)', marginLeft: '6px' }}>
           točke
@@ -142,6 +142,14 @@ function QuestionCard({ q, index, total, onChange, onMove, onDuplicate, onDelete
             <button style={{ ...btn(), marginTop: '8px' }}
               onClick={() => setMc({ options: [...q.options, { id: crypto.randomUUID(), text: '' }] })}>+ Možnost</button>
           )}
+        </div>
+      ) : q.kind === 'open' ? (
+        <div style={{ marginTop: '14px' }}>
+          <div style={{ ...label, marginBottom: '6px' }}>Vzorčni odgovor / rešitev (vidiš le ti)</div>
+          <AutoTextarea value={q.answer ?? ''} onChange={v => onChange({ ...q, answer: v })} placeholder="npr. W = F · s = 420 J" />
+          <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--muted)', margin: '6px 0 0' }}>
+            Odprto vprašanje se ne točkuje samodejno — na natisnjenem listu dobi prostor za odgovor, na iPadu kratko okence.
+          </p>
         </div>
       ) : (
         <div style={{ marginTop: '14px', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
@@ -323,6 +331,7 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
           <button style={btn(true)} onClick={() => setQuestions([...draft.questions, newMcQuestion()])}>+ Izbirno</button>
           <button style={btn()} onClick={() => setQuestions([...draft.questions, newTrueFalseQuestion()])}>+ Drži / ne drži</button>
           <button style={btn()} onClick={() => setQuestions([...draft.questions, newNumericQuestion()])}>+ Številsko</button>
+          <button style={btn()} onClick={() => setQuestions([...draft.questions, newOpenQuestion()])}>+ Odprto</button>
           <span style={{ flex: 1 }} />
           <button style={btn()} title="Izbriše vsa obstoječa vprašanja in uvozi vprašanja iz besedilne datoteke (.txt)" onClick={() => pickImport('replace')}>📄 Uvozi in zamenjaj</button>
           <button style={btn()} title="Doda vprašanja iz besedilne datoteke (.txt) za obstoječimi vprašanji" onClick={() => pickImport('merge')}>📄 Uvozi in združi</button>

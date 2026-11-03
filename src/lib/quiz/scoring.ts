@@ -15,6 +15,7 @@ export function parseNumber(raw: string): number | null {
 export function isCorrect(q: Question, value: string | null | undefined): boolean {
   if (value == null || value === '') return false;
   if (q.kind === 'mc') return q.correct !== null && value === q.correct;
+  if (q.kind === 'open') return false; // ročni pregled
   const given = parseNumber(value);
   const expected = parseNumber(q.correct);
   if (given === null || expected === null) return false;
@@ -42,6 +43,7 @@ export interface QuizScore {
 export function scoreAnswers(quiz: Pick<Quiz, 'questions'>, answers: Record<string, string | undefined>): QuizScore {
   let points = 0, maxPoints = 0, correct = 0, wrong = 0, unanswered = 0;
   for (const q of quiz.questions) {
+    if (q.kind === 'open') continue; // ne točkuje se samodejno
     maxPoints += q.points;
     const st = answerStatus(q, answers[q.id]);
     if (st === 'correct') { points += q.points; correct++; }
@@ -62,7 +64,7 @@ export function questionProblems(q: Question): string[] {
     if (filled.length < 2) p.push('potrebni sta vsaj 2 možnosti');
     if (!q.correct || !q.options.some(o => o.id === q.correct)) p.push('izberi pravilni odgovor');
     else if (!q.options.find(o => o.id === q.correct)?.text.trim()) p.push('pravilna možnost je prazna');
-  } else {
+  } else if (q.kind === 'numeric') {
     if (parseNumber(q.correct) === null) p.push('vpiši pravilno številsko vrednost');
     if (!(q.tolerance >= 0)) p.push('toleranca ne sme biti negativna');
   }

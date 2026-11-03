@@ -213,8 +213,9 @@ function QuestionBody({ code, q, selected, locked, shuffleSeed, onPick, onNumeri
         </div>
       ) : (
         <div style={{ marginTop: '22px' }}>
-          <input value={num} disabled={locked} inputMode="decimal" placeholder="Tvoj odgovor"
-            onChange={e => setNum(e.target.value.replace(/[^0-9,.\-\s]/g, '').slice(0, 20))}
+          {q.kind === 'open' && <p style={{ fontSize: '15px', color: 'var(--muted)', margin: '0 0 8px' }}>Kratek odgovor (do 40 znakov). Postopek zapiši na list.</p>}
+          <input value={num} disabled={locked} inputMode={q.kind === 'open' ? 'text' : 'decimal'} placeholder="Tvoj odgovor"
+            onChange={e => setNum(q.kind === 'open' ? e.target.value.slice(0, 40) : e.target.value.replace(/[^0-9,.\-\s]/g, '').slice(0, 20))}
             onKeyDown={e => { if (e.key === 'Enter') onNumeric(num); }}
             style={{ width: '100%', boxSizing: 'border-box', fontSize: '34px', fontWeight: 600, padding: '14px 18px', borderRadius: '14px', border: '3px solid var(--hairline)', outline: 'none', textAlign: 'center' }} />
           {!locked && (
@@ -328,7 +329,7 @@ export default function StudentQuiz({ code: rawCode }: { code: string }) {
               <div style={{ fontSize: '18px', fontWeight: 600, whiteSpace: 'pre-wrap' }}>{r.prompt}</div>
               <div style={{ fontSize: '16px', marginTop: '8px' }}>
                 Tvoj odgovor: <b>{r.kind === 'mc' ? (r.options?.find(o => o.id === r.yourAnswer)?.text ?? '—') : (r.yourAnswer ?? '—')}</b>
-                {!r.isCorrect && <> · Pravilno: <b style={{ color: 'var(--green-ok)' }}>{r.kind === 'mc' ? r.options?.find(o => o.id === r.correct)?.text : r.correct}</b></>}
+                {!r.isCorrect && r.kind !== 'open' && <> · Pravilno: <b style={{ color: 'var(--green-ok)' }}>{r.kind === 'mc' ? r.options?.find(o => o.id === r.correct)?.text : r.correct}</b></>}
               </div>
             </div>
           ))}

@@ -41,13 +41,16 @@ export function newMcQuestion(): Question {
 export function newTrueFalseQuestion(): Question {
   return { id: uid(), kind: 'mc', prompt: '', points: 1, options: [{ id: uid(), text: 'Drži' }, { id: uid(), text: 'Ne drži' }], correct: null };
 }
+export function newOpenQuestion(): Question {
+  return { id: uid(), kind: 'open', prompt: '', points: 1 };
+}
 export function newNumericQuestion(): Question {
   return { id: uid(), kind: 'numeric', prompt: '', points: 1, correct: '', tolerance: 0 };
 }
 
 /** Globoka kopija vprašanja z novimi id-ji (za podvajanje). */
 export function cloneQuestion(q: Question): Question {
-  if (q.kind === 'numeric') return { ...q, id: uid() };
+  if (q.kind !== 'mc') return { ...q, id: uid() };
   const idMap = new Map(q.options.map(o => [o.id, uid()]));
   return { ...q, id: uid(), options: q.options.map(o => ({ ...o, id: idMap.get(o.id)! })), correct: q.correct ? idMap.get(q.correct) ?? null : null };
 }

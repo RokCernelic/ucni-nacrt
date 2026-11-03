@@ -1,6 +1,6 @@
 /** Kvizi — podatkovni model (glej docs/KVIZI.md). */
 
-export type QuestionKind = 'mc' | 'numeric';
+export type QuestionKind = 'mc' | 'numeric' | 'open';
 
 export interface QuizOption {
   /** stabilen id — mešanje vrstnega reda ne vpliva na rezultate */
@@ -34,7 +34,18 @@ export interface NumericQuestion extends QuestionBase {
   tolerance: number;
 }
 
-export type Question = McQuestion | NumericQuestion;
+/** Odprto vprašanje (račun, zapis odgovora): se ne točkuje samodejno — učitelj pregleda ročno. */
+export interface OpenQuestion extends QuestionBase {
+  kind: 'open';
+  /** obogateno besedilo (formule, slike) za tisk */
+  html?: string;
+  /** vzorčni odgovor / rešitev za učitelja (učenci ga ne vidijo) */
+  answer?: string;
+  /** prostor za odgovor na natisnjenem listu (mm) */
+  space?: number;
+}
+
+export type Question = McQuestion | NumericQuestion | OpenQuestion;
 
 export interface Quiz {
   id: string;

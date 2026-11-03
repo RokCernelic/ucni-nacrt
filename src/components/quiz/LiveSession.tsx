@@ -70,7 +70,7 @@ export function QuestionView({ q, index, total, revealed, counts, answeredCount 
             );
           })}
         </div>
-      ) : revealed ? (
+      ) : revealed && q.kind === 'numeric' ? (
         <div style={{ marginTop: '20px', fontFamily: 'var(--font-sans)' }}>
           <div style={{ fontSize: '22px', color: 'var(--ink)' }}>
             Pravilno: <b style={{ color: 'var(--green-ok)' }}>{formatNumber(parseNumber(q.correct) ?? 0)}</b>
@@ -113,7 +113,7 @@ function QuestionStats({ q, index, answers, totalStudents }: { q: Question; inde
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '12px', marginBottom: '10px' }}>
         <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--ink)' }}>{index + 1}. {q.prompt || '(brez besedila)'}</div>
         <div style={{ fontSize: '15px', fontWeight: 700, color: pctColor, whiteSpace: 'nowrap' }}>
-          {answeredCount ? `${pct} % pravilno` : 'brez odgovorov'}
+          {q.kind === 'open' ? 'ročni pregled' : answeredCount ? `${pct} % pravilno` : 'brez odgovorov'}
         </div>
       </div>
 

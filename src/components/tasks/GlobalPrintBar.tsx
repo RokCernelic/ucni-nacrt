@@ -33,10 +33,13 @@ export default function GlobalPrintBar() {
   const onSheet = orderTasks(tasks.filter(t => selected.has(t.id)));
   if (!user || !loaded || onSheet.length === 0 || !showOn(pathname ?? '')) return null;
 
-  const { questions, skipped } = tasksToQuestions(onSheet);
+  const { questions } = tasksToQuestions(onSheet);
+  const nOpen = questions.filter(q => q.kind === 'open').length;
   const makeQuiz = () => {
     if (!questions.length) return;
-    const note = skipped.length ? `\n\n${skipped.length} ${skipped.length === 1 ? 'naloga ni primerna' : 'nalog ni primernih'} za kviz (odprte, kratek odgovor, več možnosti ali brez pravilnega odgovora) in ${skipped.length === 1 ? 'je izpuščena' : 'so izpuščene'}.` : '';
+    const note = nOpen ? `
+
+Izbirna vprašanja so na začetku. ${nOpen} odprtih (računskih, besedilnih) vprašanj se ne točkuje samodejno — pregledaš jih ročno.` : '';
     const name = window.prompt(`Naslov novega kviza (${questions.length} vprašanj)?${note}`, title === 'Učni list' ? 'Nov kviz' : title);
     if (name === null) return;
     try {
@@ -62,7 +65,7 @@ export default function GlobalPrintBar() {
             title="Natisne vse izbrane naloge kot kviz: izbirne v obrazcu s krogci na vrhu, ostale pod njimi; po želji list za vsakega učenca z QR kodo"
             style={{ ...btn(), padding: '5px 10px' }}>🧾 Natisni kviz</button>
           <button onClick={makeQuiz} disabled={!questions.length}
-            title={questions.length ? 'Iz izbranih nalog (izbirne, drži/ne drži, številske) naredi nov kviz v zavihku Kvizi' : 'Med izbranimi ni nalog, primernih za kviz (izbirne, drži/ne drži, številske s pravilnim odgovorom)'}
+            title={questions.length ? 'Iz vseh izbranih nalog naredi nov kviz v zavihku Kvizi (izbirne na začetku, nato ostale)' : 'Med izbranimi ni nalog, primernih za kviz (izbirne, drži/ne drži, številske s pravilnim odgovorom)'}
             style={{ ...btn(), padding: '5px 10px', opacity: questions.length ? 1 : 0.45, cursor: questions.length ? 'pointer' : 'not-allowed' }}>
             🎯 Ustvari kviz ({questions.length})
           </button>

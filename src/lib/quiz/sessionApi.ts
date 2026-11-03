@@ -93,7 +93,8 @@ export async function startSession(opts: {
       code: newCode(),
       quiz_id: opts.quiz.id,
       quiz_title: opts.quiz.title || 'Kviz',
-      quiz: { questions: opts.quiz.questions },
+      // odprta vprašanja: brez točk (SQL jih ne šteje v maksimum) in brez vzorčnega odgovora (učenci ga ne smejo videti)
+      quiz: { questions: opts.quiz.questions.map(q => (q.kind === 'open' ? { id: q.id, kind: 'open', prompt: q.prompt, image: q.image, points: 0 } : q)) },
       class_id: opts.classId,
       class_name: opts.className,
       mode: opts.mode,
@@ -266,7 +267,7 @@ export type JoinResult = { status: 'joined' | 'pending' | 'bad_pin' | 'locked' |
 
 export interface PublicQuestion {
   id: string;
-  kind: 'mc' | 'numeric';
+  kind: 'mc' | 'numeric' | 'open';
   prompt: string;
   points: number;
   hasImage: boolean;
