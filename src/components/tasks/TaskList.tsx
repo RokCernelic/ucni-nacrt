@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useTasks } from '@/hooks/useTasks';
 import { useTaskSelection } from '@/hooks/useTaskSelection';
-import type { Task } from '@/lib/tasks/types';
+import type { Task, TaskDraft } from '@/lib/tasks/types';
 import TaskEditor from './TaskEditor';
 import { Rich, TaskBadges, TaskAnswer, btn } from './ui';
 
@@ -27,6 +27,23 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
   const [editingId, setEditingId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** naloga, za katero se generira podobna (id) */
+  const [genBusy, setGenBusy] = useState<string | null>(null);
+  /** generiran osnutek, prikazan pod nalogo `forId`, preden ga shraniš */
+  const [gen, setGen] = useState<{ forId: string; draft: TaskDraft; note: string } | null>(null);
+
+  const generate = async (t: Task) => {
+    setGenBusy(t.id); setError(null);
+    try {
+      const { id: _id, created_at: _c, updated_at: _u, ...src } = t; // eslint-disable-line @typescript-eslint/no-unused-vars
+      const res = await fetch('/api/tasks/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(src) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? `Napaka ${res.status}`);
+      setGen({ forId: t.id, draft: data.draft, note: data.note ?? '' });
+      setEditingId(null); setAdding(false);
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    finally { setGenBusy(null); }
+  };
 
   const del = async (t: Task) => {
     if (!confirm('Izbrišem to nalogo iz baze? Izgine povsod (učni načrt, izbor).')) return;
@@ -67,8 +84,20 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flexShrink: 0 }}>
                   <button onClick={() => { setEditingId(t.id); setAdding(false); }} style={{ ...btn(), padding: '3px 9px', fontSize: '11px' }}>✎ Uredi</button>
+                  <button onClick={() => void generate(t)} disabled={genBusy !== null}
+                    title="Z umetno inteligenco (Claude) ugotovi poglavje in standarde te naloge ter ustvari podobno nalogo"
+                    style={{ ...btn(), padding: '3px 9px', fontSize: '11px', color: 'var(--forest)', opacity: genBusy !== null ? 0.5 : 1 }}>
+                    {genBusy === t.id ? '… generiram' : '✨ Generiraj podobno'}
+                  </button>
                   <button onClick={() => void del(t)} style={{ ...btn(), padding: '3px 9px', fontSize: '11px', color: '#c0392b', borderColor: '#e0b4ae' }}>× Izbriši</button>
                 </div>
+              </div>
+            )}
+            {gen?.forId === t.id && (
+              <div style={{ marginTop: '10px', border: '1px dashed var(--forest)', borderRadius: 'var(--r-md)', padding: '12px', background: 'var(--surface)' }}>
+                <div style={{ fontSize: '12px', color: 'var(--forest)', fontWeight: 600, marginBottom: '2px' }}>✨ Predlagana podobna naloga (osnutek — preveri, popravi in shrani)</div>
+                {gen.note && <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '8px' }}>{gen.note}</div>}
+                <TaskEditor initial={gen.draft} onCancel={() => setGen(null)} onSave={async d => { await save(d); setGen(null); }} />
               </div>
             )}
           </div>
