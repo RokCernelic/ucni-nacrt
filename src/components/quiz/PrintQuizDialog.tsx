@@ -59,7 +59,7 @@ export default function PrintQuizDialog({ items, title, quizId, defaultClassId, 
         list = [{ key: 'all', name: null, qr: null, layout: layoutSheet(items, null) }];
       }
       const style = document.createElement('style');
-      style.textContent = '@page { size: A4 portrait; margin: 0; }';
+      style.textContent = '@page { size: A4 portrait; margin: 10mm 0; }'; // odmik zgoraj/spodaj tudi na nadaljnjih straneh
       document.head.appendChild(style);
       const root = document.documentElement;
       const done = () => { root.classList.remove('printing-questions'); setSheets(null); style.remove(); window.removeEventListener('afterprint', done); };

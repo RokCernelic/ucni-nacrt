@@ -45,7 +45,7 @@ export function tasksToQuestions(tasks: Task[]): { questions: Question[]; skippe
       if (t.options?.length) prompt += '\n' + t.options.map((o, i) => `${'ABCDEFGHIJKL'[i]}) ${o.text}`).join('\n');
       const sol = [t.answer, t.solution].filter(Boolean).map(h => htmlToPlain(h!)).join('\n');
       rest.push({ ...base, kind: 'open', prompt, html: t.body, ...(sol ? { answer: sol } : {}),
-        space: t.answer_kind === 'short' ? 30 : t.answer_kind === 'numeric' ? 30 : 50 });
+        space: t.answer_kind === 'short' ? 15 : t.answer_kind === 'numeric' ? 15 : 25 });
     }
   }
   return { questions: [...choice, ...rest], skipped: [] };

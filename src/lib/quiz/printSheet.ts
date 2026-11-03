@@ -30,7 +30,7 @@ export function itemsFromTasks(tasks: Task[], toPlain: (html: string) => string)
       id: t.id, choice, multi: t.answer_kind === 'multi', html: t.body, prompt: toPlain(t.body),
       options: choice ? t.options!.map(o => ({ id: o.id, text: o.text })) : [],
       correct, points: t.points > 0 ? t.points : 1,
-      space: t.answer_kind === 'numeric' ? 30 : t.answer_kind === 'short' ? 30 : 50,
+      space: t.answer_kind === 'numeric' ? 15 : t.answer_kind === 'short' ? 15 : 25,
     };
   });
 }
@@ -40,8 +40,8 @@ export function itemsFromQuiz(quiz: Quiz): PrintItem[] {
     const img = q.image ? `<p><img src="${q.image}" alt=""></p>` : '';
     const html = `<p>${plainHtml(q.prompt)}</p>${img}`;
     if (q.kind === 'mc') return { id: q.id, choice: true, html, prompt: q.prompt, options: q.options.map(o => ({ id: o.id, text: o.text })), correct: q.correct ? [q.correct] : [], points: q.points, space: 0 };
-    if (q.kind === 'open') return { id: q.id, choice: false, html: q.html || html, prompt: q.prompt, options: [], correct: [], points: q.points, space: q.space ?? 45 };
-    return { id: q.id, choice: false, html, prompt: q.prompt, options: [], correct: [], points: q.points, space: 25 };
+    if (q.kind === 'open') return { id: q.id, choice: false, html: q.html || html, prompt: q.prompt, options: [], correct: [], points: q.points, space: Math.min(q.space ?? 25, 25) };
+    return { id: q.id, choice: false, html, prompt: q.prompt, options: [], correct: [], points: q.points, space: 15 };
   });
 }
 
