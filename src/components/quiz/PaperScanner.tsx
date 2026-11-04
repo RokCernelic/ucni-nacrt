@@ -225,43 +225,46 @@ export default function PaperScanner() {
         </div>
       ) : (
         <>
-          <canvas ref={viewRef} style={{ width: '100%', borderRadius: '10px', background: '#000', display: 'block' }} />
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '8px 0' }}>
+          <canvas ref={viewRef} style={{ width: '100%', borderRadius: '10px', background: '#000', display: hit ? 'none' : 'block' }} />
+          {!hit && <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '8px 0' }}>
             <p style={{ fontSize: '13px', color: 'var(--muted)', margin: 0, flex: 1 }}>{status}</p>
             <button onClick={stopCamera} style={{ ...btnS(), fontSize: '13px', padding: '8px 12px', flexShrink: 0 }}>✕ Ustavi kamero</button>
-          </div>
+          </div>}
         </>
       )}
       {error && <p style={{ color: '#c0392b', fontSize: '13px' }}>{error}</p>}
 
       {hit && (
-        <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 50, background: 'var(--canvas)', borderTop: '1px solid var(--hairline)', boxShadow: '0 -6px 24px rgba(0,0,0,.15)', padding: '12px 14px 16px', maxHeight: '70vh', overflowY: 'auto' }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '8px' }}>
-            <b style={{ fontSize: '17px' }}>{hit.name}</b>
-            <span style={{ fontSize: '17px', color: 'var(--forest)', fontWeight: 700 }}>{String(got).replace('.', ',')} / {String(max).replace('.', ',')}</span>
+        // brez posnetka: učitelj ima list pred sabo — samo prebrani odgovori in ročni popravki
+        <div style={{ paddingBottom: '84px' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: '6px 12px', margin: '4px 0 6px' }}>
+            <b style={{ fontSize: '20px' }}>{hit.name}</b>
+            <span style={{ fontSize: '20px', color: 'var(--forest)', fontWeight: 700 }}>{String(got).replace('.', ',')} / {String(max).replace('.', ',')}</span>
             {saved[hit.studentId] !== undefined && <span style={{ fontSize: '12px', color: '#b7791f' }}>že skeniran — shranitev prepiše</span>}
           </div>
-          <p style={{ fontSize: '12px', color: 'var(--muted)', margin: '0 0 8px' }}>Preveri: tapni krogec, da popraviš. Oranžno = negotovo.</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '6px 12px', marginBottom: '12px' }}>
+          <p style={{ fontSize: '13px', color: 'var(--muted)', margin: '0 0 12px' }}>Primerjaj z listom. Tapni črko, da popraviš. Oranžna vrstica = negotovo branje.</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 260px), 1fr))', gap: '8px 18px' }}>
             {score.map((r, qi) => (
-              <div key={r.n} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '3px 4px', borderRadius: '6px', background: r.uncertain ? '#fff4e0' : 'transparent' }}>
-                <span style={{ width: '26px', textAlign: 'right', fontSize: '12px', fontWeight: 700 }}>{r.n}{r.multi ? '+' : ''}</span>
+              <div key={r.n} style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '6px 8px', borderRadius: '8px', background: r.uncertain ? '#fff1d6' : 'transparent', borderBottom: '1px solid var(--hairline)' }}>
+                <span style={{ width: '30px', textAlign: 'right', fontSize: '15px', fontWeight: 700 }}>{r.n}{r.multi ? '+' : ''}</span>
                 {Array.from({ length: r.nOpts }, (_, k) => {
                   const on = hit.chosen[qi].includes(k);
                   return (
                     <button key={k} onClick={() => toggle(qi, k)}
-                      style={{ width: '24px', height: '24px', borderRadius: '50%', border: '1.5px solid var(--ink)', fontSize: '10px', fontWeight: 700, padding: 0, cursor: 'pointer', background: on ? 'var(--ink)' : 'transparent', color: on ? '#fff' : 'var(--muted)' }}>
+                      style={{ width: '36px', height: '36px', borderRadius: '50%', border: '2px solid var(--ink)', fontSize: '14px', fontWeight: 700, padding: 0, cursor: 'pointer', background: on ? 'var(--ink)' : 'transparent', color: on ? '#fff' : 'var(--muted)' }}>
                       {'ABCDEFGHIJKL'[k]}
                     </button>
                   );
                 })}
-                <span style={{ fontSize: '13px', marginLeft: '2px' }}>{r.right ? (r.ok ? '✓' : `✗ ${r.right}`) : '·'}</span>
+                <span style={{ marginLeft: 'auto', fontSize: '18px', fontWeight: 800, color: !r.right ? 'var(--muted)' : r.ok ? 'var(--green-ok)' : '#c0392b', whiteSpace: 'nowrap' }}>
+                  {r.right ? (r.ok ? '✓' : <>✗ <span style={{ fontSize: '14px', fontWeight: 600 }}>{r.right}</span></>) : '·'}
+                </span>
               </div>
             ))}
           </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 50, display: 'flex', gap: '8px', background: 'var(--canvas)', borderTop: '1px solid var(--hairline)', boxShadow: '0 -6px 24px rgba(0,0,0,.12)', padding: '12px 14px calc(12px + env(safe-area-inset-bottom))' }}>
             <button onClick={() => void save()} disabled={busy} style={{ ...btnS(true), flex: 1, opacity: busy ? 0.6 : 1 }}>{busy ? 'Shranjujem …' : '✓ Shrani in naprej'}</button>
-            <button onClick={() => { lastSig.current = { s: '', n: 0 }; setHit(null); }} disabled={busy} style={btnS()}>Znova</button>
+            <button onClick={() => { lastSig.current = { s: '', n: 0 }; setHit(null); }} disabled={busy} style={btnS()}>Skeniraj znova</button>
           </div>
         </div>
       )}
