@@ -44,7 +44,7 @@ function Ldn({ predmet, classId, razredFilter, school, classLabel, target, onClo
   const [year, setYear] = useState(schoolYearNow);
   const [teacher, setTeacher] = useState(() => { try { return localStorage.getItem(LS_TEACHER) ?? ''; } catch { return ''; } });
   const [date, setDate] = useState(todayLabel);
-  const [cols, setCols] = useState({ cilji: true, standardi: true, pojmi: true, opombe: true });
+  const [cols, setCols] = useState({ cilji: true, standardi: true, pojmi: true });
   const [busy, setBusy] = useState(false);
 
   // poglavja izbranega razreda v tvojem vrstnem redu, z izvornimi številkami iz učnega načrta
@@ -105,8 +105,7 @@ function Ldn({ predmet, classId, razredFilter, school, classLabel, target, onClo
     </label>
   );
 
-  const fixed: { cls: string; w: string }[] = [{ cls: 'num', w: '10mm' }, { cls: 'tema', w: '46mm' }, { cls: 'ure', w: '11mm' }];
-  const dyn = [cols.cilji, cols.standardi].filter(Boolean).length;
+  const fixed: { cls: string; w: string }[] = [{ cls: 'num', w: '10mm' }, { cls: 'tema', w: '56mm' }, { cls: 'ure', w: '11mm' }];
 
   const sheet = (
     <div className="print-questions ldn" aria-hidden>
@@ -136,50 +135,44 @@ function Ldn({ predmet, classId, razredFilter, school, classLabel, target, onClo
           {fixed.map(c => <col key={c.cls} style={{ width: c.w }} />)}
           {cols.cilji && <col />}
           {cols.standardi && <col />}
-          {cols.pojmi && <col style={{ width: dyn ? '36mm' : undefined }} />}
-          {cols.opombe && <col style={{ width: '30mm' }} />}
         </colgroup>
         <thead>
           <tr>
             <th>Št.</th><th>Učna tema</th><th>Ure</th>
             {cols.cilji && <th>Cilji</th>}
             {cols.standardi && <th>Standardi znanja</th>}
-            {cols.pojmi && <th>Novi pojmi</th>}
-            {cols.opombe && <th>Izvedba / opombe</th>}
           </tr>
         </thead>
         {chaps.map(c => (
           <tbody key={c.poglavje.id}>
             <tr className="ldn-chap">
               <td>{c.num}</td>
-              <td>{c.title}</td>
+              <td>{c.title}{cols.pojmi && c.poglavje.noviPojmi?.length ? <div className="ldn-pojmi"><b>Novi pojmi:</b> {c.poglavje.noviPojmi.join(', ')}</div> : null}</td>
               <td>{c.hours}</td>
               {cols.cilji && <td />}
               {cols.standardi && <td>{c.poglavje.standardi?.length ? <ul>{c.poglavje.standardi.map(s => <Std key={s.id} s={s} />)}</ul> : null}</td>}
-              {cols.pojmi && <td>{c.poglavje.noviPojmi?.join(', ')}</td>}
-              {cols.opombe && <td />}
             </tr>
             {c.rows.map((r, i) => (
               <tr key={i} className={r.custom ? 'ldn-custom' : undefined}>
                 <td>{r.num}</td>
-                <td>{r.title}{r.pp?.izbirna ? <span className="ldn-tag"> (izbirna)</span> : null}</td>
+                <td>{r.title}{r.pp?.izbirna ? <span className="ldn-tag"> (izbirna)</span> : null}
+                  {cols.pojmi && r.pp?.noviPojmi?.length ? <div className="ldn-pojmi"><b>Novi pojmi:</b> {r.pp.noviPojmi.join(', ')}</div> : null}</td>
                 <td>{r.hours}</td>
                 {cols.cilji && <td>{r.pp ? <ul>{r.pp.cilji.map(ci => <li key={ci.id}>{ci.text}{ci.tip === 'I' && <span className="ldn-tag"> (I)</span>}</li>)}</ul> : null}</td>}
                 {cols.standardi && <td>{r.pp ? <ul>{r.pp.standardi.map(s => <Std key={s.id} s={s} />)}</ul> : null}</td>}
-                {cols.pojmi && <td>{r.pp?.noviPojmi?.join(', ')}</td>}
-                {cols.opombe && <td />}
               </tr>
             ))}
           </tbody>
         ))}
-        <tfoot>
+        {/* skupno število ur samo na koncu dokumenta (tfoot bi se ponovil na vsaki strani) */}
+        <tbody>
           <tr className="ldn-total">
             <td /><td>Skupaj ur</td><td>{total}</td>
-            <td colSpan={Number(cols.cilji) + Number(cols.standardi) + Number(cols.pojmi) + Number(cols.opombe)} className="ldn-legend">
+            <td colSpan={Number(cols.cilji) + Number(cols.standardi) || 1} className="ldn-legend">
               M – minimalni standard · I – izbirni cilj / standard · S – skupni standard
             </td>
           </tr>
-        </tfoot>
+        </tbody>
       </table>
     </div>
   );
@@ -201,7 +194,7 @@ function Ldn({ predmet, classId, razredFilter, school, classLabel, target, onClo
           <input style={field} value={date} onChange={e => setDate(e.target.value)} />
           <label style={lab}>Stolpci v tabeli</label>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 12px' }}>
-            {chk('cilji', 'Cilji')}{chk('standardi', 'Standardi')}{chk('pojmi', 'Novi pojmi')}{chk('opombe', 'Izvedba / opombe')}
+            {chk('cilji', 'Cilji')}{chk('standardi', 'Standardi')}{chk('pojmi', 'Novi pojmi (pod temo)')}
           </div>
           <div style={{ display: 'flex', gap: '8px', marginTop: '20px', justifyContent: 'flex-end' }}>
             <button onClick={onClose} style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', padding: '9px 16px', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', background: 'transparent', color: 'var(--ink)', cursor: 'pointer' }}>Prekliči</button>

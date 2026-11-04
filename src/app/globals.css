@@ -214,7 +214,7 @@ html.scanner-full .app-nav { display: none; }
   .ldn-table thead { display: table-header-group; }
   .ldn-table thead th { background: #e9e9e9; font-weight: 700; }
   .ldn-table tr { break-inside: avoid; }
-  .ldn-table tfoot { display: table-footer-group; }
+  .ldn-pojmi { font-weight: 400; font-size: 8pt; color: #333; margin-top: .8mm; }
   .ldn-table ul { margin: 0; padding-left: 3.5mm; }
   .ldn-table li { margin: 0 0 .6mm; }
   .ldn-chap td { background: #f0f0f0; font-weight: 700; font-size: 9.5pt; }
