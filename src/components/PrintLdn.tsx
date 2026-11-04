@@ -28,7 +28,7 @@ function writeFields(classId: string, f: Fields) {
 }
 
 interface Row { num: string; title: string; hours: number; custom: boolean; color?: string; pp?: Predmet['poglavja'][number]['podpoglavja'][number] }
-type Item = { i: number; kind: 'chap'; c: Chap } | { i: number; kind: 'row'; c: Chap; r: Row } | { i: number; kind: 'total' };
+type Item = { i: number; kind: 'chap'; c: Chap } | { i: number; kind: 'row'; c: Chap; r: Row } | { i: number; kind: 'total' } | { i: number; kind: 'free' };
 interface Chap { num: number; title: string; hours: number; poglavje: Predmet['poglavja'][number]; rows: Row[] }
 
 function Std({ s }: { s: Standard }) {
@@ -103,6 +103,9 @@ function Ldn({ predmet, classId, razredFilter, school, classLabel, target, onClo
   const flat: Item[] = [];
   chaps.forEach(c => { flat.push({ i: flat.length, kind: 'chap', c }); c.rows.forEach(r => flat.push({ i: flat.length, kind: 'row', c, r })); });
   flat.push({ i: flat.length, kind: 'total' });
+  // ure po učnem načrtu, ki jih še nisi razporedil v teme
+  const unassigned = target != null ? Math.max(0, target - total) : null;
+  if (unassigned !== null) flat.push({ i: flat.length, kind: 'free' });
 
   const mRef = useRef<HTMLDivElement>(null);
   /** razdelitev vrstic po straneh (izračunana ob tisku); prva stran (naslovna) ni vključena */
@@ -175,6 +178,16 @@ function Ldn({ predmet, classId, razredFilter, school, classLabel, target, onClo
           <td>{r.hours}</td>
           {cols.cilji && <td>{r.pp ? <ul>{r.pp.cilji.map(ci => <li key={ci.id}>{ci.text}{ci.tip === 'I' && <span className="ldn-tag"> (I)</span>}</li>)}</ul> : null}</td>}
           {cols.standardi && <td>{r.pp ? <ul>{r.pp.standardi.map(st => <Std key={st.id} s={st} />)}</ul> : null}</td>}
+        </tr>
+      );
+    }
+    if (it.kind === 'free') {
+      return (
+        <tr key={it.i} data-i={it.i} className="ldn-total ldn-free">
+          <td /><td>Nerazporejene ure</td><td>{unassigned}</td>
+          <td colSpan={Number(cols.cilji) + Number(cols.standardi) || 1} className="ldn-legend">
+            Ure so namenjene utrjevanju, ustnemu spraševanju in izvedbi dnevov dejavnosti
+          </td>
         </tr>
       );
     }
