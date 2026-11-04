@@ -73,6 +73,23 @@ function GripIcon() {
 type PaletteDrag = { type: string; color: string; hours: number };
 const PaletteDragCtx = createContext<PaletteDrag | null>(null);
 
+/** Lastna enota, ki jo trenutno vlečemo (za premik v drugo poglavje). */
+type CustomDrag = { fromKey: string; id: string };
+const CustomDragCtx = createContext<{ drag: CustomDrag | null; set: (d: CustomDrag | null) => void }>({ drag: null, set: () => {} });
+
+/**
+ * Enota se izbriše samo, če jo spustiš v prazen prostor levo ali desno od seznama (vodoravno izven »lista«).
+ * Spust drugje (tudi mimo ciljne črte) enote ne izbriše — ostane, kjer je bila.
+ */
+function droppedOutsideList(e: { clientX: number; clientY: number }): boolean {
+  const { clientX: x, clientY: y } = e;
+  if (x === 0 && y === 0) return false;                            // brskalnik položaja ne sporoča
+  if (x < 0 || y < 0 || x > window.innerWidth || y > window.innerHeight) return false; // spust zunaj okna
+  const rects = Array.from(document.querySelectorAll('[data-list-card]')).map(el => el.getBoundingClientRect());
+  if (!rects.length) return false;
+  return x < Math.min(...rects.map(r => r.left)) || x > Math.max(...rects.map(r => r.right));
+}
+
 // ── Standardi list ─────────────────────────────────────────
 
 const M_BADGE = <span key="m" style={{ marginLeft: '6px', fontSize: '10px', background: 'var(--forest)', color: '#fff', borderRadius: '3px', padding: '1px 5px', fontWeight: 600, fontStyle: 'normal' }}>M</span>;
@@ -253,7 +270,8 @@ function Palette({ onDragStart, onDragEnd }: { onDragStart: (d: PaletteDrag) => 
   };
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', padding: '10px 2px 6px' }}>
+    // lepljivo: ostane vidno pod menijem, ko skrolaš navzdol (da lahko polje povlečeš v poglavje, ki je nižje)
+    <div style={{ position: 'sticky', top: 'var(--nav-h, 0px)', zIndex: 50, background: '#f7f6f3', boxShadow: '0 6px 8px -6px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', padding: '10px 2px 8px' }}>
       <span style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted)', whiteSpace: 'nowrap', marginRight: '2px' }}>
         Dodaj:
       </span>
@@ -390,7 +408,7 @@ function CustomEnotaRow({ item, onToggle, onDragStart, onDragEnd, onRename, onHo
   item: ResolvedEnotaItem & { kind: 'custom' };
   onToggle: () => void;
   onDragStart: () => void;
-  onDragEnd: () => void;
+  onDragEnd: (e: React.DragEvent) => void;
   onRename: (label: string) => void;
   onHourChange: (delta: number) => void;
   remaining: number;
@@ -420,7 +438,7 @@ function CustomEnotaRow({ item, onToggle, onDragStart, onDragEnd, onRename, onHo
           }}
           onDragEnd={onDragEnd}
           style={{ cursor: 'grab', color: 'var(--muted)', flexShrink: 0 }}
-          title="Povleci za preurejanje ali odstranitev"
+          title="Povleci za preurejanje ali v drugo poglavje; v prazen prostor levo/desno izven seznama = odstrani"
         >
           <GripIcon />
         </span>
@@ -714,7 +732,7 @@ function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, 
 
 // ── Poglavje row ──────────────────────────────────────────
 
-function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, onToggleOpen, getHours, onHourChange, remaining, resolve, addEnota, reorder, removeEnota, toggleCustom, renameCustom, setCustomHours, isAnonymous, listMode, getNote, onNoteChange, onDragStart, onDragEnd, collapsedPodpoglavja, onToggleCollapsePodpoglavje }: {
+function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, onToggleOpen, getHours, onHourChange, remaining, resolve, addEnota, moveEnota, reorder, removeEnota, toggleCustom, renameCustom, setCustomHours, isAnonymous, listMode, getNote, onNoteChange, onDragStart, onDragEnd, collapsedPodpoglavja, onToggleCollapsePodpoglavje }: {
   poglavje: import('@/types/curriculum').Poglavje;
   index: number;
   predmetId: string;
@@ -727,6 +745,7 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
   remaining: number;
   resolve: (key: string, currIds: string[]) => ResolvedEnotaItem[];
   addEnota: (key: string, type: string, color: string, at: number, currIds: string[], hours?: number) => void;
+  moveEnota: (fromKey: string, toKey: string, id: string, at: number, toCurrIds: string[]) => void;
   reorder: (key: string, from: number, to: number, currIds: string[]) => void;
   removeEnota: (key: string, id: string) => void;
   toggleCustom: (key: string, id: string) => void;
@@ -747,6 +766,16 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
   const dragDroppedRef = useRef(false);
   const chapterHeaderRef = useRef<HTMLDivElement>(null);
   const paletteType = useContext(PaletteDragCtx);
+  const { drag: customDrag, set: setCustomDrag } = useContext(CustomDragCtx);
+
+  // med vlečenjem nad zaprto poglavje se to po kratkem čakanju samo odpre (da lahko spustiš enoto vanj)
+  const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const disarmOpen = () => { if (openTimer.current) { clearTimeout(openTimer.current); openTimer.current = null; } };
+  const armOpen = () => {
+    if (isOpen || openTimer.current || (!paletteType && !customDrag)) return;
+    openTimer.current = setTimeout(() => { openTimer.current = null; onToggleOpen(); }, 450);
+  };
+  useEffect(() => disarmOpen, []);
 
   const poglavjeKey = `${predmetId}:${poglavje.id}`;
   const podpoglavjeIds = poglavje.podpoglavja.map(pp => pp.id);
@@ -766,6 +795,10 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
   const handleDrop = (toIndex: number) => {
     if (paletteType !== null) {
       addEnota(poglavjeKey, paletteType.type, paletteType.color, toIndex, podpoglavjeIds, paletteType.hours);
+    } else if (customDrag && customDrag.fromKey !== poglavjeKey) {
+      // lastna enota iz drugega poglavja
+      moveEnota(customDrag.fromKey, poglavjeKey, customDrag.id, toIndex, podpoglavjeIds);
+      setCustomDrag(null);
     } else if (dragFromRef.current !== null) {
       dragDroppedRef.current = true;
       reorder(poglavjeKey, dragFromRef.current, toIndex, podpoglavjeIds);
@@ -776,7 +809,7 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
 
   return (
     <div style={{ borderBottom: '1px solid var(--hairline)' }}>
-      <div ref={chapterHeaderRef} style={{ display: 'flex', alignItems: 'center', background: 'transparent' }}>
+      <div ref={chapterHeaderRef} onDragOver={armOpen} onDragLeave={disarmOpen} onDrop={disarmOpen} style={{ display: 'flex', alignItems: 'center', background: 'transparent' }}>
         <span
           draggable
           onDragStart={(e) => {
@@ -866,15 +899,17 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
                         noteValue={getNote(`${predmetId}:${item.id}`)}
                         onNoteChange={(v) => onNoteChange(`${predmetId}:${item.id}`, v)}
                         topicKey={`${predmetId}:${item.id}`}
-                        onDragStart={() => { dragDroppedRef.current = false; dragFromRef.current = idx; setIsDraggingCustom(true); }}
-                        onDragEnd={() => {
-                          if (!dragDroppedRef.current && dragFromRef.current !== null) {
+                        onDragStart={() => { dragDroppedRef.current = false; dragFromRef.current = idx; setIsDraggingCustom(true); setCustomDrag({ fromKey: poglavjeKey, id: item.id }); }}
+                        onDragEnd={(e) => {
+                          // izbris samo ob spustu v prazen prostor levo/desno izven seznama
+                          if (!dragDroppedRef.current && dragFromRef.current !== null && droppedOutsideList(e)) {
                             const dragged = items[dragFromRef.current];
                             if (dragged?.kind === 'custom') removeEnota(poglavjeKey, dragged.id);
                           }
                           dragDroppedRef.current = false;
                           dragFromRef.current = null;
                           setIsDraggingCustom(false);
+                          setCustomDrag(null);
                         }}
                       />
                     )}
@@ -936,13 +971,43 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
   const { checked, toggle } = useProgress(classId ? `ucni-nacrt-progress-${classId}` : undefined);
   const { getHours, change } = useHours(classId ? `ucni-nacrt-hours-${classId}` : undefined);
   const { getNote, setNote } = useNotes(classId ? `ucni-nacrt-notes-${classId}` : undefined);
-  const { resolve, addEnota, reorder, removeEnota, toggleCustom, renameCustom, setCustomHours, countCustom, countCheckedCustom } = useEnotaOrder(classId ? `ucni-nacrt-enote-order-${classId}` : undefined);
+  const { resolve, addEnota, moveEnota, reorder, removeEnota, toggleCustom, renameCustom, setCustomHours, countCustom, countCheckedCustom } = useEnotaOrder(classId ? `ucni-nacrt-enote-order-${classId}` : undefined);
   const { openChapters, toggle: toggleChapter, expandAll, collapseAll } = useOpenChapters(classId ? `ucni-nacrt-open-chapters-${classId}` : undefined);
   // Klik na naslov podpoglavja strne/razširi cilje, standarde, pojme in učno vsebino ZANJ POSEBEJ
   // (v nasprotju z gumbom "Strnjen seznam", ki to naredi globalno za vsa podpoglavja).
   const { openChapters: collapsedPodpoglavja, toggle: toggleCollapsedPodpoglavje } = useOpenChapters(classId ? `ucni-nacrt-collapsed-podpoglavja-${classId}` : undefined);
   const { resolveOrder, reorderChapters } = useChapterOrder(classId ? `ucni-nacrt-chapter-order-${classId}` : undefined);
   const [paletteDrag, setPaletteDrag] = useState<PaletteDrag | null>(null);
+  const [customDrag, setCustomDrag] = useState<CustomDrag | null>(null);
+
+  // samodejno drsenje strani, ko med vlečenjem prideš blizu zgornjega ali spodnjega roba zaslona
+  useEffect(() => {
+    let raf = 0, y: number | null = null, last = 0;
+    const tick = () => {
+      if (y !== null && Date.now() - last < 700) {
+        const navBottom = document.querySelector('nav')?.getBoundingClientRect().bottom ?? 0;
+        const top = Math.max(navBottom, 0) + 70, bottom = window.innerHeight - 90;
+        const dy = y < top ? -Math.min(30, (top - y) / 3 + 5) : y > bottom ? Math.min(30, (y - bottom) / 3 + 5) : 0;
+        if (dy) window.scrollBy(0, dy);
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    const start = () => { if (!raf) raf = requestAnimationFrame(tick); };
+    const stop = () => { y = null; if (raf) { cancelAnimationFrame(raf); raf = 0; } };
+    const over = (e: DragEvent) => { y = e.clientY; last = Date.now(); };
+    // capture: DropZone ustavi širjenje dogodka, zato poslušamo že na poti navzdol
+    document.addEventListener('dragstart', start, true);
+    document.addEventListener('dragover', over, true);
+    document.addEventListener('dragend', stop, true);
+    document.addEventListener('drop', stop, true);
+    return () => {
+      stop();
+      document.removeEventListener('dragstart', start, true);
+      document.removeEventListener('dragover', over, true);
+      document.removeEventListener('dragend', stop, true);
+      document.removeEventListener('drop', stop, true);
+    };
+  }, []);
   const [listMode, setListMode] = useListMode(classId);
   const [chapterDragging, setChapterDragging] = useState(false);
   const chapterDragFrom = useRef<number | null>(null);
@@ -1018,6 +1083,7 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
 
   return (
     <PaletteDragCtx.Provider value={paletteDrag}>
+      <CustomDragCtx.Provider value={{ drag: customDrag, set: setCustomDrag }}>
       <div>
         <div style={{ background: 'var(--forest)', padding: '32px 32px 28px' }}>
           <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
@@ -1110,7 +1176,7 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
                     onDragEnd={() => setPaletteDrag(null)}
                   />
                   {gi === 0 && <Legend />}
-                  <div style={{ marginTop: '6px', background: 'var(--canvas)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
+                  <div data-list-card style={{ marginTop: '6px', background: 'var(--canvas)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
                     <div onDragOver={(e) => e.preventDefault()}>
                       {chapterDragging && <DropZone onDrop={() => handleChapterDrop(groupKey, 0, ids)} />}
                       {poglavja.map((poglavje, ci) => {
@@ -1130,6 +1196,7 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
                               remaining={remaining}
                               resolve={resolve}
                               addEnota={addEnota}
+                              moveEnota={moveEnota}
                               reorder={reorder}
                               removeEnota={removeEnota}
                               toggleCustom={toggleCustom}
@@ -1164,6 +1231,7 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
           </p>
         </div>
       </div>
+    </CustomDragCtx.Provider>
     </PaletteDragCtx.Provider>
   );
 }

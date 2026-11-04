@@ -77,6 +77,20 @@ export function useEnotaOrder(storageKey = 'ucni-nacrt-enote-order') {
     window.dispatchEvent(new Event('ucni-nacrt-changed'));
   }, [storageKey]);
 
+  /** Premakne lastno enoto v drugo poglavje (ohrani isti id, zato ji sledijo zapiski in vprašanja). */
+  const moveEnota = useCallback((fromKey: string, toKey: string, id: string, atIndex: number, toCurrIds: string[]) => {
+    setStore(prev => {
+      const src = prev[fromKey];
+      const item = src?.find(i => i.k === 'x' && i.id === id);
+      if (!src || !item || fromKey === toKey) return prev;
+      const dst = materialize(prev[toKey], toCurrIds);
+      const s = { ...prev, [fromKey]: src.filter(i => i.id !== id), [toKey]: [...dst.slice(0, atIndex), item, ...dst.slice(atIndex)] };
+      localStorage.setItem(storageKey, JSON.stringify(s));
+      return s;
+    });
+    window.dispatchEvent(new Event('ucni-nacrt-changed'));
+  }, [storageKey]);
+
   const reorder = useCallback((poglavjeKey: string, from: number, to: number, currIds: string[]) => {
     setStore(prev => {
       const cur = materialize(prev[poglavjeKey], currIds);
@@ -147,5 +161,5 @@ export function useEnotaOrder(storageKey = 'ucni-nacrt-enote-order') {
     poglavjeKeys.reduce((n, k) => n + (store[k]?.filter(isCustom).filter(i => i.checked).reduce((s, i) => s + (i.hours ?? 1), 0) ?? 0), 0),
   [store]);
 
-  return { resolve, addEnota, reorder, removeEnota, toggleCustom, renameCustom, setCustomHours, countCustom, countCheckedCustom };
+  return { resolve, addEnota, moveEnota, reorder, removeEnota, toggleCustom, renameCustom, setCustomHours, countCustom, countCheckedCustom };
 }

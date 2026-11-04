@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useRef, useState, Suspense } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import CurriculumPicker from '@/components/CurriculumPicker';
 import ViewClassTabs from '@/components/ViewClassTabs';
@@ -111,6 +111,18 @@ export default function Nav() {
   const { subjects, addSubject, updateSubtitle } = useSubjects();
   const [picker, setPicker] = useState(false);
   const router = useRouter();
+  const navRef = useRef<HTMLElement>(null);
+
+  // višina menija v CSS spremenljivko — da se lahko druge lepljive vrstice (npr. »Dodaj:«) prilepijo tik pod meni
+  useEffect(() => {
+    const el = navRef.current;
+    if (!el) return;
+    const set = () => document.documentElement.style.setProperty('--nav-h', `${el.offsetHeight}px`);
+    set();
+    const ro = new ResizeObserver(set);
+    ro.observe(el);
+    return () => ro.disconnect();
+  });
 
   // učenčev iPad (/k, /k/KODA) — brez menija aplikacije
   if (path === '/k' || path.startsWith('/k/')) return null;
@@ -145,7 +157,7 @@ export default function Nav() {
   };
 
   return (
-    <nav className="app-nav" style={{
+    <nav ref={navRef} className="app-nav" style={{
       position: 'sticky', top: 0, zIndex: 100,
       background: 'var(--forest)', boxShadow: '0 1px 8px rgba(0,0,0,0.18)',
     }}>
