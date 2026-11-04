@@ -212,7 +212,7 @@ export default function QuizLibrary() {
                       <button style={btn(true)} disabled={incomplete > 0} title={incomplete > 0 ? 'Najprej dokončaj vsa vprašanja' : 'Zaženi sejo z razredom'}
                         onClick={() => setStarting(q.id)}>▶ Zaženi</button>
                       <Link href={`/kvizi/${q.id}`} style={{ ...btn(), textDecoration: 'none' }}>Uredi</Link>
-                      {q.lastUsedAt && <Link href={`/kvizi/${q.id}/zgodovina`} style={{ ...btn(), textDecoration: 'none' }} title="Pretekle seje in primerjava med razredi">Zgodovina</Link>}
+                      <Link href={`/kvizi/statistika?k=${encodeURIComponent(q.id)}`} style={{ ...btn(), textDecoration: 'none' }} title="Rezultati tega kviza po učencih in nalogah">Rezultati</Link>
                       <button style={btn()} onClick={() => guard(() => lib.duplicateQuiz(q.id))}>Podvoji</button>
                       <button style={{ ...btn(), color: '#c0392b', borderColor: '#e0b4ae' }}
                         onClick={() => { if (confirm(`Izbrišem kviz »${q.title}«?`)) guard(() => lib.deleteQuiz(q.id)); }}>Izbriši</button>
