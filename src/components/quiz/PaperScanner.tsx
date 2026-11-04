@@ -73,6 +73,21 @@ export default function PaperScanner() {
     s?.getTracks().forEach(t => t.stop());
   }, []);
 
+  const stopCamera = () => {
+    const s = videoRef.current?.srcObject as MediaStream | null;
+    s?.getTracks().forEach(t => t.stop());
+    if (videoRef.current) videoRef.current.srcObject = null;
+    setRunning(false);
+  };
+
+  // med skeniranjem skrij glavo aplikacije (meni, ura) — več prostora za sliko
+  useEffect(() => {
+    if (!running) return;
+    const root = document.documentElement;
+    root.classList.add('scanner-full');
+    return () => root.classList.remove('scanner-full');
+  }, [running]);
+
   // zanka skeniranja (~4× na sekundo)
   useEffect(() => {
     if (!running) return;
@@ -199,7 +214,7 @@ export default function PaperScanner() {
 
   return (
     <div style={{ maxWidth: '760px', margin: '0 auto', padding: '12px', fontFamily: 'var(--font-sans)' }}>
-      <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '24px', fontWeight: 400, margin: '4px 0 8px' }}>Skener natisnjenih kvizov</h1>
+      {!running && <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '24px', fontWeight: 400, margin: '4px 0 8px' }}>Skener natisnjenih kvizov</h1>}
       <video ref={videoRef} playsInline muted style={{ display: 'none' }} />
       {!running ? (
         <div style={{ padding: '20px 0' }}>
@@ -211,7 +226,10 @@ export default function PaperScanner() {
       ) : (
         <>
           <canvas ref={viewRef} style={{ width: '100%', borderRadius: '10px', background: '#000', display: 'block' }} />
-          <p style={{ fontSize: '13px', color: 'var(--muted)', margin: '8px 0' }}>{status}</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '8px 0' }}>
+            <p style={{ fontSize: '13px', color: 'var(--muted)', margin: 0, flex: 1 }}>{status}</p>
+            <button onClick={stopCamera} style={{ ...btnS(), fontSize: '13px', padding: '8px 12px', flexShrink: 0 }}>✕ Ustavi kamero</button>
+          </div>
         </>
       )}
       {error && <p style={{ color: '#c0392b', fontSize: '13px' }}>{error}</p>}

@@ -192,3 +192,6 @@ body {
   .pqz-inline { display: flex; flex-wrap: wrap; gap: 0 4mm; }
   .pqz-free { border-bottom: .2mm dotted #999; margin: 1mm 0 0 5mm; }
 }
+
+/* skener natisnjenih kvizov: med delovanjem kamere brez glave aplikacije */
+html.scanner-full .app-nav { display: none; }

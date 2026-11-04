@@ -145,7 +145,7 @@ export default function Nav() {
   };
 
   return (
-    <nav style={{
+    <nav className="app-nav" style={{
       position: 'sticky', top: 0, zIndex: 100,
       background: 'var(--forest)', boxShadow: '0 1px 8px rgba(0,0,0,0.18)',
     }}>
