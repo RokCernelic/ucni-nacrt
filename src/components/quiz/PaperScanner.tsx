@@ -73,6 +73,14 @@ export default function PaperScanner() {
     s?.getTracks().forEach(t => t.stop());
   }, []);
 
+  // kamera se vklopi takoj ob odprtju skenerja (gumb ostane za ponovni vklop / če brskalnik zavrne)
+  const autoStarted = useRef(false);
+  useEffect(() => {
+    if (!user || autoStarted.current) return;
+    const t = setTimeout(() => { autoStarted.current = true; void start(); }, 0);
+    return () => clearTimeout(t);
+  }, [user]);
+
   const stopCamera = () => {
     const s = videoRef.current?.srcObject as MediaStream | null;
     s?.getTracks().forEach(t => t.stop());
