@@ -8,7 +8,7 @@ import {
 } from '@/lib/quiz/sessionApi';
 import { seededOrder } from '@/lib/quiz/shuffle';
 import { formatNumber } from '@/lib/quiz/format';
-import { ceilPct } from '@/lib/quiz/format';
+import { ceilPct, gradeColor } from '@/lib/quiz/format';
 
 const LETTERS = 'ABCDEF';
 const page: React.CSSProperties = { minHeight: '100vh', background: '#f4f2ee', fontFamily: 'var(--font-sans)', color: 'var(--ink)', display: 'flex', flexDirection: 'column' };
@@ -321,7 +321,7 @@ export default function StudentQuiz({ code: rawCode }: { code: string }) {
           <div style={{ ...card, textAlign: 'center' }}>
             <div style={{ fontSize: '16px', color: 'var(--muted)' }}>{state.status === 'ended' ? 'Kviz je končan' : 'Kviz si oddal'}</div>
             <div style={{ fontSize: '64px', fontWeight: 800, margin: '8px 0 0', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(state.points ?? 0)} / {formatNumber(state.maxPoints ?? 0)}</div>
-            <div style={{ fontSize: '24px', color: 'var(--forest)', fontWeight: 700 }}>{pct} %</div>
+            <div style={{ fontSize: '24px', color: gradeColor(pct), fontWeight: 700 }}>{pct} %</div>
             {state.status !== 'ended' && <p style={{ fontSize: '15px', color: 'var(--muted)', margin: '14px 0 0' }}>Počakaj navodila učitelja.</p>}
           </div>
           {state.review?.map((r, i) => (

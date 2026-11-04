@@ -22,3 +22,21 @@ export function formatNumber(n: number): string {
 export function ceilPct(x: number): number {
   return Math.max(0, Math.ceil(x - 1e-9));
 }
+
+/**
+ * Barva odstotka po ocenjevalnih mejah: 90–100 odl (5) zelena, 78–89 pd (4) rumenozelena,
+ * 64–77 db (3) rumena, 45–63 zd (2) oranžna, pod 45 nzd (1) rdeča.
+ */
+export function gradeColor(p: number | null | undefined): string {
+  if (p === null || p === undefined || Number.isNaN(p)) return 'var(--muted)';
+  if (p >= 90) return '#2e8b3e';
+  if (p >= 78) return '#7aa82a';
+  if (p >= 64) return '#cf9e00';
+  if (p >= 45) return '#e06a1b';
+  return '#c0392b';
+}
+
+/** Ocena po istih mejah (1–5). */
+export function gradeOf(p: number): number {
+  return p >= 90 ? 5 : p >= 78 ? 4 : p >= 64 ? 3 : p >= 45 ? 2 : 1;
+}

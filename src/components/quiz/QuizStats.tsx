@@ -9,11 +9,12 @@ import { loadAllHistory, joinStatsChannel, isLive, participated, type QuizSessio
 import { scoreAnswers } from '@/lib/quiz/scoring';
 import { QuizHistoryBody } from './QuizHistory';
 import { ceilPct } from '@/lib/quiz/format';
+import { gradeColor } from '@/lib/quiz/format';
 
 type Data = Awaited<ReturnType<typeof loadAllHistory>>;
 const keyOf = (s: QuizSession) => s.quiz_id ?? `naslov:${s.quiz_title}`;
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('sl-SI', { day: 'numeric', month: 'short', year: 'numeric' });
-const pctColor = (p: number | null) => (p === null ? 'var(--muted)' : p >= 70 ? 'var(--green-ok)' : p >= 40 ? '#b7791f' : '#c0392b');
+const pctColor = gradeColor;
 
 /** Kvizi → Statistika: vse odigrane seje po kvizih (ostanejo tudi, ko kviz izbrišeš). */
 export default function QuizStats() {

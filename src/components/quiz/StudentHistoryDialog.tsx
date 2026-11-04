@@ -6,6 +6,7 @@ import { loadStudentHistory, type StudentHistoryEntry } from '@/lib/quiz/session
 import { scoreAnswers } from '@/lib/quiz/scoring';
 import { formatNumber } from '@/lib/quiz/format';
 import { ceilPct } from '@/lib/quiz/format';
+import { gradeColor } from '@/lib/quiz/format';
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('sl-SI', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -57,7 +58,7 @@ export function StudentHistoryBody({ studentName, entries, error, onClose }: {
                     {formatNumber(sc.points)}/{formatNumber(sc.maxPoints)}
                   </div>
                   <div style={{ fontFamily: 'var(--font-sans)', fontSize: '16px', fontWeight: 700, minWidth: '52px', textAlign: 'right',
-                    color: sc.percent >= 70 ? 'var(--green-ok)' : sc.percent >= 40 ? '#b7791f' : '#c0392b' }}>
+                    color: gradeColor(sc.percent) }}>
                     {formatNumber(sc.percent)} %
                   </div>
                 </Link>

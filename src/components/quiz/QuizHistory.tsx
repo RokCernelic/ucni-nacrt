@@ -8,6 +8,7 @@ import { loadQuizHistory, isLive, participated, type QuizSession } from '@/lib/q
 import { scoreAnswers } from '@/lib/quiz/scoring';
 import { studentsLabel } from '@/lib/quiz/format';
 import { ceilPct } from '@/lib/quiz/format';
+import { gradeColor } from '@/lib/quiz/format';
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('sl-SI', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -71,7 +72,7 @@ export function QuizHistoryBody({ quizTitle, data, back = { href: '/kvizi', labe
               {classRows.map(c => (
                 <div key={c.classId} style={card}>
                   <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--ink)' }}>{c.className}</div>
-                  <div style={{ fontSize: '30px', fontWeight: 700, color: c.avg === null ? 'var(--muted)' : c.avg >= 70 ? 'var(--green-ok)' : c.avg >= 40 ? '#b7791f' : '#c0392b', marginTop: '6px' }}>
+                  <div style={{ fontSize: '30px', fontWeight: 700, color: gradeColor(c.avg), marginTop: '6px' }}>
                     {c.avg === null ? '—' : `${c.avg} %`}
                   </div>
                   <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '4px' }}>
@@ -99,7 +100,7 @@ export function QuizHistoryBody({ quizTitle, data, back = { href: '/kvizi', labe
                       </div>
                     </div>
                     <div style={{ fontSize: '13px', color: 'var(--muted)' }}>{studentsLabel(joined)} sodelovalo</div>
-                    <div style={{ fontSize: '18px', fontWeight: 700, color: pct === null ? 'var(--muted)' : pct >= 70 ? 'var(--green-ok)' : pct >= 40 ? '#b7791f' : '#c0392b', minWidth: '56px', textAlign: 'right' }}>
+                    <div style={{ fontSize: '18px', fontWeight: 700, color: gradeColor(pct), minWidth: '56px', textAlign: 'right' }}>
                       {pct === null ? '—' : `${pct} %`}
                     </div>
                   </Link>

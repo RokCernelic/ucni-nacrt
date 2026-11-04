@@ -14,6 +14,7 @@ import { sessionResultsCsv, downloadCsv, safeFilename } from '@/lib/quiz/csv';
 import type { Question } from '@/lib/quiz/types';
 import { compareByLastName } from '@/lib/names';
 import { ceilPct } from '@/lib/quiz/format';
+import { gradeColor } from '@/lib/quiz/format';
 
 const LETTERS = 'ABCDEF';
 
@@ -102,7 +103,7 @@ function QuestionStats({ q, index, answers, totalStudents }: { q: Question; inde
   const answeredCount = relevant.length;
   const correctCount = relevant.filter(a => isCorrect(q, a.value)).length;
   const pct = answeredCount ? ceilPct((correctCount / answeredCount) * 100) : 0;
-  const pctColor = answeredCount === 0 ? 'var(--muted)' : pct >= 70 ? 'var(--green-ok)' : pct >= 40 ? '#b7791f' : '#c0392b';
+  const pctColor = answeredCount === 0 ? 'var(--muted)' : gradeColor(pct);
 
   const counts = new Map<string, number>();
   for (const a of relevant) {
@@ -155,7 +156,7 @@ function QuestionStats({ q, index, answers, totalStudents }: { q: Question; inde
   );
 }
 
-const pctColor = (p: number) => (p >= 70 ? 'var(--green-ok)' : p >= 40 ? '#b7791f' : '#c0392b');
+const pctColor = gradeColor;
 
 /** Velika kljukica / križec v mreži rezultatov (dobro vidno tudi na projekciji). */
 function Mark({ q, value, top }: { q: Question; value: string | undefined; top?: boolean }) {
@@ -217,7 +218,7 @@ function SessionResults({ session, students, answers, teacher, teacherAnswers }:
         <div>
           <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '36px', fontWeight: 300, margin: '0 0 4px', color: 'var(--ink)' }}>{session.quiz_title}</h1>
           <p style={{ color: 'var(--muted)', margin: 0 }}>
-            {session.class_name} · seja končana · {studentsLabel(joinedCount)} sodelovalo od {students.length} · povprečje {avgPct} %
+            {session.class_name} · seja končana · {studentsLabel(joinedCount)} sodelovalo od {students.length} · povprečje <b style={{ color: gradeColor(avgPct) }}>{avgPct} %</b>
           </p>
         </div>
         <button onClick={exportCsv} style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600, color: '#fff', background: 'var(--forest)', border: 'none', borderRadius: 'var(--r-sm)', padding: '9px 16px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
