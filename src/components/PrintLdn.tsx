@@ -1,13 +1,12 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
+import { useRef, useState, type ReactNode } from 'react';
+import { createPortal, flushSync } from 'react-dom';
 import type { Predmet, Standard } from '@/types/curriculum';
 import { useHours } from '@/hooks/useHours';
 import { useEnotaOrder } from '@/hooks/useEnotaOrder';
 import { useChapterOrder } from '@/hooks/useChapterOrder';
 import { setPrintTitle } from '@/lib/printTitle';
-import { PAGE_NUMBER_BOX } from '@/lib/printPage';
 
 /** Letna priprava (nekdaj LDN): natisljiva tabela tem z urami, cilji, standardi in novimi pojmi za izbran razred. */
 
@@ -29,6 +28,7 @@ function writeFields(classId: string, f: Fields) {
 }
 
 interface Row { num: string; title: string; hours: number; custom: boolean; color?: string; pp?: Predmet['poglavja'][number]['podpoglavja'][number] }
+type Item = { i: number; kind: 'chap'; c: Chap } | { i: number; kind: 'row'; c: Chap; r: Row } | { i: number; kind: 'total' };
 interface Chap { num: number; title: string; hours: number; poglavje: Predmet['poglavja'][number]; rows: Row[] }
 
 function Std({ s }: { s: Standard }) {
@@ -99,14 +99,44 @@ function Ldn({ predmet, classId, razredFilter, school, classLabel, target, onClo
   }
   const total = chaps.reduce((s, c) => s + c.hours, 0);
 
+  // vrstice tabele v enem seznamu (poglavje, njegove enote …, na koncu skupaj ur)
+  const flat: Item[] = [];
+  chaps.forEach(c => { flat.push({ i: flat.length, kind: 'chap', c }); c.rows.forEach(r => flat.push({ i: flat.length, kind: 'row', c, r })); });
+  flat.push({ i: flat.length, kind: 'total' });
+
+  const mRef = useRef<HTMLDivElement>(null);
+  /** razdelitev vrstic po straneh (izračunana ob tisku); prva stran (naslovna) ni vključena */
+  const [pages, setPages] = useState<Item[][] | null>(null);
+
   const print = () => {
+    const m = mRef.current;
+    if (!m) return;
     setBusy(true);
+    // Strani razdelimo sami: izmerimo višino vsake vrstice, jih zlagamo na stran (glava tabele se ponovi)
+    // in vsaki strani dodamo »STRAN x OD y« — deluje v vseh brskalnikih (robni okvirji @page ne).
+    const mm = 96 / 25.4;
+    const headH = m.querySelector<HTMLElement>('thead tr')?.offsetHeight ?? 0;
+    const h = new Map<number, number>();
+    m.querySelectorAll<HTMLElement>('tbody tr[data-i]').forEach(tr => h.set(Number(tr.dataset.i), tr.offsetHeight));
+    const avail = (208 - 10 - 12 - 4) * mm; // višina strani − zgornji rob − noga − rezerva
+    const out: Item[][] = [];
+    let cur: Item[] = [], used = headH;
+    flat.forEach((it, k) => {
+      const ih = h.get(it.i) ?? 0;
+      // naslov poglavja ne sme ostati sam na dnu strani: potrebuje prostor še za prvo enoto pod njim
+      const need = it.kind === 'chap' ? ih + (h.get(flat[k + 1]?.i ?? -1) ?? 0) : ih;
+      if (cur.length && used + need > avail) { out.push(cur); cur = []; used = headH; }
+      cur.push(it); used += ih;
+    });
+    if (cur.length) out.push(cur);
+    flushSync(() => setPages(out));
+
     const style = document.createElement('style');
-    style.textContent = `@page { size: A4 landscape; margin: 10mm 10mm 15mm; ${PAGE_NUMBER_BOX} }`; // številčenje strani v nogi
+    style.textContent = '@page { size: A4 landscape; margin: 0; }'; // robove in nogo (številko strani) naredimo sami
     document.head.appendChild(style);
     const restoreTitle = setPrintTitle(`Letna priprava ${subjectF || predmet.naslov} ${classF || classLabel}`);
     const root = document.documentElement;
-    const done = () => { root.classList.remove('printing-questions'); style.remove(); restoreTitle(); setBusy(false); window.removeEventListener('afterprint', done); };
+    const done = () => { root.classList.remove('printing-questions'); style.remove(); restoreTitle(); setPages(null); setBusy(false); window.removeEventListener('afterprint', done); };
     root.classList.add('printing-questions');
     window.addEventListener('afterprint', done);
     window.print();
@@ -122,71 +152,91 @@ function Ldn({ predmet, classId, razredFilter, school, classLabel, target, onClo
 
   const fixed: { cls: string; w: string }[] = [{ cls: 'num', w: '10mm' }, { cls: 'tema', w: '42mm' }, { cls: 'ure', w: '11mm' }];
 
-  const sheet = (
-    <div className="print-questions ldn" aria-hidden>
-      <section className="ldn-cover">
-        <h1 className="ldn-h1">Letna priprava</h1>
-        <table className="ldn-info">
-          <tbody>
-            <tr><th>Šola</th><td>{schoolF || '\u00A0'}</td></tr>
-            <tr><th>Predmet</th><td>{subjectF || '\u00A0'}</td></tr>
-            <tr><th>Razred</th><td>{classF || '\u00A0'}</td></tr>
-            <tr><th>Šolsko leto</th><td>{year || '\u00A0'}</td></tr>
-            <tr><th>Učitelj(ica)</th><td>{teacher || '\u00A0'}</td></tr>
-            <tr><th>Število ur</th><td>{hoursF || '\u00A0'}</td></tr>
-            <tr><th>Datum</th><td>{date || '\u00A0'}</td></tr>
-          </tbody>
-        </table>
-        <div className="ldn-sign">
-          <div><div className="ldn-line" />Podpis učitelja(ice)</div>
-          <div><div className="ldn-line" />Podpis ravnatelja(ice)</div>
-        </div>
-      </section>
+  const rowEl = (it: Item) => {
+    if (it.kind === 'chap') {
+      const c = it.c;
+      return (
+        <tr key={it.i} data-i={it.i} className="ldn-chap">
+          <td>{c.num}</td>
+          <td>{c.title}{cols.pojmi && c.poglavje.noviPojmi?.length ? <div className="ldn-pojmi"><b>Novi pojmi:</b> {c.poglavje.noviPojmi.join(', ')}</div> : null}</td>
+          <td>{c.hours}</td>
+          {cols.cilji && <td />}
+          {cols.standardi && <td>{c.poglavje.standardi?.length ? <ul>{c.poglavje.standardi.map(st => <Std key={st.id} s={st} />)}</ul> : null}</td>}
+        </tr>
+      );
+    }
+    if (it.kind === 'row') {
+      const r = it.r;
+      return (
+        <tr key={it.i} data-i={it.i} className={r.custom ? 'ldn-custom' : undefined} style={r.color ? { backgroundColor: `${r.color}22` } : undefined}>
+          <td>{r.num}</td>
+          <td>{r.title}{r.pp?.izbirna ? <span className="ldn-tag"> (izbirna)</span> : null}
+            {cols.pojmi && r.pp?.noviPojmi?.length ? <div className="ldn-pojmi"><b>Novi pojmi:</b> {r.pp.noviPojmi.join(', ')}</div> : null}</td>
+          <td>{r.hours}</td>
+          {cols.cilji && <td>{r.pp ? <ul>{r.pp.cilji.map(ci => <li key={ci.id}>{ci.text}{ci.tip === 'I' && <span className="ldn-tag"> (I)</span>}</li>)}</ul> : null}</td>}
+          {cols.standardi && <td>{r.pp ? <ul>{r.pp.standardi.map(st => <Std key={st.id} s={st} />)}</ul> : null}</td>}
+        </tr>
+      );
+    }
+    return (
+      // skupno število ur samo na koncu dokumenta
+      <tr key={it.i} data-i={it.i} className="ldn-total">
+        <td /><td>Skupaj ur</td><td>{total}</td>
+        <td colSpan={Number(cols.cilji) + Number(cols.standardi) || 1} className="ldn-legend">
+          M – minimalni standard · I – izbirni cilj / standard · S – skupni standard
+        </td>
+      </tr>
+    );
+  };
 
-      <table className="ldn-table">
-        <colgroup>
-          {fixed.map(c => <col key={c.cls} style={{ width: c.w }} />)}
-          {cols.cilji && <col style={{ width: cols.standardi ? '74mm' : undefined }} />}
-          {cols.standardi && <col />}
-        </colgroup>
-        <thead>
-          <tr>
-            <th>Št.</th><th>Učna tema</th><th>Ure</th>
-            {cols.cilji && <th>Cilji</th>}
-            {cols.standardi && <th>Standardi znanja</th>}
-          </tr>
-        </thead>
-        {chaps.map(c => (
-          <tbody key={c.poglavje.id}>
-            <tr className="ldn-chap">
-              <td>{c.num}</td>
-              <td>{c.title}{cols.pojmi && c.poglavje.noviPojmi?.length ? <div className="ldn-pojmi"><b>Novi pojmi:</b> {c.poglavje.noviPojmi.join(', ')}</div> : null}</td>
-              <td>{c.hours}</td>
-              {cols.cilji && <td />}
-              {cols.standardi && <td>{c.poglavje.standardi?.length ? <ul>{c.poglavje.standardi.map(s => <Std key={s.id} s={s} />)}</ul> : null}</td>}
-            </tr>
-            {c.rows.map((r, i) => (
-              <tr key={i} className={r.custom ? 'ldn-custom' : undefined} style={r.color ? { backgroundColor: `${r.color}22` } : undefined}>
-                <td>{r.num}</td>
-                <td>{r.title}{r.pp?.izbirna ? <span className="ldn-tag"> (izbirna)</span> : null}
-                  {cols.pojmi && r.pp?.noviPojmi?.length ? <div className="ldn-pojmi"><b>Novi pojmi:</b> {r.pp.noviPojmi.join(', ')}</div> : null}</td>
-                <td>{r.hours}</td>
-                {cols.cilji && <td>{r.pp ? <ul>{r.pp.cilji.map(ci => <li key={ci.id}>{ci.text}{ci.tip === 'I' && <span className="ldn-tag"> (I)</span>}</li>)}</ul> : null}</td>}
-                {cols.standardi && <td>{r.pp ? <ul>{r.pp.standardi.map(s => <Std key={s.id} s={s} />)}</ul> : null}</td>}
-              </tr>
-            ))}
-          </tbody>
-        ))}
-        {/* skupno število ur samo na koncu dokumenta (tfoot bi se ponovil na vsaki strani) */}
-        <tbody>
-          <tr className="ldn-total">
-            <td /><td>Skupaj ur</td><td>{total}</td>
-            <td colSpan={Number(cols.cilji) + Number(cols.standardi) || 1} className="ldn-legend">
-              M – minimalni standard · I – izbirni cilj / standard · S – skupni standard
-            </td>
-          </tr>
-        </tbody>
-      </table>
+  const table = (items: Item[]) => (
+    <table className="ldn-table">
+      <colgroup>
+        {fixed.map(c => <col key={c.cls} style={{ width: c.w }} />)}
+        {cols.cilji && <col style={{ width: cols.standardi ? '74mm' : undefined }} />}
+        {cols.standardi && <col />}
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Št.</th><th>Učna tema</th><th>Ure</th>
+          {cols.cilji && <th>Cilji</th>}
+          {cols.standardi && <th>Standardi znanja</th>}
+        </tr>
+      </thead>
+      <tbody>{items.map(rowEl)}</tbody>
+    </table>
+  );
+
+  const nPages = (pages?.length ?? 0) + 1;
+  const sheet = pages && (
+    <div className="print-questions ldn" aria-hidden>
+      <div className="ldn-page">
+        <section className="ldn-cover">
+          <h1 className="ldn-h1">Letna priprava</h1>
+          <table className="ldn-info">
+            <tbody>
+              <tr><th>Šola</th><td>{schoolF || '\u00A0'}</td></tr>
+              <tr><th>Predmet</th><td>{subjectF || '\u00A0'}</td></tr>
+              <tr><th>Razred</th><td>{classF || '\u00A0'}</td></tr>
+              <tr><th>Šolsko leto</th><td>{year || '\u00A0'}</td></tr>
+              <tr><th>Učitelj(ica)</th><td>{teacher || '\u00A0'}</td></tr>
+              <tr><th>Število ur</th><td>{hoursF || '\u00A0'}</td></tr>
+              <tr><th>Datum</th><td>{date || '\u00A0'}</td></tr>
+            </tbody>
+          </table>
+          <div className="ldn-sign">
+            <div><div className="ldn-line" />Podpis učitelja(ice)</div>
+            <div><div className="ldn-line" />Podpis ravnatelja(ice)</div>
+          </div>
+        </section>
+        <div className="ldn-foot">Stran 1 od {nPages}</div>
+      </div>
+      {pages.map((items, pi) => (
+        <div className="ldn-page" key={pi}>
+          {table(items)}
+          <div className="ldn-foot">Stran {pi + 2} od {nPages}</div>
+        </div>
+      ))}
     </div>
   );
 
@@ -225,7 +275,8 @@ function Ldn({ predmet, classId, razredFilter, school, classLabel, target, onClo
           </div>
         </div>
       </div>
-      {typeof document !== 'undefined' && createPortal(sheet, document.body)}
+      {typeof document !== 'undefined' && createPortal(<div className="ldn ldn-measure" ref={mRef} aria-hidden>{table(flat)}</div>, document.body)}
+      {typeof document !== 'undefined' && sheet && createPortal(sheet, document.body)}
     </>
   );
 }
