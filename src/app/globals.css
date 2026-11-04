@@ -214,17 +214,17 @@ html.scanner-full .app-nav { display: none; }
   .ldn-table thead { display: table-header-group; }
   .ldn-table thead th { background: var(--forest); color: #fff; border-color: var(--forest); font-weight: 700; }
   /* ločilna črta med stolpcema Ure in Cilji */
-  .ldn-table th:nth-child(4), .ldn-table td:nth-child(4) { border-left: .6mm solid var(--forest); }
+  .ldn-table th:nth-child(4), .ldn-table td:nth-child(4) { border-left: .25mm solid #888; }
   .ldn-table tr { break-inside: avoid; }
   .ldn-pojmi { font-weight: 400; font-size: 8pt; color: #333; margin-top: 3.5mm; } /* prazna vrstica pred »Novi pojmi« */
   /* vsak cilj in standard v svoji alineji (pomišljaj z visečim zamikom) */
   .ldn-table ul { margin: 0; padding: 0; list-style: none; }
   .ldn-table li { position: relative; display: block; margin: 0 0 1mm; padding-left: 3.2mm; }
   .ldn-table li::before { content: '–'; position: absolute; left: 0; top: 0; }
-  .ldn-chap td { background: #dcebdd; color: #0d2e12; font-weight: 700; font-size: 9.5pt; border-top: .5mm solid var(--forest); }
+  .ldn-chap td { background: #dcebdd; color: #0d2e12; font-weight: 700; font-size: 9.5pt; border-top: .25mm solid #888; }
   .ldn-chap td ul { font-weight: 400; font-size: 8.5pt; }
   .ldn-custom td { font-style: italic; }
   .ldn-tag { font-size: 7pt; color: #2c6e3a; font-weight: 700; }
-  .ldn-total td { font-weight: 700; background: #dcebdd; color: #0d2e12; border-top: .5mm solid var(--forest); }
+  .ldn-total td { font-weight: 700; background: #dcebdd; color: #0d2e12; }
   .ldn-legend { font-weight: 400 !important; font-size: 7.5pt; color: #555; }
 }
