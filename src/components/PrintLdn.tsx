@@ -105,7 +105,7 @@ function Ldn({ predmet, classId, razredFilter, school, classLabel, target, onClo
     </label>
   );
 
-  const fixed: { cls: string; w: string }[] = [{ cls: 'num', w: '10mm' }, { cls: 'tema', w: '56mm' }, { cls: 'ure', w: '11mm' }];
+  const fixed: { cls: string; w: string }[] = [{ cls: 'num', w: '10mm' }, { cls: 'tema', w: '42mm' }, { cls: 'ure', w: '11mm' }];
 
   const sheet = (
     <div className="print-questions ldn" aria-hidden>
@@ -133,7 +133,7 @@ function Ldn({ predmet, classId, razredFilter, school, classLabel, target, onClo
       <table className="ldn-table">
         <colgroup>
           {fixed.map(c => <col key={c.cls} style={{ width: c.w }} />)}
-          {cols.cilji && <col />}
+          {cols.cilji && <col style={{ width: cols.standardi ? '58mm' : undefined }} />}
           {cols.standardi && <col />}
         </colgroup>
         <thead>
