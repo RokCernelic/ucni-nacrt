@@ -118,7 +118,7 @@ function Ldn({ predmet, classId, razredFilter, school, classLabel, target, onClo
     const headH = m.querySelector<HTMLElement>('thead tr')?.offsetHeight ?? 0;
     const h = new Map<number, number>();
     m.querySelectorAll<HTMLElement>('tbody tr[data-i]').forEach(tr => h.set(Number(tr.dataset.i), tr.offsetHeight));
-    const avail = (208 - 10 - 12 - 4) * mm; // višina strani − zgornji rob − noga − rezerva
+    const avail = (179 - 8 - 4) * mm; // višina strani − noga − rezerva
     const out: Item[][] = [];
     let cur: Item[] = [], used = headH;
     flat.forEach((it, k) => {
@@ -132,7 +132,7 @@ function Ldn({ predmet, classId, razredFilter, school, classLabel, target, onClo
     flushSync(() => setPages(out));
 
     const style = document.createElement('style');
-    style.textContent = '@page { size: A4 landscape; margin: 0; }'; // robove in nogo (številko strani) naredimo sami
+    style.textContent = '@page { size: A4 landscape; margin: 15mm; }'; // številko strani naredimo sami (v nogi vsake naše strani)
     document.head.appendChild(style);
     const restoreTitle = setPrintTitle(`Letna priprava ${subjectF || predmet.naslov} ${classF || classLabel}`);
     const root = document.documentElement;
