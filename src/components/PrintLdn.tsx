@@ -145,6 +145,28 @@ function Ldn({ predmet, classId, razredFilter, school, classLabel, target, onClo
     window.print();
   };
 
+  /** Prenos kot Wordov dokument (.docx): isto vsebino sestavi v obliki, ki jo lahko urejaš (tudi v Google Docs). */
+  const downloadWord = async () => {
+    setBusy(true);
+    try {
+      const { buildLdnDocx } = await import('@/lib/ldnDocx');
+      const blob = await buildLdnDocx({
+        fields: { school: schoolF, subject: subjectF, cls: classF, year, teacher, hours: hoursF, date },
+        cols,
+        chaps: chaps.map(c => ({
+          num: c.num, title: c.title, hours: c.hours, noviPojmi: c.poglavje.noviPojmi, standardi: c.poglavje.standardi,
+          rows: c.rows.map(r => ({ num: r.num, title: r.title, hours: r.hours, custom: r.custom, color: r.color, izbirna: r.pp?.izbirna, noviPojmi: r.pp?.noviPojmi, cilji: r.pp?.cilji, standardi: r.pp?.standardi })),
+        })),
+        total, unassigned,
+      });
+      const d = new Date(); const p2 = (n: number) => String(n).padStart(2, '0');
+      const name = `${d.getFullYear()} ${p2(d.getMonth() + 1)} ${p2(d.getDate())} Letna priprava ${subjectF || predmet.naslov} ${classF || classLabel}`.replace(/[\\/:*?"<>|]+/g, ' ');
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = `${name}.docx`; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } finally { setBusy(false); }
+  };
+
   const field: React.CSSProperties = { fontFamily: 'var(--font-sans)', fontSize: '14px', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', padding: '7px 10px', background: '#fff', width: '100%', boxSizing: 'border-box' };
   const lab: React.CSSProperties = { display: 'block', fontSize: '12px', color: 'var(--muted)', margin: '10px 0 4px' };
   const chk = (k: keyof typeof cols, text: string) => (
@@ -283,6 +305,8 @@ function Ldn({ predmet, classId, razredFilter, school, classLabel, target, onClo
           </div>
           <div style={{ display: 'flex', gap: '8px', marginTop: '20px', justifyContent: 'flex-end' }}>
             <button onClick={onClose} style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', padding: '9px 16px', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', background: 'transparent', color: 'var(--ink)', cursor: 'pointer' }}>Prekliči</button>
+            <button onClick={() => void downloadWord()} disabled={busy || chaps.length === 0} title="Prenese dokument Word (.docx); odpreš ga tudi v Google Docs"
+              style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', padding: '9px 16px', border: '1px solid var(--forest)', borderRadius: 'var(--r-sm)', background: 'transparent', color: 'var(--forest)', cursor: 'pointer', opacity: chaps.length === 0 ? 0.5 : 1 }}>⬇ Word</button>
             <button onClick={print} disabled={busy || chaps.length === 0}
               style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600, padding: '9px 18px', border: 'none', borderRadius: 'var(--r-sm)', background: 'var(--forest)', color: '#fff', cursor: 'pointer', opacity: chaps.length === 0 ? 0.5 : 1 }}>🖨 Natisni</button>
           </div>
