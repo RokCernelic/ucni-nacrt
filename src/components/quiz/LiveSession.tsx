@@ -12,6 +12,7 @@ import { isCorrect, answerStatus, scoreAnswers, parseNumber } from '@/lib/quiz/s
 import { formatNumber, pointsLabel, studentsLabel } from '@/lib/quiz/format';
 import { sessionResultsCsv, downloadCsv, safeFilename } from '@/lib/quiz/csv';
 import type { Question } from '@/lib/quiz/types';
+import { compareByLastName } from '@/lib/names';
 
 const LETTERS = 'ABCDEF';
 
@@ -187,7 +188,7 @@ function SessionResults({ session, students, answers, teacher, teacherAnswers }:
 
   const rows = useMemo(() => {
     const withScore = students.map(s => ({ s, ans: answersByStudent.get(s.student_id) ?? {}, sc: scoreAnswers(session.quiz, answersByStudent.get(s.student_id) ?? {}) }));
-    return withScore.sort((a, b) => sortBy === 'points' ? b.sc.points - a.sc.points || a.s.name.localeCompare(b.s.name, 'sl') : a.s.name.localeCompare(b.s.name, 'sl'));
+    return withScore.sort((a, b) => sortBy === 'points' ? b.sc.points - a.sc.points || compareByLastName(a.s.name, b.s.name) : compareByLastName(a.s.name, b.s.name));
   }, [students, answersByStudent, session.quiz, sortBy]);
 
   // učitelj (testna oseba) — prikazan pod učenci, ne šteje v povprečje

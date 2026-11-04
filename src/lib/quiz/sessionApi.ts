@@ -2,6 +2,7 @@
 
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import type { Question, Quiz } from './types';
+import { sortByLastName } from '@/lib/names';
 
 /*
  * Seje kvizov (docs/KVIZI.md, supabase/migrations/…_kvizi.sql).
@@ -124,7 +125,7 @@ export async function loadSession(id: string) {
   const sb = getSupabaseBrowserClient();
   const [s, st, a] = await Promise.all([
     sb.from('quiz_sessions').select('*').eq('id', id).single(),
-    sb.from('quiz_session_students').select('*').eq('session_id', id).order('name'),
+    sb.from('quiz_session_students').select('*').eq('session_id', id),
     sb.from('quiz_answers').select('*').eq('session_id', id),
   ]);
   if (s.error) throw new Error(s.error.message);
@@ -132,7 +133,7 @@ export async function loadSession(id: string) {
   const allAnswers = (a.data ?? []) as SessionAnswer[];
   return {
     session: s.data as QuizSession,
-    students: allStudents.filter(x => !isTeacherRow(x)),
+    students: sortByLastName(allStudents.filter(x => !isTeacherRow(x))),
     answers: allAnswers.filter(x => !isTeacherRow(x)),
     teacher: allStudents.find(isTeacherRow) ?? null,
     teacherAnswers: allAnswers.filter(isTeacherRow),
@@ -160,6 +161,7 @@ export async function loadQuizHistory(quizId: string) {
   for (const s of ((st.data ?? []) as SessionStudent[]).filter(x => !isTeacherRow(x))) studentsBySession.set(s.session_id, [...(studentsBySession.get(s.session_id) ?? []), s]);
   const answersBySession = new Map<string, SessionAnswer[]>();
   for (const a2 of ((a.data ?? []) as SessionAnswer[]).filter(x => !isTeacherRow(x))) answersBySession.set(a2.session_id, [...(answersBySession.get(a2.session_id) ?? []), a2]);
+  for (const [k, v] of studentsBySession) studentsBySession.set(k, sortByLastName(v));
   return { sessions, studentsBySession, answersBySession };
 }
 
@@ -186,6 +188,7 @@ export async function loadAllHistory() {
     for (const x of ((st.data ?? []) as SessionStudent[]).filter(x => !isTeacherRow(x))) studentsBySession.set(x.session_id, [...(studentsBySession.get(x.session_id) ?? []), x]);
     for (const x of ((a.data ?? []) as SessionAnswer[]).filter(x => !isTeacherRow(x))) answersBySession.set(x.session_id, [...(answersBySession.get(x.session_id) ?? []), x]);
   }
+  for (const [k, v] of studentsBySession) studentsBySession.set(k, sortByLastName(v));
   return { sessions, studentsBySession, answersBySession };
 }
 

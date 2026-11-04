@@ -8,6 +8,7 @@ import { useRooms, type RoomPlan } from '@/hooks/useRooms';
 import { useFixedSeats, fixedMapForDate } from '@/hooks/useFixedSeats';
 import { seatColors } from '@/lib/schoolColor';
 import { formatLessonDate, type Lesson } from '@/data/timetable';
+import { sortByLastName } from '@/lib/names';
 
 function genderStyle(g: string) {
   if (g === 'Ž') return { bg: '#efe7f8', border: '#b79ce0', color: '#5b3a9b' };
@@ -200,7 +201,7 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
     : seating.assign;
 
   const seatedIds = new Set(Object.values(assign));
-  const pool = students.filter(s => !seatedIds.has(s.id));
+  const pool = sortByLastName(students.filter(s => !seatedIds.has(s.id)));
 
   // Tisk naslednjega dne (druga stran).
   const nextLesson = hasDays && dayIndex < lessons.length - 1 ? lessons[dayIndex + 1] : null;

@@ -4,6 +4,7 @@ import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import type { Question } from './types';
 import type { LayoutItem, PrintItem } from './printSheet';
 import type { QuizSession } from './sessionApi';
+import { sortByLastName } from '@/lib/names';
 
 /** Podatki natisnjenega kviza v seji (stolpec `paper`): dovolj, da skener obnovi razpored vsakega lista. */
 export interface PaperInfo {
@@ -55,7 +56,7 @@ export async function loadPaperSession(id: string) {
     sb.from('quiz_session_students').select('student_id, name, submitted_at').eq('session_id', id),
   ]);
   if (s.error) throw new Error(s.error.message);
-  return { session: s.data as PaperSession, students: (st.data ?? []) as { student_id: string; name: string; submitted_at: string | null }[] };
+  return { session: s.data as PaperSession, students: sortByLastName((st.data ?? []) as { student_id: string; name: string; submitted_at: string | null }[]) };
 }
 
 /** Shrani prebrane odgovore enega lista (prepiše prejšnje skeniranje tega učenca). */

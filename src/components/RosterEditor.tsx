@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useRoster, parseRoster, rosterToText } from '@/hooks/useRoster';
 import StudentHistoryDialog from '@/components/quiz/StudentHistoryDialog';
+import { sortByLastName } from '@/lib/names';
 
 export default function RosterEditor({ classId, className }: { classId: string; className: string }) {
   const { students, save } = useRoster(classId);
@@ -101,7 +102,7 @@ export default function RosterEditor({ classId, className }: { classId: string; 
             )}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            {students.map(s => (
+            {sortByLastName(students).map(s => (
               <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '4px 0' }}>
                 {renamingId === s.id ? (
                   <input autoFocus defaultValue={s.name}
@@ -158,7 +159,7 @@ export default function RosterEditor({ classId, className }: { classId: string; 
       {typeof document !== 'undefined' && createPortal(
         <div className="print-pins" aria-hidden>
           <div className="print-pins-grid">
-            {students.map(st => (
+            {sortByLastName(students).map(st => (
               <div key={st.id} className="print-pins-slip">
                 <div className="cls">{className}</div>
                 <div className="name">{st.name}</div>

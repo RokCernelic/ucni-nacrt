@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createPortal, flushSync } from 'react-dom';
 import QRCode from 'qrcode';
 import { useMasterClasses } from '@/hooks/useMasterClasses';
@@ -10,6 +10,7 @@ import { layoutSheet, sheetToken, sheetSeed, frameGeometry, type PrintItem, type
 import { createPaperSession } from '@/lib/quiz/paperSession';
 import Link from 'next/link';
 import { setPrintTitle } from '@/lib/printTitle';
+import { sortByLastName } from '@/lib/names';
 
 export interface Sheet { key: string; name: string | null; qr: string | null; layout: SheetLayout }
 
@@ -29,7 +30,8 @@ export default function PrintQuizDialog({ items, title, quizId, defaultClassId, 
   /** po tisku po učencih: seja za skener in rezultate */
   const [printed, setPrinted] = useState<{ sessionId: string; scanQr: string } | null>(null);
   const classId = pickedClass || (classes.some(c => c.id === defaultClassId) ? defaultClassId! : classes[0]?.id ?? '');
-  const { students } = useRoster(classId || undefined);
+  const { students: roster } = useRoster(classId || undefined);
+  const students = useMemo(() => sortByLastName(roster), [roster]);
   const cls = classes.find(c => c.id === classId);
 
   useEffect(() => {
