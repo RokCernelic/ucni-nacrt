@@ -243,21 +243,21 @@ export default function PaperScanner() {
             {saved[hit.studentId] !== undefined && <span style={{ fontSize: '12px', color: '#b7791f' }}>že skeniran — shranitev prepiše</span>}
           </div>
           <p style={{ fontSize: '13px', color: 'var(--muted)', margin: '0 0 12px' }}>Primerjaj z listom. Tapni črko, da popraviš. Oranžna vrstica = negotovo branje.</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 260px), 1fr))', gap: '8px 18px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '4px 10px' }}>
             {score.map((r, qi) => (
-              <div key={r.n} style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '6px 8px', borderRadius: '8px', background: r.uncertain ? '#fff1d6' : 'transparent', borderBottom: '1px solid var(--hairline)' }}>
-                <span style={{ width: '30px', textAlign: 'right', fontSize: '15px', fontWeight: 700 }}>{r.n}{r.multi ? '+' : ''}</span>
+              <div key={r.n} style={{ display: 'flex', alignItems: 'center', gap: '3px', padding: '5px 2px', borderRadius: '6px', background: r.uncertain ? '#fff1d6' : 'transparent', borderBottom: '1px solid var(--hairline)' }}>
+                <span style={{ width: '24px', flexShrink: 0, textAlign: 'right', fontSize: '13px', fontWeight: 700, marginRight: '2px' }}>{r.n}{r.multi ? '+' : ''}</span>
                 {Array.from({ length: r.nOpts }, (_, k) => {
                   const on = hit.chosen[qi].includes(k);
                   return (
                     <button key={k} onClick={() => toggle(qi, k)}
-                      style={{ width: '36px', height: '36px', borderRadius: '50%', border: '2px solid var(--ink)', fontSize: '14px', fontWeight: 700, padding: 0, cursor: 'pointer', background: on ? 'var(--ink)' : 'transparent', color: on ? '#fff' : 'var(--muted)' }}>
+                      style={{ width: '27px', height: '27px', flexShrink: 0, borderRadius: '50%', border: '1.5px solid var(--ink)', fontSize: '11px', fontWeight: 700, padding: 0, cursor: 'pointer', background: on ? 'var(--ink)' : 'transparent', color: on ? '#fff' : 'var(--muted)' }}>
                       {'ABCDEFGHIJKL'[k]}
                     </button>
                   );
                 })}
-                <span style={{ marginLeft: 'auto', fontSize: '18px', fontWeight: 800, color: !r.right ? 'var(--muted)' : r.ok ? 'var(--green-ok)' : '#c0392b', whiteSpace: 'nowrap' }}>
-                  {r.right ? (r.ok ? '✓' : <>✗ <span style={{ fontSize: '14px', fontWeight: 600 }}>{r.right}</span></>) : '·'}
+                <span style={{ marginLeft: 'auto', paddingLeft: '2px', fontSize: '15px', fontWeight: 800, color: !r.right ? 'var(--muted)' : r.ok ? 'var(--green-ok)' : '#c0392b', whiteSpace: 'nowrap' }}>
+                  {r.right ? (r.ok ? '✓' : <>✗<span style={{ fontSize: '12px', fontWeight: 600 }}>{r.right}</span></>) : '·'}
                 </span>
               </div>
             ))}
