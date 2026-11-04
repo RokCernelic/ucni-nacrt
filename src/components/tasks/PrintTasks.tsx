@@ -8,6 +8,7 @@ import { exportTasksTex } from '@/lib/tasks/exportTex';
 import { OPTION_LETTERS } from '@/lib/tasks/latex';
 import { Rich, TaskAnswer, btn } from './ui';
 import { setPrintTitle } from '@/lib/printTitle';
+import { PAGE_NUMBER_BOX } from '@/lib/printPage';
 
 /**
  * Notranja površina ene polovice (pokončni A4 razrezan po vodoravni sredini = trak 210 × 148,5 mm), v mm:
@@ -89,14 +90,14 @@ export default function PrintTasks({ tasks, title }: { tasks: Task[]; title: str
     if (overflow) return;
     const root = document.documentElement;
     // strnjen tisk: pokončni A4 brez robov (polovici s 2 cm roba sta del postavitve); velja le med tiskom
-    let pageStyle: HTMLStyleElement | null = null;
-    if (compact) {
-      pageStyle = document.createElement('style');
-      pageStyle.textContent = '@page { size: A4 portrait; margin: 0; }';
-      document.head.appendChild(pageStyle);
-    }
+    const pageStyle: HTMLStyleElement = document.createElement('style');
+    // strnjeno (2× na A4) je brez robov, zato tam številčenja ni; navaden tisk ima »Stran X od Y« v nogi
+    pageStyle.textContent = compact
+      ? '@page { size: A4 portrait; margin: 0; }'
+      : `@page { size: A4 portrait; margin: 10mm 10mm 15mm; ${PAGE_NUMBER_BOX} }`;
+    document.head.appendChild(pageStyle);
     const restoreTitle = setPrintTitle(title || 'Naloge');
-    const done = () => { root.classList.remove('printing-questions'); setPrinting(false); pageStyle?.remove(); restoreTitle(); window.removeEventListener('afterprint', done); };
+    const done = () => { root.classList.remove('printing-questions'); setPrinting(false); pageStyle.remove(); restoreTitle(); window.removeEventListener('afterprint', done); };
     flushSync(() => setPrinting(true));
     root.classList.add('printing-questions');
     window.addEventListener('afterprint', done);

@@ -10,6 +10,7 @@ import { layoutSheet, sheetToken, sheetSeed, frameGeometry, type PrintItem, type
 import { createPaperSession } from '@/lib/quiz/paperSession';
 import Link from 'next/link';
 import { setPrintTitle } from '@/lib/printTitle';
+import { PAGE_NUMBER_BOX } from '@/lib/printPage';
 import { sortByLastName } from '@/lib/names';
 
 export interface Sheet { key: string; name: string | null; qr: string | null; layout: SheetLayout }
@@ -62,7 +63,11 @@ export default function PrintQuizDialog({ items, title, quizId, defaultClassId, 
         list = [{ key: 'all', name: null, qr: null, layout: layoutSheet(items, null) }];
       }
       const style = document.createElement('style');
-      style.textContent = '@page { size: A4 portrait; margin: 10mm 0; }'; // odmik zgoraj/spodaj tudi na nadaljnjih straneh
+      // odmik zgoraj/spodaj tudi na nadaljnjih straneh; številčenje strani le pri skupnem listu
+      // (pri listih po učencih bi se štetje nadaljevalo čez vse učence — to bi motilo)
+      style.textContent = perStudent
+        ? '@page { size: A4 portrait; margin: 10mm 0; }'
+        : `@page { size: A4 portrait; margin: 10mm 0 15mm; ${PAGE_NUMBER_BOX} }`;
       document.head.appendChild(style);
       const root = document.documentElement;
       const restoreTitle = setPrintTitle(title);

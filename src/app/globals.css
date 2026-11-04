@@ -166,7 +166,7 @@ body {
 
 /* Natisni kviz (odgovorni obrazec + vprašanja, po učencih): na zaslonu skrito, ob tisku edino vidno (razred print-questions). */
 @media print {
-  .pqz-sheet { position: relative; box-sizing: border-box; width: 210mm; min-height: 276mm; padding: 0 16mm; break-after: page; page-break-after: always; font-size: 10pt; line-height: 1.25; }
+  .pqz-sheet { position: relative; box-sizing: border-box; width: 210mm; min-height: 270mm; padding: 0 16mm; break-after: page; page-break-after: always; font-size: 10pt; line-height: 1.25; }
   .pqz-sheet:last-child { break-after: auto; page-break-after: auto; }
   .pqz-head { display: flex; align-items: baseline; gap: 5mm; white-space: nowrap; overflow: hidden; border-bottom: .3mm solid #000; padding-bottom: 1.5mm; margin-bottom: 3mm; }
   .pqz-title { font-size: 10pt; color: #444; font-weight: 600; }
