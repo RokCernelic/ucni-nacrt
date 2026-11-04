@@ -8,16 +8,13 @@ import { useEnotaOrder } from '@/hooks/useEnotaOrder';
 import { useChapterOrder } from '@/hooks/useChapterOrder';
 import { setPrintTitle } from '@/lib/printTitle';
 
-/** Letni delovni načrt (LDN): natisljiva tabela tem z urami, cilji, standardi in novimi pojmi za izbran razred. */
+/** Letna priprava (nekdaj LDN): natisljiva tabela tem z urami, cilji, standardi in novimi pojmi za izbran razred. */
 
-const LS_TEACHER = 'un-ldn-teacher';
-
-function schoolYearNow(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  return d.getMonth() >= 7 ? `${y}/${String(y + 1).slice(2)}` : `${y - 1}/${String(y).slice(2)}`;
+const LS_FIELDS = 'un-ldn-fields';
+/** Pri šoli in učitelju si zapomnimo, kar je učitelj vpisal prejšnjič (ostala polja vpiše vsakič sam). */
+function readSaved(): { school: string; teacher: string } {
+  try { const o = JSON.parse(localStorage.getItem(LS_FIELDS) ?? '{}'); return { school: String(o.school ?? ''), teacher: String(o.teacher ?? '') }; } catch { return { school: '', teacher: '' }; }
 }
-const todayLabel = () => { const d = new Date(); return `${d.getDate()}. ${d.getMonth() + 1}. ${d.getFullYear()}`; };
 
 interface Row { num: string; title: string; hours: number; custom: boolean; pp?: Predmet['poglavja'][number]['podpoglavja'][number] }
 interface Chap { num: number; title: string; hours: number; poglavje: Predmet['poglavja'][number]; rows: Row[] }
@@ -41,9 +38,15 @@ function Ldn({ predmet, classId, razredFilter, school, classLabel, target, onClo
   const { resolve } = useEnotaOrder(`ucni-nacrt-enote-order-${classId}`);
   const { resolveOrder } = useChapterOrder(`ucni-nacrt-chapter-order-${classId}`);
 
-  const [year, setYear] = useState(schoolYearNow);
-  const [teacher, setTeacher] = useState(() => { try { return localStorage.getItem(LS_TEACHER) ?? ''; } catch { return ''; } });
-  const [date, setDate] = useState(todayLabel);
+  // vsa polja na naslovni strani izpolni učitelj sam (prazno = prazna črta za ročni vpis)
+  const [saved] = useState(readSaved);
+  const [schoolF, setSchoolF] = useState(saved.school);
+  const [subjectF, setSubjectF] = useState('');
+  const [classF, setClassF] = useState('');
+  const [year, setYear] = useState('');
+  const [teacher, setTeacher] = useState(saved.teacher);
+  const [hoursF, setHoursF] = useState('');
+  const [date, setDate] = useState('');
   const [cols, setCols] = useState({ cilji: true, standardi: true, pojmi: true });
   const [busy, setBusy] = useState(false);
 
@@ -85,11 +88,11 @@ function Ldn({ predmet, classId, razredFilter, school, classLabel, target, onClo
 
   const print = () => {
     setBusy(true);
-    try { localStorage.setItem(LS_TEACHER, teacher); } catch { /* ignore */ }
+    try { localStorage.setItem(LS_FIELDS, JSON.stringify({ school: schoolF, teacher })); } catch { /* ignore */ }
     const style = document.createElement('style');
     style.textContent = '@page { size: A4 landscape; margin: 10mm; }';
     document.head.appendChild(style);
-    const restoreTitle = setPrintTitle(`LDN ${predmet.naslov} ${classLabel}`);
+    const restoreTitle = setPrintTitle(`Letna priprava ${subjectF || predmet.naslov} ${classF || classLabel}`);
     const root = document.documentElement;
     const done = () => { root.classList.remove('printing-questions'); style.remove(); restoreTitle(); setBusy(false); window.removeEventListener('afterprint', done); };
     root.classList.add('printing-questions');
@@ -110,18 +113,16 @@ function Ldn({ predmet, classId, razredFilter, school, classLabel, target, onClo
   const sheet = (
     <div className="print-questions ldn" aria-hidden>
       <section className="ldn-cover">
-        <div className="ldn-kicker">Letni delovni načrt</div>
-        <h1 className="ldn-h1">{predmet.naslov}</h1>
-        <div className="ldn-sub">{classLabel}{school ? ` · ${school}` : ''} · šolsko leto {year}</div>
+        <h1 className="ldn-h1">Letna priprava</h1>
         <table className="ldn-info">
           <tbody>
-            {school && <tr><th>Šola</th><td>{school}</td></tr>}
-            <tr><th>Predmet</th><td>{predmet.naslov}</td></tr>
-            <tr><th>Razred</th><td>{classLabel}</td></tr>
-            <tr><th>Šolsko leto</th><td>{year}</td></tr>
-            <tr><th>Učitelj(ica)</th><td>{teacher || ' '}</td></tr>
-            <tr><th>Število ur</th><td>{total}{target ? ` (po učnem načrtu ${target})` : ''}</td></tr>
-            <tr><th>Datum</th><td>{date || ' '}</td></tr>
+            <tr><th>Šola</th><td>{schoolF || '\u00A0'}</td></tr>
+            <tr><th>Predmet</th><td>{subjectF || '\u00A0'}</td></tr>
+            <tr><th>Razred</th><td>{classF || '\u00A0'}</td></tr>
+            <tr><th>Šolsko leto</th><td>{year || '\u00A0'}</td></tr>
+            <tr><th>Učitelj(ica)</th><td>{teacher || '\u00A0'}</td></tr>
+            <tr><th>Število ur</th><td>{hoursF || '\u00A0'}</td></tr>
+            <tr><th>Datum</th><td>{date || '\u00A0'}</td></tr>
           </tbody>
         </table>
         <div className="ldn-sign">
@@ -180,18 +181,27 @@ function Ldn({ predmet, classId, razredFilter, school, classLabel, target, onClo
   return (
     <>
       <div onClick={onClose} className="no-print" style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(20,30,25,0.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '6vh 16px', overflowY: 'auto' }}>
-        <div onClick={e => e.stopPropagation()} role="dialog" aria-label="Natisni LDN"
+        <div onClick={e => e.stopPropagation()} role="dialog" aria-label="Letna priprava"
           style={{ background: 'var(--canvas)', borderRadius: 'var(--r-lg)', padding: '24px 26px', width: '100%', maxWidth: '480px', fontFamily: 'var(--font-sans)' }}>
-          <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '26px', fontWeight: 400, margin: '0 0 4px', color: 'var(--ink)' }}>Natisni LDN</h2>
+          <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '26px', fontWeight: 400, margin: '0 0 4px', color: 'var(--ink)' }}>Letna priprava</h2>
           <p style={{ fontSize: '13px', color: 'var(--muted)', margin: '0 0 8px' }}>
             {predmet.naslov} · {classLabel}{school ? ` · ${school}` : ''} — {chaps.length} poglavij, skupaj {total} ur{target ? ` (po učnem načrtu ${target})` : ''}. Enote z 0 urami so izpuščene.
           </p>
-          <label style={lab}>Šolsko leto</label>
-          <input style={field} value={year} onChange={e => setYear(e.target.value)} />
+          <p style={{ fontSize: '12px', color: 'var(--muted)', margin: '0 0 2px' }}>Podatke za naslovno stran vpišeš sam; kar pustiš prazno, ostane prazna črta za ročni vpis.</p>
+          <label style={lab}>Šola</label>
+          <input style={field} value={schoolF} onChange={e => setSchoolF(e.target.value)} placeholder={school || 'npr. OŠ Cerklje ob Krki'} />
+          <label style={lab}>Predmet</label>
+          <input style={field} value={subjectF} onChange={e => setSubjectF(e.target.value)} placeholder={predmet.naslov} />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
+            <div><label style={lab}>Razred</label><input style={field} value={classF} onChange={e => setClassF(e.target.value)} placeholder={classLabel} /></div>
+            <div><label style={lab}>Šolsko leto</label><input style={field} value={year} onChange={e => setYear(e.target.value)} placeholder="npr. 2026/27" /></div>
+          </div>
           <label style={lab}>Učitelj(ica)</label>
           <input style={field} value={teacher} onChange={e => setTeacher(e.target.value)} placeholder="Ime in priimek" />
-          <label style={lab}>Datum na naslovni strani</label>
-          <input style={field} value={date} onChange={e => setDate(e.target.value)} />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
+            <div><label style={lab}>Število ur</label><input style={field} value={hoursF} onChange={e => setHoursF(e.target.value)} placeholder={`v tabeli: ${total}${target ? ` (UN ${target})` : ''}`} /></div>
+            <div><label style={lab}>Datum</label><input style={field} value={date} onChange={e => setDate(e.target.value)} placeholder="npr. 1. 9. 2026" /></div>
+          </div>
           <label style={lab}>Stolpci v tabeli</label>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 12px' }}>
             {chk('cilji', 'Cilji')}{chk('standardi', 'Standardi')}{chk('pojmi', 'Novi pojmi (pod temo)')}
@@ -213,9 +223,9 @@ export default function PrintLdnButton(props: { predmet: Predmet; classId?: stri
   if (!props.classId || !props.classLabel) return null; // LDN je vezan na izbran razred
   return (
     <>
-      <button onClick={() => setOpen(true)} title="Letni delovni načrt: teme, ure, cilji, standardi in novi pojmi za tiskanje"
+      <button onClick={() => setOpen(true)} title="Letna priprava: teme, ure, cilji, standardi in novi pojmi za tiskanje"
         style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 500, letterSpacing: '0.04em', color: 'rgba(255,255,255,0.6)', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '6px', padding: '5px 10px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-        🖨 Natisni LDN
+        🖨 Letna priprava
       </button>
       {open && <Ldn predmet={props.predmet} classId={props.classId} razredFilter={props.razredFilter} school={props.school ?? ''} classLabel={props.classLabel} target={props.target} onClose={() => setOpen(false)} />}
     </>

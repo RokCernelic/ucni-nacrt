@@ -204,8 +204,8 @@ html.scanner-full .app-nav { display: none; }
   .ldn-h1 { font-size: 34pt; font-weight: 300; margin: 4mm 0 2mm; }
   .ldn-sub { font-size: 13pt; color: #333; margin-bottom: 12mm; }
   .ldn-info { border-collapse: collapse; font-size: 12pt; width: 150mm; }
-  .ldn-info th { text-align: left; font-weight: 500; color: #555; padding: 2.2mm 6mm 2.2mm 0; width: 40mm; border-bottom: .2mm solid #ccc; }
-  .ldn-info td { padding: 2.2mm 0; border-bottom: .2mm solid #ccc; font-weight: 600; }
+  .ldn-info th { text-align: left; font-weight: 500; color: #555; padding: 3.6mm 6mm 3.6mm 0; width: 40mm; border-bottom: .2mm solid #ccc; }
+  .ldn-info td { padding: 3.6mm 0; height: 6mm; border-bottom: .2mm solid #ccc; font-weight: 600; }
   .ldn-sign { display: flex; gap: 30mm; margin-top: 22mm; font-size: 10pt; color: #444; }
   .ldn-sign > div { width: 75mm; }
   .ldn-line { margin-bottom: 1.5mm; height: 14mm; border-bottom: .3mm solid #000; }
