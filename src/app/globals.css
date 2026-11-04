@@ -199,7 +199,7 @@ html.scanner-full .app-nav { display: none; }
 /* Letni delovni načrt (LDN): ležeči A4, naslovna stran + tabela; velikost strani (@page) doda PrintLdn ob tisku */
 @media print {
   .ldn { font-size: 8.5pt; line-height: 1.3; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .ldn-cover { break-after: page; min-height: 188mm; display: flex; flex-direction: column; justify-content: center; padding: 0 20mm; box-sizing: border-box; }
+  .ldn-cover { break-after: page; min-height: 175mm; display: flex; flex-direction: column; justify-content: center; padding: 0 20mm; box-sizing: border-box; }
   .ldn-kicker { font-size: 11pt; letter-spacing: .18em; text-transform: uppercase; color: #555; }
   .ldn-h1 { font-size: 34pt; font-weight: 300; margin: 0 0 12mm; color: var(--forest); padding-bottom: 4mm; border-bottom: 1.2mm solid var(--forest); display: inline-block; }
   .ldn-sub { font-size: 13pt; color: #333; margin-bottom: 12mm; }

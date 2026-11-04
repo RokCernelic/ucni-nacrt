@@ -90,7 +90,8 @@ function Ldn({ predmet, classId, razredFilter, school, classLabel, target, onClo
     setBusy(true);
     try { localStorage.setItem(LS_FIELDS, JSON.stringify({ school: schoolF, teacher })); } catch { /* ignore */ }
     const style = document.createElement('style');
-    style.textContent = '@page { size: A4 landscape; margin: 10mm; }';
+    // številčenje strani v nogi na sredini: »Stran X od Y« (robni okvirji @page; Chrome / Edge 131+)
+    style.textContent = '@page { size: A4 landscape; margin: 10mm 10mm 15mm; @bottom-center { content: "Stran " counter(page) " od " counter(pages); font-family: Inter, -apple-system, sans-serif; font-size: 8.5pt; color: #444; } }';
     document.head.appendChild(style);
     const restoreTitle = setPrintTitle(`Letna priprava ${subjectF || predmet.naslov} ${classF || classLabel}`);
     const root = document.documentElement;
