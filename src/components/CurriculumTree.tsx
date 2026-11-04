@@ -24,6 +24,7 @@ import { useChapterOrder } from '@/hooks/useChapterOrder';
 import { usePalette } from '@/hooks/usePalette';
 import { useListMode } from '@/hooks/useListMode';
 import Countdown from '@/components/Countdown';
+import PrintLdnButton from '@/components/PrintLdn';
 import { useEnotaOrder, type ResolvedEnotaItem } from '@/hooks/useEnotaOrder';
 
 // ── Icons ──────────────────────────────────────────────────
@@ -920,7 +921,7 @@ function GradeDivider({ razred, target, used, doneHours, totalHours }: {
 
 // ── Main tree ─────────────────────────────────────────────
 
-export default function CurriculumTree({ predmet, classId, razredFilter = null, classBar, isAnonymous = false, gradeTargets = { 8: 70, 9: 64 }, subtitle, fullscreenHref }: {
+export default function CurriculumTree({ predmet, classId, razredFilter = null, classBar, isAnonymous = false, gradeTargets = { 8: 70, 9: 64 }, subtitle, fullscreenHref, classLabel }: {
   predmet: Predmet;
   classId?: string;
   razredFilter?: number | null;
@@ -929,6 +930,8 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
   gradeTargets?: Record<number, number>;
   subtitle?: string;
   fullscreenHref?: string;
+  /** ime izbranega razreda (npr. 9A) — za LDN */
+  classLabel?: string;
 }) {
   const { checked, toggle } = useProgress(classId ? `ucni-nacrt-progress-${classId}` : undefined);
   const { getHours, change } = useHours(classId ? `ucni-nacrt-hours-${classId}` : undefined);
@@ -1031,6 +1034,10 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px', flexShrink: 0 }}>
                 <Countdown school={subtitle} />
+                {!isAnonymous && (
+                  <PrintLdnButton predmet={predmet} classId={classId} razredFilter={razredFilter} school={subtitle}
+                    classLabel={classLabel} target={razredFilter != null ? gradeTargets[razredFilter] : undefined} />
+                )}
                 {fullscreenHref && (
                   <Link href={fullscreenHref} title="Celozaslonski odštevalnik za mizo"
                     style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 500, letterSpacing: '0.04em', color: 'rgba(255,255,255,0.6)', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '6px', padding: '5px 10px', textDecoration: 'none', whiteSpace: 'nowrap' }}>

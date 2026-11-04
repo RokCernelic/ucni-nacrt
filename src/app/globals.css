@@ -195,3 +195,32 @@ body {
 
 /* skener natisnjenih kvizov: med delovanjem kamere brez glave aplikacije */
 html.scanner-full .app-nav { display: none; }
+
+/* Letni delovni načrt (LDN): ležeči A4, naslovna stran + tabela; velikost strani (@page) doda PrintLdn ob tisku */
+@media print {
+  .ldn { font-size: 8.5pt; line-height: 1.3; }
+  .ldn-cover { break-after: page; min-height: 188mm; display: flex; flex-direction: column; justify-content: center; padding: 0 20mm; box-sizing: border-box; }
+  .ldn-kicker { font-size: 11pt; letter-spacing: .18em; text-transform: uppercase; color: #555; }
+  .ldn-h1 { font-size: 34pt; font-weight: 300; margin: 4mm 0 2mm; }
+  .ldn-sub { font-size: 13pt; color: #333; margin-bottom: 12mm; }
+  .ldn-info { border-collapse: collapse; font-size: 12pt; width: 150mm; }
+  .ldn-info th { text-align: left; font-weight: 500; color: #555; padding: 2.2mm 6mm 2.2mm 0; width: 40mm; border-bottom: .2mm solid #ccc; }
+  .ldn-info td { padding: 2.2mm 0; border-bottom: .2mm solid #ccc; font-weight: 600; }
+  .ldn-sign { display: flex; gap: 30mm; margin-top: 22mm; font-size: 10pt; color: #444; }
+  .ldn-sign > div { width: 75mm; }
+  .ldn-line { margin-bottom: 1.5mm; height: 14mm; border-bottom: .3mm solid #000; }
+  .ldn-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .ldn-table th, .ldn-table td { border: .25mm solid #888; padding: 1.2mm 1.6mm; vertical-align: top; text-align: left; overflow-wrap: anywhere; }
+  .ldn-table thead { display: table-header-group; }
+  .ldn-table thead th { background: #e9e9e9; font-weight: 700; }
+  .ldn-table tr { break-inside: avoid; }
+  .ldn-table tfoot { display: table-footer-group; }
+  .ldn-table ul { margin: 0; padding-left: 3.5mm; }
+  .ldn-table li { margin: 0 0 .6mm; }
+  .ldn-chap td { background: #f0f0f0; font-weight: 700; font-size: 9.5pt; }
+  .ldn-chap td ul { font-weight: 400; font-size: 8.5pt; }
+  .ldn-custom td { font-style: italic; }
+  .ldn-tag { font-size: 7pt; color: #555; font-weight: 600; }
+  .ldn-total td { font-weight: 700; background: #f0f0f0; }
+  .ldn-legend { font-weight: 400 !important; font-size: 7.5pt; color: #555; }
+}

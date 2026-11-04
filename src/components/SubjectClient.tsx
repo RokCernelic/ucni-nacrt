@@ -47,6 +47,7 @@ export default function SubjectClient({ predmet, gradeTargets, scopeId, subtitle
       gradeTargets={gradeTargets}
       subtitle={subtitle}
       fullscreenHref={`/predmet/${subjectId}/ura`}
+      classLabel={activeClass?.name}
     />
   );
 }
