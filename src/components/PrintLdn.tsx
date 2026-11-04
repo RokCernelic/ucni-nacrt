@@ -16,7 +16,7 @@ function readSaved(): { school: string; teacher: string } {
   try { const o = JSON.parse(localStorage.getItem(LS_FIELDS) ?? '{}'); return { school: String(o.school ?? ''), teacher: String(o.teacher ?? '') }; } catch { return { school: '', teacher: '' }; }
 }
 
-interface Row { num: string; title: string; hours: number; custom: boolean; pp?: Predmet['poglavja'][number]['podpoglavja'][number] }
+interface Row { num: string; title: string; hours: number; custom: boolean; color?: string; pp?: Predmet['poglavja'][number]['podpoglavja'][number] }
 interface Chap { num: number; title: string; hours: number; poglavje: Predmet['poglavja'][number]; rows: Row[] }
 
 function Std({ s }: { s: Standard }) {
@@ -78,7 +78,7 @@ function Ldn({ predmet, classId, razredFilter, school, classLabel, target, onClo
           const h = getHours(`${predmet.id}:${pp.id}`, pp.privzeteUre ?? 1);
           if (h > 0) rows.push({ num: `${num}.${orig.get(pp.id)}`, title: pp.naslov, hours: h, custom: false, pp });
         } else if (it.hours > 0) {
-          rows.push({ num: '', title: it.type, hours: it.hours, custom: true });
+          rows.push({ num: '', title: it.type, hours: it.hours, custom: true, color: it.color });
         }
       }
       if (rows.length) chaps.push({ num, title: p.naslov, hours: rows.reduce((s, r) => s + r.hours, 0), poglavje: p, rows });
@@ -134,7 +134,7 @@ function Ldn({ predmet, classId, razredFilter, school, classLabel, target, onClo
       <table className="ldn-table">
         <colgroup>
           {fixed.map(c => <col key={c.cls} style={{ width: c.w }} />)}
-          {cols.cilji && <col style={{ width: cols.standardi ? '58mm' : undefined }} />}
+          {cols.cilji && <col style={{ width: cols.standardi ? '74mm' : undefined }} />}
           {cols.standardi && <col />}
         </colgroup>
         <thead>
@@ -154,7 +154,7 @@ function Ldn({ predmet, classId, razredFilter, school, classLabel, target, onClo
               {cols.standardi && <td>{c.poglavje.standardi?.length ? <ul>{c.poglavje.standardi.map(s => <Std key={s.id} s={s} />)}</ul> : null}</td>}
             </tr>
             {c.rows.map((r, i) => (
-              <tr key={i} className={r.custom ? 'ldn-custom' : undefined}>
+              <tr key={i} className={r.custom ? 'ldn-custom' : undefined} style={r.color ? { backgroundColor: `${r.color}22` } : undefined}>
                 <td>{r.num}</td>
                 <td>{r.title}{r.pp?.izbirna ? <span className="ldn-tag"> (izbirna)</span> : null}
                   {cols.pojmi && r.pp?.noviPojmi?.length ? <div className="ldn-pojmi"><b>Novi pojmi:</b> {r.pp.noviPojmi.join(', ')}</div> : null}</td>
