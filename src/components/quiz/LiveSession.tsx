@@ -153,6 +153,19 @@ function QuestionStats({ q, index, answers, totalStudents }: { q: Question; inde
   );
 }
 
+const pctColor = (p: number) => (p >= 70 ? 'var(--green-ok)' : p >= 40 ? '#b7791f' : '#c0392b');
+
+/** Velika kljukica / križec v mreži rezultatov (dobro vidno tudi na projekciji). */
+function Mark({ q, value, top }: { q: Question; value: string | undefined; top?: boolean }) {
+  const st = answerStatus(q, value);
+  const sym = st === 'correct' ? '✓' : st === 'wrong' ? '✗' : '–';
+  const color = st === 'correct' ? 'var(--green-ok)' : st === 'wrong' ? '#c0392b' : 'var(--hairline)';
+  const label = q.kind === 'mc' ? q.options.find(o => o.id === value)?.text : value;
+  return (
+    <td title={label ?? ''} style={{ textAlign: 'center', padding: '4px 8px', [top ? 'borderTop' : 'borderBottom']: top ? '2px solid var(--hairline)' : '1px solid var(--hairline)', color, fontWeight: 800, fontSize: '24px', lineHeight: 1 }}>{sym}</td>
+  );
+}
+
 /** Podrobna stran rezultatov: tabela učencev, statistika po vprašanjih, mreža učenec × vprašanje, CSV. */
 function SessionResults({ session, students, answers, teacher, teacherAnswers }: {
   session: QuizSession; students: SessionStudent[]; answers: SessionAnswer[];
@@ -210,65 +223,51 @@ function SessionResults({ session, students, answers, teacher, teacherAnswers }:
         </button>
       </div>
 
-      {/* tabela učencev */}
-      <div style={{ marginTop: '28px', overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
-          <thead><tr style={{ textAlign: 'left', color: 'var(--muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-            <th style={{ padding: '8px 6px' }}><button style={sortBtn(sortBy === 'name')} onClick={() => setSortBy('name')}>Učenec</button></th>
-            <th style={{ padding: '8px 6px' }}><button style={sortBtn(sortBy === 'points')} onClick={() => setSortBy('points')}>Točke</button></th>
-            <th style={{ padding: '8px 6px' }}>%</th>
-            <th style={{ padding: '8px 6px' }}>Pravilno / narobe / brez</th>
-          </tr></thead>
-          <tbody>{rows.map(({ s, sc }) => (
-            <tr key={s.student_id} style={{ borderTop: '1px solid var(--hairline)', color: participated(s) ? 'var(--ink)' : 'var(--muted)' }}>
-              <td style={{ padding: '8px 6px' }}>{s.name}{!participated(s) && ' (ni sodeloval)'}</td>
-              <td style={{ padding: '8px 6px', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(sc.points)} / {formatNumber(sc.maxPoints)}</td>
-              <td style={{ padding: '8px 6px', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(sc.percent)} %</td>
-              <td style={{ padding: '8px 6px', fontVariantNumeric: 'tabular-nums' }}>
-                <span style={{ color: 'var(--green-ok)' }}>{sc.correct}</span> / <span style={{ color: '#c0392b' }}>{sc.wrong}</span> / <span>{sc.unanswered}</span>
-              </td>
-            </tr>
-          ))}
-          {teacherScore && (
-            <tr style={{ borderTop: '2px solid var(--hairline)', color: 'var(--muted)', fontStyle: 'italic' }} title="Učitelj (testna oseba) — ne šteje v povprečje">
-              <td style={{ padding: '8px 6px' }}>{TEACHER_NAME} (test)</td>
-              <td style={{ padding: '8px 6px', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(teacherScore.points)} / {formatNumber(teacherScore.maxPoints)}</td>
-              <td style={{ padding: '8px 6px', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(teacherScore.percent)} %</td>
-              <td style={{ padding: '8px 6px', fontVariantNumeric: 'tabular-nums' }}>
-                {teacherScore.correct} / {teacherScore.wrong} / {teacherScore.unanswered}
-              </td>
-            </tr>
-          )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* mreža učenec × vprašanje */}
-      {questions.length > 0 && (
-        <div style={{ marginTop: '32px' }}>
-          <h2 style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted)', margin: '0 0 10px' }}>Učenec × vprašanje</h2>
-          <div style={{ overflowX: 'auto', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)' }}>
-            <table style={{ borderCollapse: 'collapse', fontSize: '13px', minWidth: '100%' }}>
-              <thead><tr>
-                <th style={{ position: 'sticky', left: 0, background: 'var(--canvas)', padding: '7px 12px', textAlign: 'left', borderBottom: '1px solid var(--hairline)', whiteSpace: 'nowrap' }}>Učenec</th>
-                {questions.map((q, i) => <th key={q.id} title={q.prompt} style={{ padding: '7px 6px', borderBottom: '1px solid var(--hairline)', minWidth: '32px', color: 'var(--muted)', fontWeight: 600 }}>{i + 1}</th>)}
-              </tr></thead>
-              <tbody>{rows.map(({ s, ans }) => (
-                <tr key={s.student_id}>
-                  <td style={{ position: 'sticky', left: 0, background: '#fff', padding: '6px 12px', borderBottom: '1px solid var(--hairline)', whiteSpace: 'nowrap', color: participated(s) ? 'var(--ink)' : 'var(--muted)' }}>{s.name}</td>
-                  {questions.map(q => {
-                    const st = answerStatus(q, ans[q.id]);
-                    const sym = st === 'correct' ? '✓' : st === 'wrong' ? '✗' : '–';
-                    const color = st === 'correct' ? 'var(--green-ok)' : st === 'wrong' ? '#c0392b' : 'var(--hairline)';
-                    const label = q.kind === 'mc' ? q.options.find(o => o.id === ans[q.id])?.text : ans[q.id];
-                    return <td key={q.id} title={label ?? ''} style={{ textAlign: 'center', padding: '6px 8px', borderBottom: '1px solid var(--hairline)', color, fontWeight: 700 }}>{sym}</td>;
-                  })}
+      {/* združena tabela: učenec · točke in % · ✓/✗ po vprašanjih (primerna za projekcijo) */}
+      <div style={{ marginTop: '28px' }}>
+        <h2 style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted)', margin: '0 0 10px' }}>Učenec × vprašanje</h2>
+        <div style={{ overflowX: 'auto', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)' }}>
+          <table style={{ borderCollapse: 'collapse', fontSize: '15px', minWidth: '100%' }}>
+            <thead><tr>
+              <th style={{ position: 'sticky', left: 0, zIndex: 1, background: 'var(--canvas)', padding: '8px 12px', textAlign: 'left', borderBottom: '1px solid var(--hairline)', whiteSpace: 'nowrap' }}>
+                <button style={sortBtn(sortBy === 'name')} onClick={() => setSortBy('name')}>Učenec</button>
+              </th>
+              <th style={{ padding: '8px 12px', textAlign: 'left', borderBottom: '1px solid var(--hairline)', borderRight: '2px solid var(--hairline)', whiteSpace: 'nowrap' }}>
+                <button style={sortBtn(sortBy === 'points')} onClick={() => setSortBy('points')}>Točke · %</button>
+              </th>
+              {questions.map((q, i) => <th key={q.id} title={q.prompt} style={{ padding: '8px 6px', borderBottom: '1px solid var(--hairline)', minWidth: '38px', color: 'var(--muted)', fontWeight: 600 }}>{i + 1}</th>)}
+            </tr></thead>
+            <tbody>
+              {rows.map(({ s, ans, sc }) => {
+                const on = participated(s);
+                return (
+                  <tr key={s.student_id}>
+                    <td style={{ position: 'sticky', left: 0, background: '#fff', padding: '7px 12px', borderBottom: '1px solid var(--hairline)', whiteSpace: 'nowrap', color: on ? 'var(--ink)' : 'var(--muted)' }}>
+                      {s.name}{!on && <span style={{ fontSize: '12px' }}> (ni sodeloval)</span>}
+                    </td>
+                    <td style={{ padding: '7px 12px', borderBottom: '1px solid var(--hairline)', borderRight: '2px solid var(--hairline)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                      {on ? (<>
+                        <b style={{ color: 'var(--ink)' }}>{formatNumber(sc.points)}</b><span style={{ color: 'var(--muted)' }}> / {formatNumber(sc.maxPoints)}</span>
+                        <span style={{ marginLeft: '10px', fontWeight: 700, color: pctColor(sc.percent) }}>{formatNumber(sc.percent)} %</span>
+                      </>) : <span style={{ color: 'var(--muted)' }}>–</span>}
+                    </td>
+                    {questions.map(q => <Mark key={q.id} q={q} value={ans[q.id]} />)}
+                  </tr>
+                );
+              })}
+              {teacherScore && (
+                <tr title="Učitelj (testna oseba) — ne šteje v povprečje" style={{ fontStyle: 'italic' }}>
+                  <td style={{ position: 'sticky', left: 0, background: '#fff', padding: '7px 12px', borderTop: '2px solid var(--hairline)', whiteSpace: 'nowrap', color: 'var(--muted)' }}>{TEACHER_NAME} (test)</td>
+                  <td style={{ padding: '7px 12px', borderTop: '2px solid var(--hairline)', borderRight: '2px solid var(--hairline)', whiteSpace: 'nowrap', color: 'var(--muted)', fontVariantNumeric: 'tabular-nums' }}>
+                    {formatNumber(teacherScore.points)} / {formatNumber(teacherScore.maxPoints)}<span style={{ marginLeft: '10px' }}>{formatNumber(teacherScore.percent)} %</span>
+                  </td>
+                  {questions.map(q => <Mark key={q.id} q={q} value={teacherAnswers.find(a => a.question_id === q.id)?.value} top />)}
                 </tr>
-              ))}</tbody>
-            </table>
-          </div>
+              )}
+            </tbody>
+          </table>
         </div>
-      )}
+      </div>
 
       {/* statistika po vprašanjih */}
       {questions.length > 0 && (
