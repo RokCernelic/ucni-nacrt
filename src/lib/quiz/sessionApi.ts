@@ -331,9 +331,18 @@ export function getDeviceId(): string {
  * Vrne { send, close, isLive } — isLive pove, ali je kanal povezan (za prilagoditev osveževanja).
  */
 export function joinChannel(code: string, onPing: (payload: { type: string }) => void) {
+  return openChannel(channelName(code), onPing);
+}
+
+/** Učiteljev kanal za statistiko: skener po vsakem shranjenem listu pošlje ping, Statistika se osveži. */
+export function joinStatsChannel(userId: string, onPing: (payload: { type: string }) => void) {
+  return openChannel(`statistika-${userId}`, onPing);
+}
+
+function openChannel(name: string, onPing: (payload: { type: string }) => void) {
   const sb = getSupabaseBrowserClient();
   let connected = false;
-  const ch = sb.channel(channelName(code), { config: { broadcast: { self: false } } })
+  const ch = sb.channel(name, { config: { broadcast: { self: false } } })
     .on('broadcast', { event: 'ping' }, (msg: { payload?: unknown }) => onPing((msg.payload ?? { type: 'ping' }) as { type: string }))
     .subscribe((status: string) => { connected = status === 'SUBSCRIBED'; });
   return {

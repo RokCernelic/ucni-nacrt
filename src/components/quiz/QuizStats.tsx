@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuizLibrary } from '@/hooks/useQuizLibrary';
-import { loadAllHistory, isLive, participated, type QuizSession } from '@/lib/quiz/sessionApi';
+import { loadAllHistory, joinStatsChannel, isLive, participated, type QuizSession } from '@/lib/quiz/sessionApi';
 import { scoreAnswers } from '@/lib/quiz/scoring';
 import { QuizHistoryBody } from './QuizHistory';
 
@@ -25,7 +25,14 @@ export default function QuizStats() {
 
   useEffect(() => {
     if (!user) return;
-    loadAllHistory().then(setData).catch(e => setError(e instanceof Error ? e.message : String(e)));
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const load = () => loadAllHistory().then(setData).catch(e => setError(e instanceof Error ? e.message : String(e)));
+    void load();
+    // v živo: skener po vsakem shranjenem listu pošlje ping (več hitrih pingov združimo)
+    const ch = joinStatsChannel(user.id, () => { if (timer) clearTimeout(timer); timer = setTimeout(() => void load(), 600); });
+    const onFocus = () => { if (document.visibilityState === 'visible') void load(); };
+    document.addEventListener('visibilitychange', onFocus);
+    return () => { ch.close(); if (timer) clearTimeout(timer); document.removeEventListener('visibilitychange', onFocus); };
   }, [user]);
 
   const groups = useMemo(() => {

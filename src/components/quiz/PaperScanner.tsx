@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
-import { joinChannel } from '@/lib/quiz/sessionApi';
+import { joinChannel, joinStatsChannel } from '@/lib/quiz/sessionApi';
 import { loadPaperSession, savePaperAnswers, type PaperSession } from '@/lib/quiz/paperSession';
 import { layoutSheet, frameGeometry, parseToken, sheetSeed, type FrameGeometry, type SheetLayout, type LayoutItem } from '@/lib/quiz/printSheet';
 import { toGray, locate, readLocated, project, type SheetReading } from '@/lib/quiz/omr';
@@ -22,6 +22,13 @@ const sig = (h: { studentId: string; reading: SheetReading }) => `${h.studentId}
 /** Telefon kot skener natisnjenih kvizov: kamera → okvir z odgovori → točke → shrani k učencu (skupna statistika). */
 export default function PaperScanner() {
   const { user, loading } = useAuth();
+  const statsCh = useRef<ReturnType<typeof joinStatsChannel> | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    const ch = joinStatsChannel(user.id, () => {});
+    statsCh.current = ch;
+    return () => { ch.close(); statsCh.current = null; };
+  }, [user]);
   const videoRef = useRef<HTMLVideoElement>(null);
   const viewRef = useRef<HTMLCanvasElement>(null);
   const work = useRef<HTMLCanvasElement | null>(null);
@@ -175,6 +182,7 @@ export default function PaperScanner() {
       });
       await savePaperAnswers(hit.sessionId, hit.studentId, answers);
       s.channel.send('answers');
+      statsCh.current?.send('answers');
       setSaved(m => ({ ...m, [hit.studentId]: got }));
       setStatus(`✓ Shranjeno: ${hit.name} (${got}/${max}). Naslednji list …`);
       lastSig.current = { s: '', n: 0 };
