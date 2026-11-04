@@ -1,4 +1,5 @@
 import type { Question, Quiz } from './types';
+import { ceilPct } from '@/lib/quiz/format';
 
 /**
  * Prebere število, kot ga vpiše učenec ali učitelj: vejica = pika, presledki
@@ -50,7 +51,7 @@ export function scoreAnswers(quiz: Pick<Quiz, 'questions'>, answers: Record<stri
     else if (st === 'wrong') wrong++;
     else unanswered++;
   }
-  const percent = maxPoints > 0 ? Math.round((points / maxPoints) * 1000) / 10 : 0;
+  const percent = maxPoints > 0 ? ceilPct((points / maxPoints) * 100) : 0;
   return { points, maxPoints, percent, correct, wrong, unanswered };
 }
 

@@ -7,6 +7,7 @@ import { useQuizLibrary } from '@/hooks/useQuizLibrary';
 import { loadQuizHistory, isLive, participated, type QuizSession } from '@/lib/quiz/sessionApi';
 import { scoreAnswers } from '@/lib/quiz/scoring';
 import { studentsLabel } from '@/lib/quiz/format';
+import { ceilPct } from '@/lib/quiz/format';
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('sl-SI', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -29,7 +30,7 @@ export function QuizHistoryBody({ quizTitle, data, back = { href: '/kvizi', labe
     if (!joined.length) return null;
     const session = sessions.find(x => x.id === sessionId)!;
     const pct = joined.reduce((sum, st) => sum + scoreAnswers(session.quiz, byStudent.get(st.student_id) ?? {}).percent, 0) / joined.length;
-    return Math.round(pct);
+    return ceilPct(pct);
   };
 
   // združi po razredu
@@ -41,7 +42,7 @@ export function QuizHistoryBody({ quizTitle, data, back = { href: '/kvizi', labe
   }
   const classRows = [...byClass.entries()].map(([classId, g]) => {
     const pcts = g.sessions.map(s => avgPercentFor(s.id)).filter((x): x is number => x !== null);
-    const avg = pcts.length ? Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length) : null;
+    const avg = pcts.length ? ceilPct(pcts.reduce((a, b) => a + b, 0) / pcts.length) : null;
     const last = g.sessions.reduce((max, s) => s.created_at > max ? s.created_at : max, g.sessions[0]?.created_at ?? '');
     return { classId, className: g.className, count: g.sessions.length, avg, last };
   }).sort((a, b) => b.last.localeCompare(a.last));

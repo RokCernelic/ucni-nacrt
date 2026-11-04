@@ -13,6 +13,7 @@ import { formatNumber, pointsLabel, studentsLabel } from '@/lib/quiz/format';
 import { sessionResultsCsv, downloadCsv, safeFilename } from '@/lib/quiz/csv';
 import type { Question } from '@/lib/quiz/types';
 import { compareByLastName } from '@/lib/names';
+import { ceilPct } from '@/lib/quiz/format';
 
 const LETTERS = 'ABCDEF';
 
@@ -60,7 +61,7 @@ export function QuestionView({ q, index, total, revealed, counts, answeredCount 
           {q.options.map((o, i) => {
             const right = revealed && o.id === q.correct;
             const n = counts.get(o.id) ?? 0;
-            const pct = answeredCount ? Math.round((n / answeredCount) * 100) : 0;
+            const pct = answeredCount ? ceilPct((n / answeredCount) * 100) : 0;
             return (
               <div key={o.id} style={{ position: 'relative', overflow: 'hidden', borderRadius: 'var(--r-md)', border: `2px solid ${right ? 'var(--green-ok)' : 'var(--hairline)'}`, background: 'var(--canvas)', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '14px' }}>
                 {revealed && <div style={{ position: 'absolute', inset: 0, width: `${pct}%`, background: right ? 'rgba(60,140,80,0.18)' : 'rgba(0,0,0,0.05)', transition: 'width .5s' }} />}
@@ -100,7 +101,7 @@ function QuestionStats({ q, index, answers, totalStudents }: { q: Question; inde
   const relevant = answers.filter(a => a.question_id === q.id);
   const answeredCount = relevant.length;
   const correctCount = relevant.filter(a => isCorrect(q, a.value)).length;
-  const pct = answeredCount ? Math.round((correctCount / answeredCount) * 100) : 0;
+  const pct = answeredCount ? ceilPct((correctCount / answeredCount) * 100) : 0;
   const pctColor = answeredCount === 0 ? 'var(--muted)' : pct >= 70 ? 'var(--green-ok)' : pct >= 40 ? '#b7791f' : '#c0392b';
 
   const counts = new Map<string, number>();
@@ -196,7 +197,7 @@ function SessionResults({ session, students, answers, teacher, teacherAnswers }:
     ? scoreAnswers(session.quiz, Object.fromEntries(teacherAnswers.map(a => [a.question_id, a.value])))
     : null;
 
-  const avgPct = rows.length ? Math.round(rows.reduce((s, r) => s + r.sc.percent, 0) / rows.length) : 0;
+  const avgPct = rows.length ? ceilPct(rows.reduce((s, r) => s + r.sc.percent, 0) / rows.length) : 0;
 
   const exportCsv = () => {
     const csv = sessionResultsCsv(session.quiz, students.map(s => ({ name: s.name, participated: participated(s), answers: answersByStudent.get(s.student_id) ?? {} })));

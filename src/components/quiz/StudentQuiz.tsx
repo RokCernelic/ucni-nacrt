@@ -8,6 +8,7 @@ import {
 } from '@/lib/quiz/sessionApi';
 import { seededOrder } from '@/lib/quiz/shuffle';
 import { formatNumber } from '@/lib/quiz/format';
+import { ceilPct } from '@/lib/quiz/format';
 
 const LETTERS = 'ABCDEF';
 const page: React.CSSProperties = { minHeight: '100vh', background: '#f4f2ee', fontFamily: 'var(--font-sans)', color: 'var(--ink)', display: 'flex', flexDirection: 'column' };
@@ -313,7 +314,7 @@ export default function StudentQuiz({ code: rawCode }: { code: string }) {
 
   // ── konec / oddano: skupni rezultat ──
   if (state.status === 'ended' || state.submitted) {
-    const pct = state.maxPoints ? Math.round(((state.points ?? 0) / state.maxPoints) * 100) : 0;
+    const pct = state.maxPoints ? ceilPct(((state.points ?? 0) / state.maxPoints) * 100) : 0;
     return (
       <div style={page}>{topBar}
         <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>

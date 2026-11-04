@@ -17,3 +17,8 @@ export const pointsLabel = (n: number) => `${formatNumber(n)} ${Number.isInteger
 export function formatNumber(n: number): string {
   return String(+n.toFixed(10)).replace('.', ',');
 }
+
+/** Odstotek, zaokrožen navzgor na celo število (70,1 → 71). Toleranca odpravi napake plavajoče vejice (7/10·100 = 70,000…01). */
+export function ceilPct(x: number): number {
+  return Math.max(0, Math.ceil(x - 1e-9));
+}

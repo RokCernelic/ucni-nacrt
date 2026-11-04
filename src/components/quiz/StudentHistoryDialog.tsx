@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { loadStudentHistory, type StudentHistoryEntry } from '@/lib/quiz/sessionApi';
 import { scoreAnswers } from '@/lib/quiz/scoring';
 import { formatNumber } from '@/lib/quiz/format';
+import { ceilPct } from '@/lib/quiz/format';
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('sl-SI', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -21,7 +22,7 @@ export function StudentHistoryBody({ studentName, entries, error, onClose }: {
   }, [onClose]);
 
   const avg = entries && entries.length
-    ? Math.round(entries.reduce((sum, e) => sum + scoreAnswers(e.session.quiz, Object.fromEntries(e.answers.map(a => [a.question_id, a.value]))).percent, 0) / entries.length)
+    ? ceilPct(entries.reduce((sum, e) => sum + scoreAnswers(e.session.quiz, Object.fromEntries(e.answers.map(a => [a.question_id, a.value]))).percent, 0) / entries.length)
     : null;
 
   return (

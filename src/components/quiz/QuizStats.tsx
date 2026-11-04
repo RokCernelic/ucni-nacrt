@@ -8,6 +8,7 @@ import { useQuizLibrary } from '@/hooks/useQuizLibrary';
 import { loadAllHistory, joinStatsChannel, isLive, participated, type QuizSession } from '@/lib/quiz/sessionApi';
 import { scoreAnswers } from '@/lib/quiz/scoring';
 import { QuizHistoryBody } from './QuizHistory';
+import { ceilPct } from '@/lib/quiz/format';
 
 type Data = Awaited<ReturnType<typeof loadAllHistory>>;
 const keyOf = (s: QuizSession) => s.quiz_id ?? `naslov:${s.quiz_title}`;
@@ -51,7 +52,7 @@ export default function QuizStats() {
       }
       return {
         key, title: sessions[0].quiz_title, sessions, people,
-        avg: n ? Math.round(sum / n) : null,
+        avg: n ? ceilPct(sum / n) : null,
         classes: [...new Set(sessions.map(s => s.class_name))],
         last: sessions[0].created_at,
         deleted: !!sessions[0].quiz_id && lib.loaded && !lib.quizzes.some(q => q.id === sessions[0].quiz_id),
