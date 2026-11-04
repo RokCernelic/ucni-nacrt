@@ -9,6 +9,7 @@ import { Rich } from '@/components/tasks/ui';
 import { layoutSheet, sheetToken, sheetSeed, frameGeometry, type PrintItem, type SheetLayout } from '@/lib/quiz/printSheet';
 import { createPaperSession } from '@/lib/quiz/paperSession';
 import Link from 'next/link';
+import { setPrintTitle } from '@/lib/printTitle';
 
 export interface Sheet { key: string; name: string | null; qr: string | null; layout: SheetLayout }
 
@@ -62,7 +63,8 @@ export default function PrintQuizDialog({ items, title, quizId, defaultClassId, 
       style.textContent = '@page { size: A4 portrait; margin: 10mm 0; }'; // odmik zgoraj/spodaj tudi na nadaljnjih straneh
       document.head.appendChild(style);
       const root = document.documentElement;
-      const done = () => { root.classList.remove('printing-questions'); setSheets(null); style.remove(); window.removeEventListener('afterprint', done); };
+      const restoreTitle = setPrintTitle(title);
+      const done = () => { root.classList.remove('printing-questions'); setSheets(null); style.remove(); restoreTitle(); window.removeEventListener('afterprint', done); };
       flushSync(() => setSheets(list));
       root.classList.add('printing-questions');
       window.addEventListener('afterprint', done);

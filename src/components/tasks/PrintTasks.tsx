@@ -7,6 +7,7 @@ import { questionsLabel } from '@/lib/quiz/format';
 import { exportTasksTex } from '@/lib/tasks/exportTex';
 import { OPTION_LETTERS } from '@/lib/tasks/latex';
 import { Rich, TaskAnswer, btn } from './ui';
+import { setPrintTitle } from '@/lib/printTitle';
 
 /**
  * Notranja površina ene polovice (pokončni A4 razrezan po vodoravni sredini = trak 210 × 148,5 mm), v mm:
@@ -94,7 +95,8 @@ export default function PrintTasks({ tasks, title }: { tasks: Task[]; title: str
       pageStyle.textContent = '@page { size: A4 portrait; margin: 0; }';
       document.head.appendChild(pageStyle);
     }
-    const done = () => { root.classList.remove('printing-questions'); setPrinting(false); pageStyle?.remove(); window.removeEventListener('afterprint', done); };
+    const restoreTitle = setPrintTitle(title || 'Naloge');
+    const done = () => { root.classList.remove('printing-questions'); setPrinting(false); pageStyle?.remove(); restoreTitle(); window.removeEventListener('afterprint', done); };
     flushSync(() => setPrinting(true));
     root.classList.add('printing-questions');
     window.addEventListener('afterprint', done);
