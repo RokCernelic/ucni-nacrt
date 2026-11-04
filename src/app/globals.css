@@ -215,8 +215,10 @@ html.scanner-full .app-nav { display: none; }
   .ldn-table thead th { background: #e9e9e9; font-weight: 700; }
   .ldn-table tr { break-inside: avoid; }
   .ldn-pojmi { font-weight: 400; font-size: 8pt; color: #333; margin-top: 3.5mm; } /* prazna vrstica pred »Novi pojmi« */
-  .ldn-table ul { margin: 0; padding-left: 3.5mm; }
-  .ldn-table li { margin: 0 0 .6mm; }
+  /* vsak cilj in standard v svoji alineji (pomišljaj z visečim zamikom) */
+  .ldn-table ul { margin: 0; padding: 0; list-style: none; }
+  .ldn-table li { position: relative; display: block; margin: 0 0 1mm; padding-left: 3.2mm; }
+  .ldn-table li::before { content: '–'; position: absolute; left: 0; top: 0; }
   .ldn-chap td { background: #f0f0f0; font-weight: 700; font-size: 9.5pt; }
   .ldn-chap td ul { font-weight: 400; font-size: 8.5pt; }
   .ldn-custom td { font-style: italic; }
