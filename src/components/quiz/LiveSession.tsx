@@ -170,9 +170,11 @@ function Mark({ q, value, top }: { q: Question; value: string | undefined; top?:
 }
 
 /** Podrobna stran rezultatov: tabela učencev, statistika po vprašanjih, mreža učenec × vprašanje, CSV. */
-function SessionResults({ session, students, answers, teacher, teacherAnswers }: {
+export function SessionResults({ session, students, answers, teacher, teacherAnswers, back, subtitle, note }: {
   session: QuizSession; students: SessionStudent[]; answers: SessionAnswer[];
   teacher: SessionStudent | null; teacherAnswers: SessionAnswer[];
+  /** povezava nazaj (privzeto Kvizi), besedilo pod naslovom (privzeto razred · seja končana) in opomba */
+  back?: { href: string; label: string }; subtitle?: string; note?: string;
 }) {
   const [sortBy, setSortBy] = useState<'name' | 'points'>('name');
   const questions = session.quiz.questions;
@@ -213,18 +215,20 @@ function SessionResults({ session, students, answers, teacher, teacherAnswers }:
 
   return (
     <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '32px', fontFamily: 'var(--font-sans)' }}>
-      <Link href="/kvizi" style={{ fontSize: '13px', color: 'var(--forest)', textDecoration: 'none' }}>← Kvizi</Link>
+      <Link href={back?.href ?? '/kvizi'} style={{ fontSize: '13px', color: 'var(--forest)', textDecoration: 'none' }}>{back?.label ?? '← Kvizi'}</Link>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap', marginTop: '10px' }}>
         <div>
           <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '36px', fontWeight: 300, margin: '0 0 4px', color: 'var(--ink)' }}>{session.quiz_title}</h1>
           <p style={{ color: 'var(--muted)', margin: 0 }}>
-            {session.class_name} · seja končana · {studentsLabel(joinedCount)} sodelovalo od {students.length} · povprečje <b style={{ color: gradeColor(avgPct) }}>{avgPct} %</b>
+            {subtitle ?? `${session.class_name} · seja končana`} · {studentsLabel(joinedCount)} sodelovalo od {students.length} · povprečje <b style={{ color: gradeColor(avgPct) }}>{avgPct} %</b>
           </p>
         </div>
         <button onClick={exportCsv} style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600, color: '#fff', background: 'var(--forest)', border: 'none', borderRadius: 'var(--r-sm)', padding: '9px 16px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
           ⬇ Izvozi CSV
         </button>
       </div>
+
+      {note && <p style={{ fontSize: '12px', color: '#b7791f', margin: '12px 0 0' }}>{note}</p>}
 
       {/* združena tabela: učenec · točke in % · ✓/✗ po vprašanjih (primerna za projekcijo) */}
       <div style={{ marginTop: '28px' }}>

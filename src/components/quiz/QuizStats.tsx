@@ -5,9 +5,9 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuizLibrary } from '@/hooks/useQuizLibrary';
-import { loadAllHistory, joinStatsChannel, isLive, participated, type QuizSession } from '@/lib/quiz/sessionApi';
+import { loadAllHistory, joinStatsChannel, isLive, participated, type QuizSession, type SessionStudent, type SessionAnswer } from '@/lib/quiz/sessionApi';
 import { scoreAnswers } from '@/lib/quiz/scoring';
-import { QuizHistoryBody } from './QuizHistory';
+import { SessionResults } from './LiveSession';
 import { ceilPct } from '@/lib/quiz/format';
 import { gradeColor } from '@/lib/quiz/format';
 
@@ -68,13 +68,30 @@ export default function QuizStats() {
 
   const group = selected ? groups.find(g => g.key === selected) : null;
   if (group) {
-    const ids = new Set(group.sessions.map(s => s.id));
-    const sub = {
-      sessions: group.sessions,
-      studentsBySession: new Map([...data.studentsBySession].filter(([id]) => ids.has(id))),
-      answersBySession: new Map([...data.answersBySession].filter(([id]) => ids.has(id))),
-    };
-    return <QuizHistoryBody quizTitle={group.title} data={sub} back={{ href: '/kvizi/statistika', label: '← Statistika' }} note={group.deleted ? 'Kviz je izbrisan — rezultati so ohranjeni.' : undefined} />;
+    // en kviz = ena stran rezultatov: za vsakega učenca zadnji rezultat (iz najnovejše seje, v kateri je sodeloval)
+    const sessions = [...group.sessions].sort((a, b) => b.created_at.localeCompare(a.created_at));
+    const latest = sessions[0];
+    const seen = new Set<string>();
+    const students: SessionStudent[] = [];
+    const answers: SessionAnswer[] = [];
+    for (const s of sessions) {
+      for (const st of data.studentsBySession.get(s.id) ?? []) {
+        if (seen.has(st.student_id) || !participated(st)) continue;
+        seen.add(st.student_id);
+        students.push(st);
+        answers.push(...(data.answersBySession.get(s.id) ?? []).filter(a => a.student_id === st.student_id));
+      }
+    }
+    // učenci, ki še niso sodelovali, iz najnovejše seje
+    for (const st of data.studentsBySession.get(latest.id) ?? []) if (!seen.has(st.student_id)) students.push(st);
+    const classes = [...new Set(sessions.map(s => s.class_name))].join(', ');
+    const n = sessions.length;
+    return (
+      <SessionResults session={latest} students={students} answers={answers} teacher={null} teacherAnswers={[]}
+        back={{ href: '/kvizi/statistika', label: '← Statistika' }}
+        subtitle={`${classes}${n > 1 ? ` · zadnji rezultat vsakega učenca (${n} izvedb)` : ''}`}
+        note={group.deleted ? 'Kviz je izbrisan — rezultati so ohranjeni.' : undefined} />
+    );
   }
 
   const card: React.CSSProperties = { background: 'var(--canvas)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', padding: '14px 16px', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' };
