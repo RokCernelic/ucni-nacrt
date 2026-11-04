@@ -1,9 +1,12 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useCountdown } from '@/hooks/useCountdown';
+import { rememberSchool } from '@/hooks/useLastSchool';
 
 export default function Countdown({ school }: { school?: string }) {
   const cd = useCountdown(school);
+  useEffect(() => { rememberSchool(school); }, [school]); // časovnik v meniju sledi zadnji odprti šoli
   if (!cd) return null; // prepreči neujemanje pri hidraciji
 
   return (

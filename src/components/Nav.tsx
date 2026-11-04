@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, Suspense } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import CurriculumPicker from '@/components/CurriculumPicker';
 import ViewClassTabs from '@/components/ViewClassTabs';
@@ -10,6 +10,8 @@ import { useViewClasses, type ViewKind } from '@/hooks/useViewClasses';
 import { useAuth } from '@/hooks/useAuth';
 import { useSubjects } from '@/hooks/useSubjects';
 import { getCurriculum } from '@/data/registry';
+import NavCountdown from '@/components/NavCountdown';
+import { rememberSchool } from '@/hooks/useLastSchool';
 import type { CSSProperties } from 'react';
 
 function GearIcon() {
@@ -74,6 +76,7 @@ function StudentRows({ path }: { path: string }) {
   const cur = classes.find(c => c.id === curId);
   const selected = cur ? schoolOf(cur) : curId === 'nov' ? search.get('sola') : null;
   const inSchool = selected ? classes.filter(c => schoolOf(c) === selected) : [];
+  useEffect(() => { if (cur) rememberSchool(cur.school); }, [cur]);
   const newHref = (school?: string | null) =>
     school && school !== NO_SCHOOL ? `/ucenci/nov?sola=${encodeURIComponent(school)}` : '/ucenci/nov';
 
@@ -131,6 +134,9 @@ export default function Nav() {
     ? { view: (subjectMatch[1] === 'predmet' ? 'ucni' : 'sedez') as ViewKind, subjectId: subjectMatch[2] }
     : null;
 
+  // velik odštevalnik je že v glavi predmeta / sedežnega reda in na celozaslonskem
+  const hasBigCountdown = /^\/(predmet|sedezni-red)\/[^/]+(\/ura)?$/.test(path);
+
   const pick = (curriculumId: string, school: string) => {
     const id = addSubject(curriculumId);
     if (school) updateSubtitle(id, school);
@@ -152,6 +158,7 @@ export default function Nav() {
               <Link href="/kvizi" style={item(onQuizzes)}>Kvizi</Link>
               <Link href="/ucenci" style={item(onStudents)}>Učenci</Link>
               <span style={{ flex: 1 }} />
+              {!hasBigCountdown && <NavCountdown />}
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginLeft: 'auto' }}>
                 <Link href="/nastavitve" title="Nastavitve" aria-label="Nastavitve"
                   style={{ ...ctrl, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '30px', height: '28px', padding: 0,
