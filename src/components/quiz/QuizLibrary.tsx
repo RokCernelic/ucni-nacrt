@@ -193,7 +193,7 @@ export default function QuizLibrary() {
                       onDragEnd={() => { dragQuizId.current = null; setDraggingQuiz(null); setDragOverFolder(null); }}
                       title="Povleci na mapo (zgoraj ali v seznamu), da premakneš kviz vanjo"
                       style={{ ...card, display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', cursor: 'grab', opacity: draggingQuiz === q.id ? 0.4 : 1 }}>
-                      <Link href={`/kvizi/${q.id}`} draggable={false} style={{ flex: '1 1 260px', minWidth: 0, textDecoration: 'none' }}>
+                      <Link href={`/kvizi/${q.id}`} draggable={false} style={{ flex: '1 1 200px', minWidth: 0, textDecoration: 'none' }}>
                         <div style={{ fontFamily: 'var(--font-sans)', fontSize: '15px', fontWeight: 600, color: 'var(--ink)' }}>{q.title || 'Brez naslova'}</div>
                         <div style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--muted)', marginTop: '2px' }}>
                           {questionsLabel(q.questions.length)} · {pointsLabel(maxPoints)}
@@ -203,19 +203,21 @@ export default function QuizLibrary() {
                             : <span style={{ color: 'var(--green-ok)' }}>✓ pripravljen</span>}
                         </div>
                       </Link>
-                      <select value={q.folderId ?? ''} title="Premakni v mapo"
-                        onChange={e => guard(() => lib.updateQuiz(q.id, { folderId: e.target.value || null }))}
-                        style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--ink)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', padding: '5px 6px', background: 'var(--canvas)', maxWidth: '180px' }}>
-                        <option value="">📁 Vsi kvizi (koren)</option>
-                        {allFolders.map(({ f, depth }) => <option key={f.id} value={f.id}>{'  '.repeat(depth)}📁 {f.name}</option>)}
-                      </select>
-                      <button style={btn(true)} disabled={incomplete > 0} title={incomplete > 0 ? 'Najprej dokončaj vsa vprašanja' : 'Zaženi sejo z razredom'}
-                        onClick={() => setStarting(q.id)}>▶ Zaženi</button>
-                      <Link href={`/kvizi/${q.id}`} style={{ ...btn(), textDecoration: 'none' }}>Uredi</Link>
-                      <Link href={`/kvizi/statistika?k=${encodeURIComponent(q.id)}`} style={{ ...btn(), textDecoration: 'none' }} title="Rezultati tega kviza po učencih in nalogah">Rezultati</Link>
-                      <button style={btn()} onClick={() => guard(() => lib.duplicateQuiz(q.id))}>Podvoji</button>
-                      <button style={{ ...btn(), color: '#c0392b', borderColor: '#e0b4ae' }}
-                        onClick={() => { if (confirm(`Izbrišem kviz »${q.title}«?`)) guard(() => lib.deleteQuiz(q.id)); }}>Izbriši</button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'nowrap', flexShrink: 0 }}>
+                        <select value={q.folderId ?? ''} title="Premakni v mapo"
+                          onChange={e => guard(() => lib.updateQuiz(q.id, { folderId: e.target.value || null }))}
+                          style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--ink)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', padding: '5px 4px', background: 'var(--canvas)', width: '112px' }}>
+                          <option value="">📁 Vsi kvizi (koren)</option>
+                          {allFolders.map(({ f, depth }) => <option key={f.id} value={f.id}>{'  '.repeat(depth)}📁 {f.name}</option>)}
+                        </select>
+                        <button style={{ ...btn(true), padding: '7px 11px' }} disabled={incomplete > 0} title={incomplete > 0 ? 'Najprej dokončaj vsa vprašanja' : 'Zaženi sejo z razredom'}
+                          onClick={() => setStarting(q.id)}>▶ Zaženi</button>
+                        <Link href={`/kvizi/${q.id}`} style={{ ...btn(), padding: '7px 10px', textDecoration: 'none' }}>Uredi</Link>
+                        <Link href={`/kvizi/statistika?k=${encodeURIComponent(q.id)}`} style={{ ...btn(), padding: '7px 10px', textDecoration: 'none' }} title="Rezultati tega kviza po učencih in nalogah">Rezultati</Link>
+                        <button style={{ ...btn(), padding: '7px 10px' }} onClick={() => guard(() => lib.duplicateQuiz(q.id))}>Podvoji</button>
+                        <button style={{ ...btn(), padding: '7px 10px', color: '#c0392b', borderColor: '#e0b4ae' }}
+                          onClick={() => { if (confirm(`Izbrišem kviz »${q.title}«?`)) guard(() => lib.deleteQuiz(q.id)); }}>Izbriši</button>
+                      </div>
                     </div>
                   );
                 })}
