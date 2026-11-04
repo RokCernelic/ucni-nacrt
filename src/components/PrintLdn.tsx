@@ -11,10 +11,21 @@ import { PAGE_NUMBER_BOX } from '@/lib/printPage';
 
 /** Letna priprava (nekdaj LDN): natisljiva tabela tem z urami, cilji, standardi in novimi pojmi za izbran razred. */
 
-const LS_FIELDS = 'un-ldn-fields';
-/** Pri šoli in učitelju si zapomnimo, kar je učitelj vpisal prejšnjič (ostala polja vpiše vsakič sam). */
-function readSaved(): { school: string; teacher: string } {
-  try { const o = JSON.parse(localStorage.getItem(LS_FIELDS) ?? '{}'); return { school: String(o.school ?? ''), teacher: String(o.teacher ?? '') }; } catch { return { school: '', teacher: '' }; }
+/** Vsa polja naslovne strani si zapomnimo po razredu (sinhronizira se kot ostali podatki »ucni-nacrt-*«). */
+interface Fields { school: string; subject: string; cls: string; year: string; teacher: string; hours: string; date: string; cols: { cilji: boolean; standardi: boolean; pojmi: boolean } }
+const EMPTY: Fields = { school: '', subject: '', cls: '', year: '', teacher: '', hours: '', date: '', cols: { cilji: true, standardi: true, pojmi: true } };
+const keyOf = (classId: string) => `ucni-nacrt-ldn-${classId}`;
+function readFields(classId: string): Fields {
+  try {
+    const raw = localStorage.getItem(keyOf(classId));
+    if (raw) { const o = JSON.parse(raw); return { ...EMPTY, ...o, cols: { ...EMPTY.cols, ...(o.cols ?? {}) } }; }
+    // prvič za ta razred: šola in učitelj iz prejšnje (skupne) različice
+    const old = JSON.parse(localStorage.getItem('un-ldn-fields') ?? '{}');
+    return { ...EMPTY, school: String(old.school ?? ''), teacher: String(old.teacher ?? '') };
+  } catch { return EMPTY; }
+}
+function writeFields(classId: string, f: Fields) {
+  try { localStorage.setItem(keyOf(classId), JSON.stringify(f)); window.dispatchEvent(new Event('ucni-nacrt-changed')); } catch { /* ignore */ }
 }
 
 interface Row { num: string; title: string; hours: number; custom: boolean; color?: string; pp?: Predmet['poglavja'][number]['podpoglavja'][number] }
@@ -39,16 +50,17 @@ function Ldn({ predmet, classId, razredFilter, school, classLabel, target, onClo
   const { resolve } = useEnotaOrder(`ucni-nacrt-enote-order-${classId}`);
   const { resolveOrder } = useChapterOrder(`ucni-nacrt-chapter-order-${classId}`);
 
-  // vsa polja na naslovni strani izpolni učitelj sam (prazno = prazna črta za ročni vpis)
-  const [saved] = useState(readSaved);
-  const [schoolF, setSchoolF] = useState(saved.school);
-  const [subjectF, setSubjectF] = useState('');
-  const [classF, setClassF] = useState('');
-  const [year, setYear] = useState('');
-  const [teacher, setTeacher] = useState(saved.teacher);
-  const [hoursF, setHoursF] = useState('');
-  const [date, setDate] = useState('');
-  const [cols, setCols] = useState({ cilji: true, standardi: true, pojmi: true });
+  // vsa polja izpolni učitelj sam; zadnji vnos se zapomni za ta razred in se spremeni samo, če ga učitelj spremeni
+  const [f, setF] = useState<Fields>(() => readFields(classId));
+  const set = (patch: Partial<Fields>) => { const next = { ...f, ...patch }; setF(next); writeFields(classId, next); };
+  const { school: schoolF, subject: subjectF, cls: classF, year, teacher, hours: hoursF, date, cols } = f;
+  const setSchoolF = (v: string) => set({ school: v });
+  const setSubjectF = (v: string) => set({ subject: v });
+  const setClassF = (v: string) => set({ cls: v });
+  const setYear = (v: string) => set({ year: v });
+  const setTeacher = (v: string) => set({ teacher: v });
+  const setHoursF = (v: string) => set({ hours: v });
+  const setDate = (v: string) => set({ date: v });
   const [busy, setBusy] = useState(false);
 
   // poglavja izbranega razreda v tvojem vrstnem redu, z izvornimi številkami iz učnega načrta
@@ -89,7 +101,6 @@ function Ldn({ predmet, classId, razredFilter, school, classLabel, target, onClo
 
   const print = () => {
     setBusy(true);
-    try { localStorage.setItem(LS_FIELDS, JSON.stringify({ school: schoolF, teacher })); } catch { /* ignore */ }
     const style = document.createElement('style');
     style.textContent = `@page { size: A4 landscape; margin: 10mm 10mm 15mm; ${PAGE_NUMBER_BOX} }`; // številčenje strani v nogi
     document.head.appendChild(style);
@@ -105,7 +116,7 @@ function Ldn({ predmet, classId, razredFilter, school, classLabel, target, onClo
   const lab: React.CSSProperties = { display: 'block', fontSize: '12px', color: 'var(--muted)', margin: '10px 0 4px' };
   const chk = (k: keyof typeof cols, text: string) => (
     <label style={{ display: 'flex', gap: '8px', alignItems: 'center', fontSize: '14px', color: 'var(--ink)', cursor: 'pointer' }}>
-      <input type="checkbox" checked={cols[k]} onChange={e => setCols(c => ({ ...c, [k]: e.target.checked }))} /> {text}
+      <input type="checkbox" checked={cols[k]} onChange={e => set({ cols: { ...cols, [k]: e.target.checked } })} /> {text}
     </label>
   );
 
@@ -188,7 +199,7 @@ function Ldn({ predmet, classId, razredFilter, school, classLabel, target, onClo
           <p style={{ fontSize: '13px', color: 'var(--muted)', margin: '0 0 8px' }}>
             {predmet.naslov} · {classLabel}{school ? ` · ${school}` : ''} — {chaps.length} poglavij, skupaj {total} ur{target ? ` (po učnem načrtu ${target})` : ''}. Enote z 0 urami so izpuščene.
           </p>
-          <p style={{ fontSize: '12px', color: 'var(--muted)', margin: '0 0 2px' }}>Podatke za naslovno stran vpišeš sam; kar pustiš prazno, ostane prazna črta za ročni vpis.</p>
+          <p style={{ fontSize: '12px', color: 'var(--muted)', margin: '0 0 2px' }}>Podatke za naslovno stran vpišeš sam; kar pustiš prazno, ostane prazna črta za ročni vpis. Vnos se zapomni za ta razred.</p>
           <label style={lab}>Šola</label>
           <input style={field} value={schoolF} onChange={e => setSchoolF(e.target.value)} placeholder={school || 'npr. OŠ Cerklje ob Krki'} />
           <label style={lab}>Predmet</label>
