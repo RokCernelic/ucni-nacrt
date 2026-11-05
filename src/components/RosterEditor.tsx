@@ -55,6 +55,16 @@ export default function RosterEditor({ classId, className }: { classId: string; 
   const toggleNextToBoy = (id: string) =>
     save(students.map(s => (s.id === id ? { ...s, nextToBoy: !s.nextToBoy } : s)));
 
+  // Pravilo »ne ob …«: simetrično (nastavitev pri enem učencu velja tudi za drugega); en partner na učenca.
+  const setApart = (id: string, otherId: string) =>
+    save(students.map(s => {
+      const had = students.find(x => x.id === id)?.apartFrom ?? [];
+      if (s.id === id) return { ...s, apartFrom: otherId ? [otherId] : [] };
+      if (had.includes(s.id)) return { ...s, apartFrom: (s.apartFrom ?? []).filter(x => x !== id) };
+      if (s.id === otherId) return { ...s, apartFrom: [...new Set([...(s.apartFrom ?? []), id])] };
+      return s;
+    }));
+
   return (
     <div>
       <p style={{ fontSize: '11px', color: 'var(--muted)', margin: '14px 0 8px', lineHeight: 1.5 }}>
@@ -85,6 +95,7 @@ export default function RosterEditor({ classId, className }: { classId: string; 
           <p style={{ fontSize: '11px', color: 'var(--muted)', margin: '0 0 10px', lineHeight: 1.5 }}>
             <b>1↓ Prva vrsta</b> — učenec vedno sedi v prvi vrsti (pri tabli), a naključno premešan znotraj nje.
             <br /><b>👦 Ob fantu</b> — učenec ima vedno vsaj enega soseda fanta.
+            <br /><b>↔ Ne ob</b> — dva učenca ne sedita skupaj: v isti vrsti vsaj 3 sedeži razmaka, sicer vsaj ena prazna vrsta vmes.
             <br /><b>PIN</b> — 4-mestna številka, s katero se učenec prijavi v kviz na iPadu. Dodeli se enkrat in se ne spreminja.
             <br /><b>✎</b> — tipkarske napake v imenu popravi tukaj, ne v besedilnem polju zgoraj (tam bi učenec dobil nov PIN).
           </p>
@@ -126,6 +137,14 @@ export default function RosterEditor({ classId, className }: { classId: string; 
                     📊
                   </button>
                 )}
+                <select value={s.apartFrom?.[0] ?? ''} onChange={e => setApart(s.id, e.target.value)}
+                  title="Ne sme sedeti ob (v isti vrsti vsaj 3 sedeži razmaka, sicer vsaj ena vrsta vmes)"
+                  style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, maxWidth: '130px',
+                    color: s.apartFrom?.length ? '#fff' : 'var(--forest)', background: s.apartFrom?.length ? 'var(--forest)' : 'transparent',
+                    border: `1px solid ${s.apartFrom?.length ? 'var(--forest)' : 'var(--hairline)'}`, borderRadius: 'var(--r-sm)', padding: '5px 6px', cursor: 'pointer' }}>
+                  <option value="" style={{ color: '#000' }}>↔ Ne ob …</option>
+                  {sortByLastName(students).filter(o => o.id !== s.id).map(o => <option key={o.id} value={o.id} style={{ color: '#000' }}>{o.name}</option>)}
+                </select>
                 <button
                   onClick={() => toggleNextToBoy(s.id)}
                   title="Vedno sedi ob fantu"

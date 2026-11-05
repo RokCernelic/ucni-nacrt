@@ -13,8 +13,25 @@ export interface Student {
   frontRow?: boolean;
   /** mora vedno sedeti ob fantu (vsaj en vodoravni sosed je fant) */
   nextToBoy?: boolean;
+  /** id-ji učencev, ob katerih ne sme sedeti (v isti vrsti vsaj 3 sedeži razmaka, sicer vsaj ena vrsta vmes) */
+  apartFrom?: string[];
   /** 4-mestni PIN za prijavo v kviz; dodeli se enkrat in se nikoli ne spremeni */
   pin?: string;
+}
+
+/** Pari učencev, ki ne smeta sedeti skupaj (brez dvojnikov, samo obstoječi učenci). */
+export function apartPairs(students: Student[]): [string, string][] {
+  const ids = new Set(students.map(s => s.id));
+  const seen = new Set<string>();
+  const out: [string, string][] = [];
+  for (const s of students)
+    for (const o of s.apartFrom ?? []) {
+      if (!ids.has(o) || o === s.id) continue;
+      const key = [s.id, o].sort().join('|');
+      if (seen.has(key)) continue;
+      seen.add(key); out.push([s.id, o]);
+    }
+  return out;
 }
 
 function normGender(s: string): Gender {

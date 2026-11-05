@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { useRoster, type Student } from '@/hooks/useRoster';
+import { useRoster, apartPairs, type Student } from '@/hooks/useRoster';
 import { studentsLabel } from '@/lib/quiz/format';
 import { useSeating, activeSeats, shuffleInto, makeRng, emptyHistory, bumpHistory, type Seating } from '@/hooks/useSeating';
 import { useRooms, type RoomPlan } from '@/hooks/useRooms';
@@ -169,7 +169,8 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
 
   const curDate = lesson?.d ?? new Date().toISOString().slice(0, 10);
   const fixedMap = fixedMapForDate(fixed, curDate);
-  const shuffleOpts = { boyIds, pairIds, fixed: fixedMap };
+  const apart = apartPairs(students);
+  const shuffleOpts = { boyIds, pairIds, fixed: fixedMap, apart };
 
   const hasOverride = !!(lesson && dayMap[lesson.d]);
   const hasLayoutOverride = !!(lesson && dayLayoutMap[lesson.d]);
@@ -187,6 +188,7 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
       const actual = dayMap[l.d] ?? shuffleInto(lS, ids, students.filter(s => s.frontRow).map(s => s.id), makeRng(`${classId}|${l.d}`), {
         boyIds: students.filter(s => s.gender === 'M').map(s => s.id),
         pairIds: students.filter(s => s.nextToBoy).map(s => s.id),
+        apart: apartPairs(students),
         fixed: fixedMapForDate(fixed, l.d),
         history,
       });

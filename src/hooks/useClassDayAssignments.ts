@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useRoster, type Student } from './useRoster';
+import { useRoster, apartPairs, type Student } from './useRoster';
 import { useSeating, shuffleInto, makeRng, emptyHistory, bumpHistory, type Seating } from './useSeating';
 import { useRooms, type RoomPlan } from './useRooms';
 import { useFixedSeats, fixedMapForDate } from './useFixedSeats';
@@ -51,6 +51,7 @@ export function useClassDayAssignments(
       const actual = dayMap[l.d] ?? shuffleInto(lS, ids, students.filter(s => s.frontRow).map(s => s.id), makeRng(`${classId}|${l.d}`), {
         boyIds: students.filter(s => s.gender === 'M').map(s => s.id),
         pairIds: students.filter(s => s.nextToBoy).map(s => s.id),
+        apart: apartPairs(students),
         fixed: fixedMapForDate(fixed, l.d),
         history,
       });

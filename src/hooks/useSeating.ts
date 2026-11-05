@@ -144,6 +144,8 @@ export interface ShuffleOpts {
   pairIds?: string[];
   /** pripeti sedeži: ključ celice "r-c" -> id učenca (učenec vedno sedi točno tu) */
   fixed?: Record<string, string>;
+  /** pari učencev, ki ne smeta sedeti skupaj (glej `seatsTooClose`) */
+  apart?: [string, string][];
   /** dosedanja zasedenost sedežev/sosedov — za pravičnejšo (manj ponavljajočo se) razporeditev */
   history?: SeatHistory;
 }
@@ -199,10 +201,66 @@ export function shuffleInto(s: Seating, studentIds: string[], frontIds: string[]
   const pairIds = opts.pairIds ?? [];
   for (const pid of pairIds) ensureBoyNeighbor(assign, s, pid, boySet, frontSet, rng, fixedCells);
 
+  // Pravilo »ne sedita skupaj« (npr. Nik in Abedin): razmakni pare (best-effort, po pravilu ob fantu in prvi vrsti).
+  const apart = (opts.apart ?? []).filter(([a, b]) => studentSet.has(a) && studentSet.has(b));
+  if (apart.length) separatePairs(assign, s, apart, frontSet, boySet, new Set(pairIds), fixedCells, rng);
+
   // Pravičnost pri sosedih: poskusi zmanjšati pogosto ponavljajoče se pare (best-effort, ne krši zgornjih pravil).
-  if (opts.history) reduceRepeatNeighbors(assign, s, opts.history, frontSet, boySet, new Set(pairIds), fixedCells, rng);
+  if (opts.history) reduceRepeatNeighbors(assign, s, opts.history, frontSet, boySet, new Set(pairIds), fixedCells, rng, 80, apart);
 
   return assign;
+}
+
+/**
+ * Pravilo »ne sedita skupaj«: v isti vrsti mora biti med njima vsaj 3 sedeže (razlika stolpcev ≥ 4),
+ * sicer mora biti med njunima vrstama vsaj ena cela vrsta razmaka (razlika vrst ≥ 2).
+ * Sosednji vrsti (razlika 1) nista dovoljeni.
+ */
+export function seatsTooClose(a: string, b: string): boolean {
+  const dr = Math.abs(rowOf(a) - rowOf(b)), dc = Math.abs(colOf(a) - colOf(b));
+  if (dr === 0) return dc < 4;
+  return dr < 2;
+}
+
+/** Koliko parov iz `apart` (po trenutnem `assign`) krši pravilo razmika. Neposajeni pari ne štejejo. */
+function apartViolations(assign: Record<string, string>, apart: [string, string][]): number {
+  let n = 0;
+  for (const [a, b] of apart) {
+    const ka = seatOf(assign, a), kb = seatOf(assign, b);
+    if (ka && kb && seatsTooClose(ka, kb)) n++;
+  }
+  return n;
+}
+
+/**
+ * Best-effort: z naključnimi menjavami (brez pripetih, prve vrste in pravila »ob fantu« ne kršimo)
+ * zmanjšaj število parov, ki sedijo preblizu. Ustavi se, ko ni več kršitev.
+ */
+function separatePairs(
+  assign: Record<string, string>, s: Seating, apart: [string, string][],
+  frontSet: Set<string>, boySet: Set<string>, pairSet: Set<string>, locked: Set<string>, rng: Rng, iterations = 600,
+): void {
+  if (apartViolations(assign, apart) === 0) return;
+  const active = new Set(activeSeats(s));
+  const movable = Object.keys(assign).filter(k => !locked.has(k));
+  if (movable.length < 2) return;
+  const boyRuleOk = () => [...pairSet].every(pid => hasBoyNeighbor(assign, active, pid, boySet));
+  const boyRuleBefore = boyRuleOk();
+  let cur = apartViolations(assign, apart);
+
+  for (let it = 0; it < iterations && cur > 0; it++) {
+    const k1 = movable[Math.floor(rng() * movable.length)];
+    const k2 = movable[Math.floor(rng() * movable.length)];
+    if (k1 === k2) continue;
+    const s1 = assign[k1], s2 = assign[k2];
+    if (!s1 || !s2) continue;
+    if (frontSet.has(s1) && rowOf(k2) !== 0) continue;
+    if (frontSet.has(s2) && rowOf(k1) !== 0) continue;
+    assign[k1] = s2; assign[k2] = s1;
+    const next = apartViolations(assign, apart);
+    if (next >= cur || (boyRuleBefore && !boyRuleOk())) { assign[k1] = s1; assign[k2] = s2; }
+    else cur = next;
+  }
 }
 
 /** Poskrbi, da ima `pairId` vsaj enega vodoravnega soseda iz `boySet` (best-effort, brez rušenja gravitacije/prve vrste/pripetih). */
@@ -265,6 +323,7 @@ function hasBoyNeighbor(assign: Record<string, string>, active: Set<string>, pai
 function reduceRepeatNeighbors(
   assign: Record<string, string>, s: Seating, history: SeatHistory,
   frontSet: Set<string>, boySet: Set<string>, pairSet: Set<string>, locked: Set<string>, rng: Rng, iterations = 80,
+  apart: [string, string][] = [],
 ): void {
   const active = new Set(activeSeats(s));
   const neighborCount = (a: string, b: string) => history.neighborUsage[a]?.[b] ?? 0;
@@ -310,7 +369,9 @@ function reduceRepeatNeighbors(
       : [];
     const breaksBoyRule = affectedPairIds.some(pid => !hasBoyNeighbor(assign, active, pid, boySet));
 
-    if (breaksBoyRule || after >= before) { assign[k1] = s1; assign[k2] = s2; } // razveljavi
+    const breaksApart = apart.length > 0 && apartViolations(assign, apart) > 0;
+
+    if (breaksBoyRule || breaksApart || after >= before) { assign[k1] = s1; assign[k2] = s2; } // razveljavi
   }
 }
 
@@ -335,11 +396,12 @@ export function buildSeatHistory(
   boyIds: string[],
   pairIds: string[],
   seedFor: (date: string) => Rng,
+  apart: [string, string][] = [],
 ): SeatHistory {
   const history = emptyHistory();
   for (const day of days) {
     const assign = overrides[day.date]
-      ?? shuffleInto(day.layout, studentIds, frontIds, seedFor(day.date), { boyIds, pairIds, fixed: day.fixed, history });
+      ?? shuffleInto(day.layout, studentIds, frontIds, seedFor(day.date), { boyIds, pairIds, fixed: day.fixed, history, apart });
     bumpHistory(history, assign);
   }
   return history;
