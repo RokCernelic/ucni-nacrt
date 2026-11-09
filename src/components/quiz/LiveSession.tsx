@@ -172,11 +172,13 @@ function Mark({ q, value, top, right }: { q: Question; value: string | undefined
 }
 
 /** Podrobna stran rezultatov: tabela učencev, statistika po vprašanjih, mreža učenec × vprašanje, CSV. */
-export function SessionResults({ session, students, answers, teacher, teacherAnswers, back, subtitle, note }: {
+export function SessionResults({ session, students, answers, teacher, teacherAnswers, back, subtitle, note, sessionsByStudent }: {
   session: QuizSession; students: SessionStudent[]; answers: SessionAnswer[];
   teacher: SessionStudent | null; teacherAnswers: SessionAnswer[];
   /** povezava nazaj (privzeto Kvizi), besedilo pod naslovom (privzeto razred · seja končana) in opomba */
   back?: { href: string; label: string }; subtitle?: string; note?: string;
+  /** pri združenih rezultatih več sej: seja, v kateri je učenec rešil kviz (od nje zavisijo njegove črke); sicer velja `session` */
+  sessionsByStudent?: Map<string, QuizSession>;
 }) {
   const [sortBy, setSortBy] = useState<'name' | 'points'>('name');
   const questions = session.quiz.questions;
@@ -184,23 +186,25 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
 
   // pravilni odgovor namesto križca: pri natisnjenem kvizu s črko, kot jo ima učenec na svojem listu (mešani odgovori),
   // pri kvizu v živo z izvirnim vrstnim redom (če so bili odgovori premešani, črke ne poznamo — ostane križec)
-  const paper = session.paper as PaperInfo | null | undefined;
+  const sessOf = (sid: string) => sessionsByStudent?.get(sid) ?? session;
   const lettersBy = useMemo(() => {
-    if (!paper) return null;
     const m = new Map<string, Map<string, Map<string, string>>>();
     for (const st of students) {
+      const paper = (sessionsByStudent?.get(st.student_id) ?? session).paper as PaperInfo | null | undefined;
+      if (!paper) continue;
       const lay = layoutSheet(paper.items, paper.shuffle ? sheetSeed(paper.salt, st.student_id) : null, { ...shuffleOpts(paper), order: paper.orders?.[st.student_id] });
       const per = new Map<string, Map<string, string>>();
       for (const c of [...lay.choice, ...lay.free]) if (c.item.choice) per.set(c.item.id, new Map(c.options.map(o => [o.id, o.letter])));
       m.set(st.student_id, per);
     }
     return m;
-  }, [paper, students]);
+  }, [session, sessionsByStudent, students]);
   const rightFor = (sid: string, q: Question): string | undefined => {
     if (q.kind === 'numeric') return q.correct || undefined;
     if (q.kind !== 'mc' || !q.correct) return undefined;
-    if (lettersBy) return lettersBy.get(sid)?.get(q.id)?.get(q.correct);
-    if (session.shuffle) return undefined;
+    const ss = sessOf(sid);
+    if (ss.paper) return lettersBy.get(sid)?.get(q.id)?.get(q.correct);
+    if (ss.shuffle) return undefined;
     const i = q.options.findIndex(o => o.id === q.correct);
     return i >= 0 ? LETTERS[i] : undefined;
   };

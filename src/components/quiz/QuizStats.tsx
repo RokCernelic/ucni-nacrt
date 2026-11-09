@@ -74,10 +74,12 @@ export default function QuizStats() {
     const seen = new Set<string>();
     const students: SessionStudent[] = [];
     const answers: SessionAnswer[] = [];
+    const sessionsByStudent = new Map<string, QuizSession>();
     for (const s of sessions) {
       for (const st of data.studentsBySession.get(s.id) ?? []) {
         if (seen.has(st.student_id) || !participated(st)) continue;
         seen.add(st.student_id);
+        sessionsByStudent.set(st.student_id, s);
         students.push(st);
         answers.push(...(data.answersBySession.get(s.id) ?? []).filter(a => a.student_id === st.student_id));
       }
@@ -87,7 +89,7 @@ export default function QuizStats() {
     const classes = [...new Set(sessions.map(s => s.class_name))].join(', ');
     const n = sessions.length;
     return (
-      <SessionResults session={latest} students={students} answers={answers} teacher={null} teacherAnswers={[]}
+      <SessionResults session={latest} students={students} answers={answers} teacher={null} teacherAnswers={[]} sessionsByStudent={sessionsByStudent}
         back={{ href: '/kvizi/statistika', label: '← Statistika' }}
         subtitle={`${classes}${n > 1 ? ` · zadnji rezultat vsakega učenca (${n} izvedb)` : ''}`}
         note={group.deleted ? 'Kviz je izbrisan — rezultati so ohranjeni.' : undefined} />
