@@ -54,7 +54,7 @@ export function planHalves(base: SheetLayout, m: Measured, withQr: boolean): Hal
   const frameH = (c: number) => (c > 0 || withQr ? frameGeometry({ choice: base.choice.slice(0, c), free: [] } as SheetLayout, withQr).h + 4 : 0);
   const place = (frameC: number) => {
     const cap1 = INNER - m.head - frameH(frameC);
-    const cap2 = INNER - m.head;
+    const cap2 = INNER; // hrbtna stran je brez glave
     let r1 = 0, r2 = 0, used = 0, half = 1, stop = false;
     for (let i = 0; i < rows.length && !stop; i++) {
       const h = m.rows[i] ?? 0;
@@ -122,8 +122,12 @@ function HalfView({ sheet, part, plan, title, className, placeholder }: {
   const shown = part === 1 ? rows.slice(0, plan.r1) : rows.slice(plan.r1, plan.r1 + plan.r2);
   return (
     <>
-      <SheetHead sheet={sheet} title={title} className={className} placeholder={placeholder} suffix={part === 2 ? ' · nadaljevanje' : ''} />
-      {part === 1 && <FrameView sheet={sheet} />}
+      {part === 1 && (
+        <>
+          <SheetHead sheet={sheet} title={title} className={className} placeholder={placeholder} />
+          <FrameView sheet={sheet} />
+        </>
+      )}
       {shown.map((r, i) => <RowView key={i} row={r} />)}
     </>
   );
