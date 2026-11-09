@@ -239,7 +239,7 @@ export function QuizSheet({ sheet: sh, title, className, placeholder }: { sheet:
       <header className="pqz-head">
         <b className="pqz-title">{title}</b>
         <span className="pqz-name">{sh.name ?? 'Ime in priimek: ______________________'}</span>
-        <span className="pqz-meta">{placeholder ? 'RAZRED · DATUM' : <>{sh.name ? (cls ? `${cls.name} · ` : '') : 'Razred: ______ · '}{todayLabel()}</>}</span>
+        <span className="pqz-meta">{placeholder && sh.name ? 'RAZRED · DATUM' : <>{sh.name ? (cls ? `${cls.name} · ` : '') : 'Razred: ______ · '}{todayLabel()}</>}</span>
       </header>
 
       {(sh.layout.choice.length > 0 || sh.qr) && (() => {
