@@ -13,6 +13,8 @@ import { formatNumber, pointsLabel, studentsLabel } from '@/lib/quiz/format';
 import { sessionResultsCsv, downloadCsv, safeFilename } from '@/lib/quiz/csv';
 import type { Question } from '@/lib/quiz/types';
 import { compareByLastName } from '@/lib/names';
+import { layoutSheet, sheetSeed, shuffleOpts } from '@/lib/quiz/printSheet';
+import type { PaperInfo } from '@/lib/quiz/paperSession';
 import { ceilPct } from '@/lib/quiz/format';
 import { gradeColor } from '@/lib/quiz/format';
 
@@ -159,13 +161,13 @@ function QuestionStats({ q, index, answers, totalStudents }: { q: Question; inde
 const pctColor = gradeColor;
 
 /** Velika kljukica / križec v mreži rezultatov (dobro vidno tudi na projekciji). */
-function Mark({ q, value, top }: { q: Question; value: string | undefined; top?: boolean }) {
+function Mark({ q, value, top, right }: { q: Question; value: string | undefined; top?: boolean; /** pri napačnem odgovoru: pravilni odgovor (črka ali vrednost) namesto križca */ right?: string }) {
   const st = answerStatus(q, value);
-  const sym = st === 'correct' ? '✓' : st === 'wrong' ? '✗' : '–';
+  const sym = st === 'correct' ? '✓' : st === 'wrong' ? (right ?? '✗') : '–';
   const color = st === 'correct' ? 'var(--green-ok)' : st === 'wrong' ? '#c0392b' : 'var(--hairline)';
   const label = q.kind === 'mc' ? q.options.find(o => o.id === value)?.text : value;
   return (
-    <td title={label ?? ''} style={{ textAlign: 'center', padding: '4px 8px', [top ? 'borderTop' : 'borderBottom']: top ? '2px solid var(--hairline)' : '1px solid var(--hairline)', color, fontWeight: 800, fontSize: '24px', lineHeight: 1 }}>{sym}</td>
+    <td title={`${label ?? ''}${st === 'wrong' && right ? ` — pravilno: ${right}` : ''}`} style={{ textAlign: 'center', padding: '4px 8px', [top ? 'borderTop' : 'borderBottom']: top ? '2px solid var(--hairline)' : '1px solid var(--hairline)', color, fontWeight: 800, fontSize: sym.length > 2 ? '15px' : '24px', lineHeight: 1 }}>{sym}</td>
   );
 }
 
@@ -179,6 +181,29 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
   const [sortBy, setSortBy] = useState<'name' | 'points'>('name');
   const questions = session.quiz.questions;
   const joinedCount = students.filter(participated).length;
+
+  // pravilni odgovor namesto križca: pri natisnjenem kvizu s črko, kot jo ima učenec na svojem listu (mešani odgovori),
+  // pri kvizu v živo z izvirnim vrstnim redom (če so bili odgovori premešani, črke ne poznamo — ostane križec)
+  const paper = session.paper as PaperInfo | null | undefined;
+  const lettersBy = useMemo(() => {
+    if (!paper) return null;
+    const m = new Map<string, Map<string, Map<string, string>>>();
+    for (const st of students) {
+      const lay = layoutSheet(paper.items, paper.shuffle ? sheetSeed(paper.salt, st.student_id) : null, { ...shuffleOpts(paper), order: paper.orders?.[st.student_id] });
+      const per = new Map<string, Map<string, string>>();
+      for (const c of [...lay.choice, ...lay.free]) if (c.item.choice) per.set(c.item.id, new Map(c.options.map(o => [o.id, o.letter])));
+      m.set(st.student_id, per);
+    }
+    return m;
+  }, [paper, students]);
+  const rightFor = (sid: string, q: Question): string | undefined => {
+    if (q.kind === 'numeric') return q.correct || undefined;
+    if (q.kind !== 'mc' || !q.correct) return undefined;
+    if (lettersBy) return lettersBy.get(sid)?.get(q.id)?.get(q.correct);
+    if (session.shuffle) return undefined;
+    const i = q.options.findIndex(o => o.id === q.correct);
+    return i >= 0 ? LETTERS[i] : undefined;
+  };
 
   const answersByStudent = useMemo(() => {
     const m = new Map<string, Record<string, string>>();
@@ -258,7 +283,7 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
                         <span style={{ marginLeft: '10px', fontWeight: 700, color: pctColor(sc.percent) }}>{formatNumber(sc.percent)} %</span>
                       </>) : <span style={{ color: 'var(--muted)' }}>–</span>}
                     </td>
-                    {questions.map(q => <Mark key={q.id} q={q} value={ans[q.id]} />)}
+                    {questions.map(q => <Mark key={q.id} q={q} value={ans[q.id]} right={rightFor(s.student_id, q)} />)}
                   </tr>
                 );
               })}
