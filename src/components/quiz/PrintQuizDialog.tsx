@@ -6,7 +6,7 @@ import QRCode from 'qrcode';
 import { useMasterClasses } from '@/hooks/useMasterClasses';
 import { useRoster } from '@/hooks/useRoster';
 import { SheetHead, FrameView, ItemBody, type Sheet } from './QuizSheetParts';
-import { HalvesPages, useHalvesPlan } from './HalvesSheet';
+import { HalvesPages, useHalvesPlan, type HalvesPlan } from './HalvesSheet';
 import { layoutSheet, sheetToken, sheetSeed, frameGeometry, type PrintItem, type SheetLayout } from '@/lib/quiz/printSheet';
 import { createPaperSession } from '@/lib/quiz/paperSession';
 import Link from 'next/link';
@@ -36,44 +36,44 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
   const [preview, setPreview] = useState<{ sheets: Sheet[]; idx: number; halves?: boolean } | null>(null);
   /** dva testa na en list A4 (zgoraj / spodaj) */
   const [halves, setHalves] = useState(false);
-  const [sheetsHalves, setSheetsHalves] = useState(false);
-  const hp = useHalvesPlan(items, halves, perStudent, title);
-  /** vprašanja, ki se prilegajo (pri dveh testih na list se preostala odrežejo) */
+  /** izbor vprašanj, s katerim se je natisnilo dva testa na list (za izris strani) */
+  const [printPlan, setPrintPlan] = useState<HalvesPlan | null>(null);
+  /** vprašanja se mešajo le pri listih po učencih; pri enakem listu je vrstni red vprašanj vedno izviren */
+  const qShuffle = perStudent && shuffleQ;
+  const hp = useHalvesPlan(items, halves, perStudent, title, { questions: qShuffle, options: shuffleO });
+  /** vprašanja, ki se prilegajo (pri dveh testih na list se preostala odrežejo za vse učence enako) */
   const effItems = useMemo(() => (halves && hp.plan ? items.filter(i => hp.plan!.keptIds.has(i.id)) : items), [halves, hp.plan, items]);
-  const qShuffle = halves ? false : shuffleQ;
 
   const nChoice = items.filter(i => i.choice).length;
   const canPrint = items.length > 0 && !busy && (!perStudent || students.length > 0) && (!halves || (!!hp.plan && effItems.length > 0));
 
-  /** Listi za tisk ali predogled: po učencih (QR + premešanje po soli seje) ali en enak list. */
-  const makeSheets = async (sessionId?: string, salt?: string): Promise<Sheet[]> => {
+  /** Listi za tisk: po učencih (QR + premešanje po soli seje) ali en enak list. */
+  const buildSheets = async (listItems: PrintItem[], sessionId?: string, salt?: string, eqSeed?: string): Promise<Sheet[]> => {
     if (perStudent && sessionId && salt) {
       return Promise.all(students.map(async st => ({
         key: st.id, name: st.name,
         qr: await QRCode.toDataURL(sheetToken(sessionId, st.id), { margin: 0, width: 240, errorCorrectionLevel: 'M' }),
-        layout: layoutSheet(effItems, qShuffle || shuffleO ? sheetSeed(salt, st.id) : null, { questions: qShuffle, options: shuffleO }),
+        layout: layoutSheet(listItems, qShuffle || shuffleO ? sheetSeed(salt, st.id) : null, { questions: qShuffle, options: shuffleO }),
       })));
     }
-    return [{ key: 'all', name: null, qr: null, layout: layoutSheet(effItems, shuffleO ? crypto.randomUUID() : null, { questions: false, options: shuffleO }) }];
+    return [{ key: 'all', name: null, qr: null, layout: layoutSheet(listItems, shuffleO ? (eqSeed ?? crypto.randomUUID()) : null, { questions: false, options: shuffleO }) }];
   };
 
-  /** Predogled: en sam list (ne cel razred); pri listih po učencih z vzorčnim imenom, datumom in QR kodo. */
+  /** Predogled: en list (ne cel razred) z vzorčnim imenom, datumom in QR kodo; pri dveh testih na list dva vzorčna testa. */
   const openPreview = async () => {
     setBusy(true); setError(null);
     try {
-      const mk = async (key: string): Promise<Sheet> => {
-        const salt = Math.random().toString(36).slice(2, 10);
-        return {
-          key, name: 'IME IN PRIIMEK',
-          qr: await QRCode.toDataURL(sheetToken('00000000-0000-0000-0000-000000000000', key), { margin: 0, width: 240, errorCorrectionLevel: 'M' }),
-          layout: layoutSheet(effItems, qShuffle || shuffleO ? sheetSeed(salt, key) : null, { questions: qShuffle, options: shuffleO }),
-        };
-      };
+      // pri dveh testih na list vzorca uporabljata seme iz izračuna prileganja, zato se zagotovo prilegata
+      const mk = async (key: string, seed: string): Promise<Sheet> => ({
+        key, name: 'IME IN PRIIMEK',
+        qr: await QRCode.toDataURL(sheetToken('00000000-0000-0000-0000-000000000000', key), { margin: 0, width: 240, errorCorrectionLevel: 'M' }),
+        layout: layoutSheet(effItems, qShuffle || shuffleO ? seed : null, { questions: qShuffle, options: shuffleO }),
+      });
+      const rnd = () => Math.random().toString(36).slice(2, 10);
       if (halves) {
-        // dva vzorčna testa (zgoraj / spodaj); pri enakem listu en list, podvojen
-        setPreview({ sheets: perStudent ? [await mk('predogled-1'), await mk('predogled-2')] : await makeSheets(), idx: 0, halves: true });
+        setPreview({ sheets: perStudent ? [await mk('predogled-1', 'predogled0'), await mk('predogled-2', 'predogled1')] : await buildSheets(effItems, undefined, undefined, 'predogled0'), idx: 0, halves: true });
       } else {
-        setPreview({ sheets: [perStudent ? await mk('predogled') : (await makeSheets())[0]], idx: 0 });
+        setPreview({ sheets: [perStudent ? await mk('predogled', rnd()) : (await buildSheets(effItems))[0]], idx: 0 });
       }
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
@@ -82,15 +82,27 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
   const print = async () => {
     setBusy(true); setError(null);
     try {
+      const salt = Math.random().toString(36).slice(2, 10);
+      const eqSeed = crypto.randomUUID();
+      let printItems = items;
+      let exact: HalvesPlan | null = null;
+      if (halves) {
+        // natančen izbor za dejanske učence in dejanska semena mešanja: isti vprašanja za vse, test vsakega se prilega
+        const seeds = perStudent ? (qShuffle || shuffleO ? students.map(st => sheetSeed(salt, st.id)) : [null]) : [shuffleO ? eqSeed : null];
+        exact = hp.compute(seeds);
+        if (!exact) throw new Error('Meritev vprašanj še ni pripravljena — poskusi znova.');
+        printItems = items.filter(i => exact!.keptIds.has(i.id));
+        if (!printItems.length) throw new Error('Nobeno vprašanje se ne prilega na polovico lista.');
+      }
       let list: Sheet[];
       if (perStudent) {
         if (!cls) return;
         // seja za skeniranje (odgovori gredo v skupno statistiko kvizov)
-        const session = await createPaperSession({ title, quizId, classId: cls.id, className: cls.name, students, items: effItems, shuffleQuestions: qShuffle, shuffleOptions: shuffleO });
-        list = await makeSheets(session.id, session.paper!.salt);
+        const session = await createPaperSession({ title, quizId, classId: cls.id, className: cls.name, students, items: printItems, shuffleQuestions: qShuffle, shuffleOptions: shuffleO, salt });
+        list = await buildSheets(printItems, session.id, session.paper!.salt);
         setPrinted({ sessionId: session.id, scanQr: await QRCode.toDataURL(`${window.location.origin}/kvizi/skener`, { margin: 1, width: 220 }) });
       } else {
-        list = await makeSheets();
+        list = await buildSheets(printItems, undefined, undefined, eqSeed);
       }
       const style = document.createElement('style');
       // odmik zgoraj/spodaj tudi na nadaljnjih straneh; številčenje strani le pri skupnem listu
@@ -103,8 +115,8 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
       document.head.appendChild(style);
       const root = document.documentElement;
       const restoreTitle = setPrintTitle(title);
-      const done = () => { root.classList.remove('printing-questions'); setSheets(null); style.remove(); restoreTitle(); window.removeEventListener('afterprint', done); };
-      flushSync(() => { setSheetsHalves(halves); setSheets(list); });
+      const done = () => { root.classList.remove('printing-questions'); setSheets(null); setPrintPlan(null); style.remove(); restoreTitle(); window.removeEventListener('afterprint', done); };
+      flushSync(() => { setPrintPlan(exact); setSheets(list); });
       root.classList.add('printing-questions');
       window.addEventListener('afterprint', done);
       window.print();
@@ -138,10 +150,10 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
               <div style={{ fontSize: '12px', color: students.length ? 'var(--muted)' : '#b7791f', marginBottom: '8px' }}>
                 {!cls ? 'Izberi razred.' : students.length ? `${students.length} učencev` : 'Ta razred nima učencev.'}
               </div>
-              {!halves && <label style={{ ...labelStyle, marginBottom: '8px' }}>
+              <label style={{ ...labelStyle, marginBottom: '8px' }}>
                 <input type="checkbox" checked={shuffleQ} onChange={e => setShuffleQ(e.target.checked)} style={{ marginTop: '3px' }} />
                 <span>Premešaj vprašanja<span style={{ display: 'block', fontSize: '12px', color: 'var(--muted)' }}>Vsak učenec ima drugačen vrstni red vprašanj.</span></span>
-              </label>}
+              </label>
               <label style={{ ...labelStyle, marginBottom: 0 }}>
                 <input type="checkbox" checked={shuffleO} onChange={e => setShuffleO(e.target.checked)} style={{ marginTop: '3px' }} />
                 <span>Premešaj odgovore<span style={{ display: 'block', fontSize: '12px', color: 'var(--muted)' }}>Vsak učenec ima drugačen vrstni red možnosti, a le pri izbirnih nalogah (ne pri drži / ne drži, številskih in odprtih); črke v obrazcu ustrezajo njegovemu listu.</span></span>
@@ -154,7 +166,7 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
         <span>Dva testa na en list A4 (privarčuj papir)
           <span style={{ display: 'block', fontSize: '12px', color: 'var(--muted)' }}>
             {perStudent ? 'Zgoraj en učenec, spodaj drugi; črtkana ločnica po sredini. ' : 'Isti test zgoraj in spodaj; črtkana ločnica po sredini. '}
-            Test je lahko dolg največ dve polovici (spredaj in zadaj, dvostransko tiskanje); vprašanja, ki se ne prilegajo, se odrežejo. Vprašanja so za vse v enakem vrstnem redu.
+            Test je lahko dolg največ dve polovici (spredaj in zadaj, dvostransko tiskanje); vprašanja, ki se ne prilegajo, se odrežejo.
           </span>
         </span>
       </label>
@@ -162,7 +174,7 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
         <div style={{ margin: '0 0 8px 26px', fontSize: '12px', fontWeight: 600, color: !hp.plan ? 'var(--muted)' : hp.plan.dropped.length ? '#b7791f' : 'var(--green-ok)' }}>
           {!hp.plan ? 'Merim …'
             : hp.plan.dropped.length === 0 ? `✓ Prilegajo se vsa vprašanja (${hp.plan.total}).`
-            : `⚠ Prilega se ${hp.plan.kept} od ${hp.plan.total} vprašanj — ${hp.plan.dropped.length} jih bo odrezanih (zadnja). Zmanjšaj število nalog.`}
+            : `⚠ Prilega se ${hp.plan.kept} od ${hp.plan.total} vprašanj — ${hp.plan.dropped.length} jih bo odrezanih (zadnja v izvirnem vrstnem redu, enako za vse učence). Zmanjšaj število nalog.`}
         </div>
       )}
       {hp.node}
@@ -226,8 +238,8 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
 
       {sheets && createPortal(
         <div className="print-questions pqz" aria-hidden>
-          {sheetsHalves && hp.plan
-            ? <HalvesPages sheets={sheets} plan={hp.plan} title={title} className={cls?.name} duplicate={!perStudent} />
+          {printPlan
+            ? <HalvesPages sheets={sheets} plan={printPlan} title={title} className={cls?.name} duplicate={!perStudent} />
             : sheets.map(sh => <QuizSheet key={sh.key} sheet={sh} title={title} className={cls?.name} />)}
         </div>,
         document.body,

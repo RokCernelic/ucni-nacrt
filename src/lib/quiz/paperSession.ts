@@ -28,9 +28,11 @@ const code = () => Array.from({ length: 6 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ2345
 export async function createPaperSession(opts: {
   title: string; quizId: string | null; classId: string; className: string;
   students: { id: string; name: string; pin?: string }[]; items: PrintItem[]; shuffleQuestions: boolean; shuffleOptions: boolean;
+  /** sol mešanja (če jo kličoči že potrebuje za izračun prileganja); sicer se izžreba */
+  salt?: string;
 }): Promise<PaperSession> {
   const sb = getSupabaseBrowserClient();
-  const salt = Math.random().toString(36).slice(2, 10);
+  const salt = opts.salt ?? Math.random().toString(36).slice(2, 10);
   const questions: Question[] = opts.items
     .filter(i => i.choice && !i.multi && i.correct.length === 1)
     .map(i => ({ id: i.id, kind: 'mc', prompt: i.prompt, points: i.points, options: i.options, correct: i.correct[0] }));

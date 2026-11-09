@@ -37,53 +37,63 @@ function RowView({ row }: { row: Row }) {
 }
 
 export interface HalvesPlan {
-  /** število vrstic na prvi in drugi polovici */
-  r1: number; r2: number;
-  /** koliko od vseh vprašanj se prilega */
+  /** koliko od vseh vprašanj se prilega (enak izbor za vse učence) */
   kept: number; total: number;
   keptIds: Set<string>;
-  /** zaporedne številke (v obrazcu) vprašanj, ki se ne prilegajo */
+  /** zaporedne številke (v obrazcu, v izvirnem vrstnem redu) vprašanj, ki se ne prilegajo */
   dropped: number[];
+  /** meritve, iz katerih se za vsak list posebej izračuna razdelitev na polovici */
+  m: Measured;
 }
 
-interface Measured { head: number; rows: number[] }
+interface Measured { head: number; heights: Record<string, number> }
 
-/** Razdeli vrstice na dve polovici; kar ne gre, odreže. Okvir z odgovori je manjši, ko je izbirnih vprašanj manj. */
-export function planHalves(base: SheetLayout, m: Measured, withQr: boolean): HalvesPlan {
-  const rows = rowsOf(base);
-  const frameH = (c: number) => (c > 0 || withQr ? frameGeometry({ choice: base.choice.slice(0, c), free: [] } as SheetLayout, withQr).h + 4 : 0);
-  const place = (frameC: number) => {
-    const cap1 = INNER - m.head - frameH(frameC);
-    const cap2 = INNER; // hrbtna stran je brez glave
-    let r1 = 0, r2 = 0, used = 0, half = 1, stop = false;
-    for (let i = 0; i < rows.length && !stop; i++) {
-      const h = m.rows[i] ?? 0;
-      if (half === 1 && used + h > cap1) { half = 2; used = 0; }
-      if (half === 2 && used + h > cap2) { stop = true; break; }
-      used += h;
-      if (half === 1) r1++; else r2++;
-    }
-    const placed = rows.slice(0, r1 + r2);
-    return { r1, r2, keptChoice: placed.filter(r => r.kind === 'choice').reduce((n, r) => n + r.items.length, 0), kept: placed.reduce((n, r) => n + r.items.length, 0) };
-  };
-  let best = place(base.choice.length);
-  for (let i = 0; i < 4; i++) {
-    const next = place(best.keptChoice);
-    if (next.keptChoice <= best.keptChoice && next.kept >= best.kept && (next.kept > best.kept || next.r1 !== best.r1)) best = next; else break;
+const rowH = (r: Row, m: Measured) => Math.max(...r.items.map(c => m.heights[c.item.id] ?? 0)) + (r.kind === 'choice' ? 3.5 : 4.5);
+
+/** Koliko vrstic gre na prvo in drugo polovico za dani list (ok = prilegajo se vse). Okvir z odgovori je manjši, ko je izbirnih vprašanj manj. */
+export function splitRows(layout: SheetLayout, m: Measured, withQr: boolean): { r1: number; r2: number; ok: boolean } {
+  const rows = rowsOf(layout);
+  const c = layout.choice.length;
+  const frameH = c > 0 || withQr ? frameGeometry(layout, withQr).h + 4 : 0;
+  const cap1 = INNER - m.head - frameH;
+  const cap2 = INNER; // hrbtna stran je brez glave
+  let r1 = 0, r2 = 0, used = 0, half = 1, ok = true;
+  for (const r of rows) {
+    const h = rowH(r, m);
+    if (half === 1 && used + h > cap1) { half = 2; used = 0; }
+    if (half === 2 && used + h > cap2) { ok = false; break; }
+    used += h;
+    if (half === 1) r1++; else r2++;
   }
-  const seq = [...base.choice, ...base.free];
-  const keptItems = rows.slice(0, best.r1 + best.r2).flatMap(r => r.items);
-  const keptIds = new Set(keptItems.map(c => c.item.id));
-  return { r1: best.r1, r2: best.r2, kept: best.kept, total: seq.length, keptIds, dropped: seq.filter(c => !keptIds.has(c.item.id)).map(c => c.n) };
+  return { r1, r2, ok };
 }
 
 /**
- * Izmeri višine glave in vrstic (v skritem izrisu z enakimi slogi kot pri tisku) in iz njih izračuna razdelitev.
- * `node` je skriti merilni izris (prikaži ga nekje v komponenti); `plan` je null, dokler meritev ni pripravljena.
+ * Izbere, katera vprašanja ostanejo: isti izbor za VSE učence (da so testi enako težki). Izbor je predpona vprašanj
+ * v izvirnem vrstnem redu (izbirna, nato prosta); zadnja se odrežejo, dokler se test vsakega od `seeds`
+ * (premešanih listov) ne prilega v dve polovici. `seeds`: seme mešanja za vsak list (null = izvirni vrstni red).
  */
-export function useHalvesPlan(items: PrintItem[], enabled: boolean, withQr: boolean, title: string) {
+export function planFor(items: PrintItem[], m: Measured, withQr: boolean, seeds: (string | null)[], opts: { questions: boolean; options: boolean }): HalvesPlan {
+  const base = layoutSheet(items, null);
+  const seq = [...base.choice, ...base.free];
+  let k = seq.length;
+  for (; k > 0; k--) {
+    const ids = new Set(seq.slice(0, k).map(c => c.item.id));
+    const kept = items.filter(i => ids.has(i.id));
+    if (seeds.every(seed => splitRows(layoutSheet(kept, seed, opts), m, withQr).ok)) break;
+  }
+  const keptIds = new Set(seq.slice(0, k).map(c => c.item.id));
+  return { kept: k, total: seq.length, keptIds, dropped: seq.filter(c => !keptIds.has(c.item.id)).map(c => c.n), m };
+}
+
+/**
+ * Izmeri višine glave in posameznih vprašanj (v skritem izrisu z enakimi slogi kot pri tisku).
+ * `node` je skriti merilni izris (prikaži ga nekje v komponenti); `plan` (za predogled, na vzorcu 40 premešanj) je null,
+ * dokler meritev ni pripravljena; `compute` izračuna izbor za dane učence (natančno ob tisku).
+ */
+export function useHalvesPlan(items: PrintItem[], enabled: boolean, withQr: boolean, title: string, opts: { questions: boolean; options: boolean }) {
   const base = useMemo(() => layoutSheet(items, null), [items]);
-  const rows = useMemo(() => rowsOf(base), [base]);
+  const seq = useMemo(() => [...base.choice, ...base.free], [base]);
   const ref = useRef<HTMLDivElement>(null);
   const [m, setM] = useState<Measured | null>(null);
 
@@ -92,34 +102,50 @@ export function useHalvesPlan(items: PrintItem[], enabled: boolean, withQr: bool
     const el = ref.current;
     if (!el) return;
     const measure = () => {
-      const head = (el.querySelector('[data-h]') as HTMLElement | null)?.getBoundingClientRect().height ?? 0;
-      const hs = Array.from(el.querySelectorAll('[data-r]')).map(n => (n as HTMLElement).getBoundingClientRect().height * PX_MM);
-      const next = { head: head * PX_MM, rows: hs };
-      setM(prev => (prev && Math.abs(prev.head - next.head) < 0.05 && prev.rows.length === hs.length && prev.rows.every((v, i) => Math.abs(v - hs[i]) < 0.05) ? prev : next));
+      const head = ((el.querySelector('[data-h]') as HTMLElement | null)?.getBoundingClientRect().height ?? 0) * PX_MM;
+      const heights: Record<string, number> = {};
+      el.querySelectorAll('[data-i]').forEach(n => { heights[(n as HTMLElement).dataset.i!] = (n as HTMLElement).getBoundingClientRect().height * PX_MM; });
+      const next: Measured = { head, heights };
+      setM(prev => {
+        if (prev && Math.abs(prev.head - head) < 0.05) {
+          const ks = Object.keys(heights);
+          if (ks.length === Object.keys(prev.heights).length && ks.every(k => Math.abs((prev.heights[k] ?? -1) - heights[k]) < 0.05)) return prev;
+        }
+        return next;
+      });
     };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [enabled, rows]);
+  }, [enabled, seq]);
 
-  const plan = useMemo(() => (enabled && m ? planHalves(base, m, withQr) : null), [enabled, m, base, withQr]);
+  const shuffling = opts.questions || opts.options;
+  const previewSeeds = useMemo(() => (shuffling ? Array.from({ length: 40 }, (_, i) => `predogled${i}`) : [null]), [shuffling]);
+  const plan = useMemo(() => (enabled && m ? planFor(items, m, withQr, previewSeeds, opts) : null), [enabled, m, items, withQr, previewSeeds, opts.questions, opts.options]); // eslint-disable-line react-hooks/exhaustive-deps
+  const compute = (seeds: (string | null)[]) => (m ? planFor(items, m, withQr, seeds, opts) : null);
+
   const sample: Sheet = { key: 'm', name: 'IME IN PRIIMEK', qr: null, layout: base };
   const node = enabled && typeof document !== 'undefined' ? createPortal(
     <div ref={ref} className="pqz-preview pqz-hbox pqz-hmeasure" aria-hidden>
       <div data-h style={{ display: 'flow-root' }}><SheetHead sheet={sample} title={title} placeholder /></div>
-      {rows.map((r, i) => <div data-r key={i} style={{ display: 'flow-root' }}><RowView row={r} /></div>)}
+      {seq.map(c => (
+        <div data-i={c.item.id} key={c.item.id} style={{ display: 'flow-root', width: c.item.choice ? '85mm' : '178mm' }}>
+          <div className="pqz-hitem"><ItemBody c={c} /></div>
+        </div>
+      ))}
     </div>,
     document.body,
   ) : null;
-  return { plan, node };
+  return { plan, compute, node };
 }
 
 function HalfView({ sheet, part, plan, title, className, placeholder }: {
   sheet: Sheet; part: 1 | 2; plan: HalvesPlan; title: string; className?: string; placeholder?: boolean;
 }) {
   const rows = rowsOf(sheet.layout);
-  const shown = part === 1 ? rows.slice(0, plan.r1) : rows.slice(plan.r1, plan.r1 + plan.r2);
+  const { r1, r2 } = splitRows(sheet.layout, plan.m, !!sheet.qr);
+  const shown = part === 1 ? rows.slice(0, r1) : rows.slice(r1, r1 + r2);
   return (
     <>
       {part === 1 && (
