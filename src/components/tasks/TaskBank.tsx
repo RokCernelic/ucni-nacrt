@@ -199,11 +199,6 @@ export default function TaskBank() {
                 izberi vse{anyFilter ? ' (v filtru)' : ''}
               </label>
               <ImportTasks />
-              <button onClick={() => setBuilding(true)} disabled={!filtered.length}
-                title="Iz nalog v trenutnem filtru sestavi test: število nalog, delež po taksonomiji in obliki odgovora, iz baze ali generirano (AI)"
-                style={{ ...btn(true), padding: '5px 12px', opacity: filtered.length ? 1 : 0.45, cursor: filtered.length ? 'pointer' : 'not-allowed' }}>
-                🧪 Sestavi test
-              </button>
               {duplicates.length > 0 && (
                 <button onClick={() => void dedup()} disabled={dedupBusy}
                   style={{ ...btn(), color: '#b7791f', borderColor: '#ecd9a8', opacity: dedupBusy ? 0.5 : 1 }}>
@@ -224,7 +219,13 @@ export default function TaskBank() {
             {building && <BuildTest pool={filtered} onClose={() => setBuilding(false)} />}
             {loaded && (
               <>
-                <TaskList tasks={[]} emptyText={anyFilter && !ordered.length ? 'Ni nalog, ki ustrezajo filtrom.' : !tasks.length ? 'Baza je še prazna. Dodaj prvo nalogo.' : undefined} />
+                <TaskList tasks={[]} extraAction={
+<button onClick={() => setBuilding(true)} disabled={!filtered.length}
+                title="Iz nalog v trenutnem filtru sestavi test: število nalog, delež po taksonomiji in obliki odgovora, iz baze ali generirano (AI)"
+                style={{ ...btn(true), padding: '7px 14px', opacity: filtered.length ? 1 : 0.45, cursor: filtered.length ? 'pointer' : 'not-allowed' }}>
+                🧪 Generiraj test
+              </button>
+} emptyText={anyFilter && !ordered.length ? 'Ni nalog, ki ustrezajo filtrom.' : !tasks.length ? 'Baza je še prazna. Dodaj prvo nalogo.' : undefined} />
                 {(() => {
                   let n = 0;
                   return groups.map(g => (

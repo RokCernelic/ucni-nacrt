@@ -128,7 +128,7 @@ export default function BuildTest({ pool, onClose }: { pool: Task[]; onClose: ()
   return (
     <div onClick={() => phase !== 'running' && onClose()} style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(10,20,12,0.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '5vh 16px', overflowY: 'auto' }}>
       <div onClick={e => e.stopPropagation()} style={{ background: 'var(--canvas)', borderRadius: 'var(--r-md)', width: '100%', maxWidth: '640px', padding: '22px 26px 24px', fontFamily: 'var(--font-sans)', boxShadow: '0 12px 40px rgba(0,0,0,.25)' }}>
-        <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '26px', fontWeight: 400, margin: '0 0 4px', color: 'var(--ink)' }}>Sestavi test</h2>
+        <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '26px', fontWeight: 400, margin: '0 0 4px', color: 'var(--ink)' }}>Generiraj test</h2>
         <p style={{ fontSize: '12px', color: 'var(--muted)', margin: 0, lineHeight: 1.5 }}>
           Naloge se izbirajo iz trenutnega filtra ({pool.length}). Po želji manjkajoče ali izbrani delež generira AI iz podobnih nalog.
         </p>
@@ -200,7 +200,7 @@ export default function BuildTest({ pool, onClose }: { pool: Task[]; onClose: ()
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '16px' }}>
               <button onClick={() => void build()} disabled={!valid || pool.length === 0}
                 style={{ ...btn(true), padding: '8px 16px', opacity: valid && pool.length ? 1 : 0.45, cursor: valid && pool.length ? 'pointer' : 'not-allowed' }}>
-                🧪 Sestavi test{plan.generated ? ` (generiram ${plan.generated})` : ''}
+                🧪 Generiraj test{plan.generated ? ` (generiram ${plan.generated})` : ''}
               </button>
               <button onClick={() => setSeedKey(String(Math.random()))} style={btn()} title="Drug naključni izbor nalog po istih nastavitvah">🎲 Drug izbor</button>
               <span style={{ flex: 1 }} />

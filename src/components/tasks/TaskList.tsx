@@ -11,7 +11,7 @@ import TaskEditor from './TaskEditor';
 import { Rich, TaskBadges, TaskAnswer, Chip, btn, tinyLabel, input } from './ui';
 
 /** Seznam nalog (vsaka v svojem okvirju): kljukica za izbor, Uredi, Izbriši, + Nova naloga. */
-export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyText, showAdd = true, startIndex = 0, hideTopic, hideChapter }: {
+export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyText, showAdd = true, startIndex = 0, hideTopic, hideChapter, extraAction }: {
   tasks: Task[];
   /** nova naloga je že povezana s tem podpoglavjem */
   fixedTopic?: string;
@@ -24,6 +24,8 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
   /** podpoglavje, pod katerim je seznam (ne ponavljaj ga pri vsaki nalogi) */
   hideTopic?: string;
   hideChapter?: string;
+  /** dodatni gumb poleg »+ Nova naloga« */
+  extraAction?: React.ReactNode;
 }) {
   const { save, remove, restore } = useTasks();
   const { selected, toggle } = useTaskSelection();
@@ -166,9 +168,12 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
           <TaskEditor fixedTopic={fixedTopic} onCancel={() => setAdding(false)} onSave={async d => { await save(d); setAdding(false); }} />
         </div>
       ) : (
-        <button onClick={() => { setAdding(true); setEditingId(null); }} style={{ ...btn(), alignSelf: 'flex-start', borderStyle: 'dashed', padding: '7px 14px' }}>
-          + Nova naloga
-        </button>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <button onClick={() => { setAdding(true); setEditingId(null); }} style={{ ...btn(), borderStyle: 'dashed', padding: '7px 14px' }}>
+            + Nova naloga
+          </button>
+          {extraAction}
+        </div>
       )}
     </div>
   );
