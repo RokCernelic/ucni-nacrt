@@ -20,7 +20,7 @@ export const GEN_GROUPS: GenGroup[] = [
     { id: 'manj_podvprasanj', label: 'manj podvprašanj', instruction: 'Zmanjšaj število podvprašanj (npr. samo eno vprašanje).' },
   ] },
   { id: 'oblika', label: 'Oblika odgovora', options: [
-    { id: 'abcd', label: 'ABCD', instruction: 'Spremeni v IZBIRNO nalogo (answer_kind mc) z 4 možnostmi in eno pravilno; napačne možnosti naj bodo verjetne in temeljijo na pogostih napakah učencev (napačna enota, zamenjana formula …).' },
+    { id: 'abcd', label: 'ABCD', instruction: 'Spremeni v IZBIRNO nalogo (answer_kind mc) z 4 možnostmi in eno pravilno; vprašanje in možnosti naj bodo kratke in jedrnate; napačne možnosti naj bodo verjetne in temeljijo na pogostih napakah učencev (napačna enota, zamenjana formula …).' },
     { id: 'multi', label: 'več možnosti', instruction: 'Spremeni v nalogo z VEČ MOŽNOSTMI (answer_kind multi): 4–6 trditev ali možnosti, pravilnih je lahko več (vsaj ena); podaj correct_indices.' },
     { id: 'tf', label: 'drži / ne drži', instruction: 'Spremeni v nalogo tipa DRŽI / NE DRŽI (answer_kind tf): ena jasna trditev, ki je strokovno nedvoumno pravilna ali napačna.' },
     { id: 'stevilo', label: 'številski odgovor', instruction: 'Spremeni v nalogo s ENIM številskim odgovorom (answer_kind numeric) z enoto; nastavi smiselno toleranco.' },

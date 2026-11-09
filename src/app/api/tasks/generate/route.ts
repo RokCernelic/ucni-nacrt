@@ -16,6 +16,10 @@ const MODEL = 'claude-sonnet-5-5';
 const ANSWER_KINDS: AnswerKind[] = ['mc', 'multi', 'tf', 'numeric', 'short', 'open'];
 const KIND_IDS: TaskKind[] = ['racunska', 'besedilna', 'graficna', 'skica', 'eksperimentalna', 'povezovanje'];
 
+/** Slog izbirnih nalog (ABCD, več možnosti, drži / ne drži): kratko in jedrnato (tudi zaradi tiska več testov na list). */
+const MC_STYLE = 'Pri IZBIRNIH nalogah (mc, multi, tf) naj bosta besedilo vprašanja in možnosti praviloma JEDRNATA: kratko vprašanje (običajno ena ali dve povedi, brez nepotrebnega opisa situacije) ' +
+  'in kratke možnosti (beseda, številka z enoto ali krajša poved). Daljše besedilo ali daljše možnosti le, kadar naloge drugače ni mogoče smiselno zastaviti (npr. potrebni podatki, utemeljitev). ';
+
 const SIMILAR_SYSTEM = 'Si slovenski učitelj naravoslovja in tehnike v osnovni šoli. Pišeš naloge v lepi slovenščini, primerne za učence, strokovno pravilne. ' +
   'Dobiš obstoječo nalogo in seznam podpoglavij učnega načrta s standardi znanja. Ugotovi, v katero podpoglavje naloga spada in katere standarde preverja, nato napiši PODOBNO novo nalogo: ' +
   'ista tema, isti standardi, ista težavnost, Bloomova stopnja, vrsta in oblika odgovora, podobna dolžina in struktura, vendar z drugimi podatki, drugačnim kontekstom in drugim izidom (ne le zamenjane številke). ' +
@@ -106,7 +110,7 @@ export async function POST(request: Request) {
     const res = await client.messages.create({
       model: MODEL,
       max_tokens: 4000,
-      system: mode === 'variant' ? VARIANT_SYSTEM : mode === 'complete' ? COMPLETE_SYSTEM : SIMILAR_SYSTEM,
+      system: mode === 'variant' ? VARIANT_SYSTEM : mode === 'complete' ? COMPLETE_SYSTEM : SIMILAR_SYSTEM + ' ' + MC_STYLE,
       tools: [tool],
       tool_choice: { type: 'auto' }, // model ne podpira prisilne izbire orodja; sistemsko navodilo zahteva klic
       messages: [{
