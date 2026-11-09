@@ -51,12 +51,20 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
     return [{ key: 'all', name: null, qr: null, layout: layoutSheet(items, shuffleO ? crypto.randomUUID() : null, { questions: false, options: shuffleO }) }];
   };
 
+  /** Predogled: en sam list (ne cel razred); pri listih po učencih z vzorčnim imenom, datumom in QR kodo. */
   const openPreview = async () => {
     setBusy(true); setError(null);
     try {
-      // brez seje v bazi: vzorčna QR koda in naključno premešanje (natisnjen list bo premešan drugače)
-      const list = perStudent ? await makeSheets('00000000-0000-0000-0000-000000000000', Math.random().toString(36).slice(2, 10)) : await makeSheets();
-      setPreview({ sheets: list, idx: 0 });
+      let sheet: Sheet;
+      if (perStudent) {
+        const salt = Math.random().toString(36).slice(2, 10);
+        sheet = {
+          key: 'preview', name: 'IME IN PRIIMEK',
+          qr: await QRCode.toDataURL(sheetToken('00000000-0000-0000-0000-000000000000', 'predogled'), { margin: 0, width: 240, errorCorrectionLevel: 'M' }),
+          layout: layoutSheet(items, shuffleQ || shuffleO ? sheetSeed(salt, 'predogled') : null, { questions: shuffleQ, options: shuffleO }),
+        };
+      } else sheet = (await makeSheets())[0];
+      setPreview({ sheets: [sheet], idx: 0 });
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
   };
@@ -158,22 +166,15 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
         <div className="no-print" onClick={() => setPreview(null)} style={{ position: 'fixed', inset: 0, zIndex: 500, background: 'rgba(20,30,25,0.6)', display: 'flex', flexDirection: 'column' }}>
           <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 16px', background: 'var(--canvas)', fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--ink)' }}>
             <b>Predogled</b>
-            {preview.sheets.length > 1 && (
-              <>
-                <button disabled={preview.idx === 0} onClick={() => setPreview(p => p && { ...p, idx: p.idx - 1 })} style={{ padding: '4px 10px', cursor: 'pointer' }}>‹</button>
-                <span>{preview.sheets[preview.idx].name} ({preview.idx + 1} / {preview.sheets.length})</span>
-                <button disabled={preview.idx === preview.sheets.length - 1} onClick={() => setPreview(p => p && { ...p, idx: p.idx + 1 })} style={{ padding: '4px 10px', cursor: 'pointer' }}>›</button>
-              </>
-            )}
             <span style={{ flex: 1, color: 'var(--muted)', fontSize: '12px' }}>
-              {perStudent ? 'QR koda je vzorčna; premešanje je naključno — natisnjen list bo premešan drugače.' : shuffleO ? 'Premešanje je naključno — natisnjen list bo premešan drugače.' : ''}
+              {perStudent ? 'Vzorčen list (ime, datum in QR koda so primer); premešanje je naključno — vsak natisnjen list bo premešan drugače.' : shuffleO ? 'Premešanje je naključno — natisnjen list bo premešan drugače.' : ''}
             </span>
             <button onClick={() => { setPreview(null); void print(); }} style={{ fontSize: '13px', fontWeight: 600, padding: '7px 14px', borderRadius: 'var(--r-sm)', border: 'none', background: 'var(--forest)', color: '#fff', cursor: 'pointer' }}>🖨 Natisni</button>
             <button onClick={() => setPreview(null)} style={{ fontSize: '13px', padding: '7px 14px', borderRadius: 'var(--r-sm)', border: '1px solid var(--hairline)', background: 'transparent', cursor: 'pointer' }}>Zapri</button>
           </div>
           <div onClick={e => e.stopPropagation()} style={{ flex: 1, overflow: 'auto', padding: '16px' }}>
             <div className="pqz-preview" style={{ width: 'fit-content', margin: '0 auto' }}>
-              <QuizSheet sheet={preview.sheets[preview.idx]} title={title} className={cls?.name} />
+              <QuizSheet sheet={preview.sheets[preview.idx]} title={title} placeholder />
             </div>
           </div>
         </div>,
@@ -231,14 +232,14 @@ export default function PrintQuizDialog({ items, title, quizId, defaultClassId, 
 }
 
 /** En natisnjen list (glava, okvir z odgovori, vprašanja). */
-export function QuizSheet({ sheet: sh, title, className }: { sheet: Sheet; title: string; className?: string }) {
+export function QuizSheet({ sheet: sh, title, className, placeholder }: { sheet: Sheet; title: string; className?: string; placeholder?: boolean }) {
   const cls = className ? { name: className } : null;
   return (
     <section className="pqz-sheet">
       <header className="pqz-head">
         <b className="pqz-title">{title}</b>
         <span className="pqz-name">{sh.name ?? 'Ime in priimek: ______________________'}</span>
-        <span className="pqz-meta">{sh.name ? (cls ? `${cls.name} · ` : '') : 'Razred: ______ · '}{todayLabel()}</span>
+        <span className="pqz-meta">{placeholder ? 'RAZRED · DATUM' : <>{sh.name ? (cls ? `${cls.name} · ` : '') : 'Razred: ______ · '}{todayLabel()}</>}</span>
       </header>
 
       {(sh.layout.choice.length > 0 || sh.qr) && (() => {
