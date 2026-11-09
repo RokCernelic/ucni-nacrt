@@ -34,9 +34,32 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
   const [error, setError] = useState<string | null>(null);
   /** po tisku po učencih: seja za skener in rezultate */
   const [printed, setPrinted] = useState<{ sessionId: string; scanQr: string } | null>(null);
+  const [preview, setPreview] = useState<{ sheets: Sheet[]; idx: number } | null>(null);
 
   const nChoice = items.filter(i => i.choice).length;
   const canPrint = items.length > 0 && !busy && (!perStudent || students.length > 0);
+
+  /** Listi za tisk ali predogled: po učencih (QR + premešanje po soli seje) ali en enak list. */
+  const makeSheets = async (sessionId?: string, salt?: string): Promise<Sheet[]> => {
+    if (perStudent && sessionId && salt) {
+      return Promise.all(students.map(async st => ({
+        key: st.id, name: st.name,
+        qr: await QRCode.toDataURL(sheetToken(sessionId, st.id), { margin: 0, width: 240, errorCorrectionLevel: 'M' }),
+        layout: layoutSheet(items, shuffleQ || shuffleO ? sheetSeed(salt, st.id) : null, { questions: shuffleQ, options: shuffleO }),
+      })));
+    }
+    return [{ key: 'all', name: null, qr: null, layout: layoutSheet(items, shuffleO ? crypto.randomUUID() : null, { questions: false, options: shuffleO }) }];
+  };
+
+  const openPreview = async () => {
+    setBusy(true); setError(null);
+    try {
+      // brez seje v bazi: vzorčna QR koda in naključno premešanje (natisnjen list bo premešan drugače)
+      const list = perStudent ? await makeSheets('00000000-0000-0000-0000-000000000000', Math.random().toString(36).slice(2, 10)) : await makeSheets();
+      setPreview({ sheets: list, idx: 0 });
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    finally { setBusy(false); }
+  };
 
   const print = async () => {
     setBusy(true); setError(null);
@@ -46,15 +69,10 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
         if (!cls) return;
         // seja za skeniranje (odgovori gredo v skupno statistiko kvizov)
         const session = await createPaperSession({ title, quizId, classId: cls.id, className: cls.name, students, items, shuffleQuestions: shuffleQ, shuffleOptions: shuffleO });
-        const salt = session.paper!.salt;
-        list = await Promise.all(students.map(async st => ({
-          key: st.id, name: st.name,
-          qr: await QRCode.toDataURL(sheetToken(session.id, st.id), { margin: 0, width: 240, errorCorrectionLevel: 'M' }),
-          layout: layoutSheet(items, shuffleQ || shuffleO ? sheetSeed(salt, st.id) : null, { questions: shuffleQ, options: shuffleO }),
-        })));
+        list = await makeSheets(session.id, session.paper!.salt);
         setPrinted({ sessionId: session.id, scanQr: await QRCode.toDataURL(`${window.location.origin}/kvizi/skener`, { margin: 1, width: 220 }) });
       } else {
-        list = [{ key: 'all', name: null, qr: null, layout: layoutSheet(items, shuffleO ? crypto.randomUUID() : null, { questions: false, options: shuffleO }) }];
+        list = await makeSheets();
       }
       const style = document.createElement('style');
       // odmik zgoraj/spodaj tudi na nadaljnjih straneh; številčenje strani le pri skupnem listu
@@ -125,11 +143,42 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '18px' }}>
         <button onClick={onCancel} style={{ fontSize: '13px', padding: '9px 16px', borderRadius: 'var(--r-sm)', border: '1px solid var(--hairline)', background: 'transparent', color: 'var(--ink)', cursor: 'pointer' }}>Prekliči</button>
+        <button onClick={() => void openPreview()} disabled={!canPrint}
+          title="Prikaže, kako bo list videti na papirju (brez tiskanja in brez ustvarjanja seje)"
+          style={{ fontSize: '13px', padding: '9px 16px', borderRadius: 'var(--r-sm)', border: '1px solid var(--hairline)', background: 'transparent', color: 'var(--forest)', cursor: canPrint ? 'pointer' : 'not-allowed', opacity: canPrint ? 1 : 0.5 }}>
+          👁 Predogled
+        </button>
         <button onClick={() => void print()} disabled={!canPrint}
           style={{ fontSize: '13px', fontWeight: 600, padding: '9px 18px', borderRadius: 'var(--r-sm)', border: 'none', background: 'var(--forest)', color: '#fff', cursor: canPrint ? 'pointer' : 'not-allowed', opacity: canPrint ? 1 : 0.5 }}>
           {busy ? 'Pripravljam …' : `🖨 Natisni${perStudent && students.length ? ` (${students.length} listov)` : ''}`}
         </button>
       </div>
+
+      {preview && createPortal(
+        <div className="no-print" onClick={() => setPreview(null)} style={{ position: 'fixed', inset: 0, zIndex: 500, background: 'rgba(20,30,25,0.6)', display: 'flex', flexDirection: 'column' }}>
+          <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 16px', background: 'var(--canvas)', fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--ink)' }}>
+            <b>Predogled</b>
+            {preview.sheets.length > 1 && (
+              <>
+                <button disabled={preview.idx === 0} onClick={() => setPreview(p => p && { ...p, idx: p.idx - 1 })} style={{ padding: '4px 10px', cursor: 'pointer' }}>‹</button>
+                <span>{preview.sheets[preview.idx].name} ({preview.idx + 1} / {preview.sheets.length})</span>
+                <button disabled={preview.idx === preview.sheets.length - 1} onClick={() => setPreview(p => p && { ...p, idx: p.idx + 1 })} style={{ padding: '4px 10px', cursor: 'pointer' }}>›</button>
+              </>
+            )}
+            <span style={{ flex: 1, color: 'var(--muted)', fontSize: '12px' }}>
+              {perStudent ? 'QR koda je vzorčna; premešanje je naključno — natisnjen list bo premešan drugače.' : shuffleO ? 'Premešanje je naključno — natisnjen list bo premešan drugače.' : ''}
+            </span>
+            <button onClick={() => { setPreview(null); void print(); }} style={{ fontSize: '13px', fontWeight: 600, padding: '7px 14px', borderRadius: 'var(--r-sm)', border: 'none', background: 'var(--forest)', color: '#fff', cursor: 'pointer' }}>🖨 Natisni</button>
+            <button onClick={() => setPreview(null)} style={{ fontSize: '13px', padding: '7px 14px', borderRadius: 'var(--r-sm)', border: '1px solid var(--hairline)', background: 'transparent', cursor: 'pointer' }}>Zapri</button>
+          </div>
+          <div onClick={e => e.stopPropagation()} style={{ flex: 1, overflow: 'auto', padding: '16px' }}>
+            <div className="pqz-preview" style={{ width: 'fit-content', margin: '0 auto' }}>
+              <QuizSheet sheet={preview.sheets[preview.idx]} title={title} className={cls?.name} />
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
 
       {sheets && createPortal(
         <div className="print-questions pqz" aria-hidden>

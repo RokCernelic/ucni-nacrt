@@ -229,3 +229,31 @@ html.printing-questions .print-questions.ldn, .ldn.ldn-measure { font-size: 9pt;
 .ldn-tag { font-size: 7pt; color: #2c6e3a; font-weight: 700; }
 .ldn-total td { font-weight: 700; background: #dcebdd; color: #0d2e12; }
 .ldn-legend { font-weight: 400 !important; font-size: 7.5pt; color: #555; }
+
+/* Predogled natisnjenega kviza na zaslonu: ista pravila kot pri tisku, omejena na .pqz-preview. */
+.pqz-preview .pqz-sheet { position: relative; box-sizing: border-box; width: 210mm; min-height: 270mm; padding: 0 16mm; break-after: page; page-break-after: always; font-size: 10pt; line-height: 1.25; }
+.pqz-preview .pqz-sheet:last-child { break-after: auto; page-break-after: auto; }
+.pqz-preview .pqz-head { display: flex; align-items: baseline; gap: 5mm; white-space: nowrap; overflow: hidden; border-bottom: .3mm solid #000; padding-bottom: 1.5mm; margin-bottom: 3mm; }
+.pqz-preview .pqz-title { font-size: 10pt; color: #444; font-weight: 600; }
+.pqz-preview .pqz-name { font-size: 13pt; font-weight: 700; flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.pqz-preview .pqz-meta { font-size: 9.5pt; color: #444; }
+.pqz-preview .pqz-grid { position: relative; box-sizing: border-box; border: .3mm solid #999; margin-bottom: 4mm; }
+.pqz-preview .pqz-grid > *, .pqz-preview .pqz-grid > div > * { position: absolute; }
+.pqz-preview .pqz-grid > div:not(.pqz-gridhead) { position: static; }
+.pqz-preview .pqz-mark { width: 4mm; height: 4mm; background: #000; }
+.pqz-preview .pqz-gridhead { font-size: 7.5pt; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
+.pqz-preview .pqz-n { display: flex; align-items: center; justify-content: flex-end; font-weight: 700; font-size: 8.5pt; }
+.pqz-preview .pqz-bub { box-sizing: border-box; border: .35mm solid #000; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 6pt; color: #bbb; }
+.pqz-preview .pqz-qr { image-rendering: pixelated; }
+.pqz-preview .pqz-list { margin: 0 0 2mm; }
+.pqz-preview .pqz-cols2 { column-count: 2; column-gap: 8mm; }
+.pqz-preview .pqz-item { margin-bottom: 7mm; break-inside: avoid; }
+.pqz-preview .pqz-item.pqz-c { margin-bottom: 5.5mm; }
+.pqz-preview .pqz-q { display: flex; gap: 1.5mm; }
+.pqz-preview .pqz-q .rich-content { flex: 1; }
+.pqz-preview .pqz-q .rich-content p { margin: 0 0 .5mm; }
+.pqz-preview .pqz-q img { max-width: 100%; max-height: 45mm; }
+.pqz-preview .pqz-opts { margin: .3mm 0 0 5mm; }
+.pqz-preview .pqz-inline { display: flex; flex-wrap: wrap; gap: 0 4mm; }
+.pqz-preview .pqz-free { border-bottom: .2mm dotted #999; margin: 1mm 0 0 5mm; }
+.pqz-preview .pqz-sheet { margin: 0 auto; background: #fff; color: #000; box-shadow: 0 2px 14px rgba(0,0,0,.18); padding-top: 10mm; padding-bottom: 10mm; break-after: auto; page-break-after: auto; }
