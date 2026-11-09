@@ -66,6 +66,7 @@ export default function BuildTest({ pool, onClose }: { pool: Task[]; onClose: ()
   const [progress, setProgress] = useState(0);
   const [genTotal, setGenTotal] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [regen, setRegen] = useState<number | null>(null);
   const [results, setResults] = useState<Result[]>([]);
   const [error, setError] = useState<string | null>(null);
   const abort = useRef<AbortController | null>(null);
@@ -98,6 +99,31 @@ export default function BuildTest({ pool, onClose }: { pool: Task[]; onClose: ()
   const valid = total >= 1 && total <= MAX_TOTAL && bloomSum > 0 && kindSum > 0 && plan.slots.length === total;
   const needAi = plan.generated + plan.noSeed > 0;
 
+  /** Ena generirana naloga za mesto `slot` (iz njegove izhodiščne naloge). */
+  const generateFor = async (slot: Slot, signal?: AbortSignal): Promise<TaskDraft> => {
+    const { id: _id, created_at: _c, updated_at: _u, ...task } = slot.seed!; // eslint-disable-line @typescript-eslint/no-unused-vars
+    const req = genRequestFor(slot, classes);
+    const res = await fetch('/api/tasks/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal,
+      body: JSON.stringify({ task, mode: 'similar', mods: req.mods, extra: req.extra }) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error ?? `Napaka ${res.status}`);
+    return data.draft as TaskDraft;
+  };
+
+  /** Zamenjaj nalogo na mestu `i` z novo generirano (iz iste izhodiščne naloge, ista stopnja in oblika). */
+  const regenerate = async (i: number) => {
+    const r = results[i];
+    const seed = r.slot.seed ?? r.task;
+    if (!seed || regen !== null) return;
+    setRegen(i); setError(null);
+    try {
+      const slot: Slot = { ...r.slot, seed, kind: r.slot.kind };
+      const draft = await generateFor(slot);
+      setResults(rs => rs.map((x, j) => (j === i ? { slot, task: null, draft, keep: true } : x)));
+    } catch (e) { setError(`Naloga ${i + 1}: ${e instanceof Error ? e.message : String(e)}`); }
+    finally { setRegen(null); }
+  };
+
   const build = async () => {
     setPhase('running'); setError(null); setProgress(0); setResults([]); setGenTotal(plan.generated);
     const ctl = new AbortController(); abort.current = ctl;
@@ -109,14 +135,8 @@ export default function BuildTest({ pool, onClose }: { pool: Task[]; onClose: ()
         const job = todo[next++]; if (!job) return;
         const { slot } = job.r;
         try {
-          const { id: _id, created_at: _c, updated_at: _u, ...task } = slot.seed!; // eslint-disable-line @typescript-eslint/no-unused-vars
-          const req = genRequestFor(slot, classes);
-          const res = await fetch('/api/tasks/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: ctl.signal,
-            body: JSON.stringify({ task, mode: 'similar', mods: req.mods, extra: req.extra }) });
-          const data = await res.json().catch(() => ({}));
-          if (!res.ok) throw new Error(data.error ?? `Napaka ${res.status}`);
           // generirana naloga se v bazo shrani šele ob potrditvi (po pregledu)
-          out[job.i] = { slot, task: null, draft: data.draft as TaskDraft, keep: true };
+          out[job.i] = { slot, task: null, draft: await generateFor(slot, ctl.signal), keep: true };
         } catch (e) {
           if (ctl.signal.aborted) return;
           out[job.i] = { slot, task: null, error: e instanceof Error ? e.message : String(e), keep: false };
@@ -265,6 +285,12 @@ export default function BuildTest({ pool, onClose }: { pool: Task[]; onClose: ()
                     <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: 'var(--muted)', cursor: 'pointer', marginBottom: '4px' }}>
                       <input type="checkbox" checked={r.keep} onChange={e => setKeep(i, e.target.checked)} />
                       <b style={{ color: r.draft ? '#8a5a00' : 'var(--forest)' }}>{i + 1}.</b> {label}
+                      <span style={{ flex: 1 }} />
+                      <button type="button" onClick={e => { e.preventDefault(); void regenerate(i); }} disabled={regen !== null || saving}
+                        title="Zamenja to nalogo z novo, generirano iz podobne (ista stopnja in oblika odgovora)"
+                        style={{ ...btn(), padding: '2px 8px', fontSize: '11px', opacity: regen !== null ? 0.5 : 1 }}>
+                        {regen === i ? 'Generiram …' : '🔄 Generiraj drugo'}
+                      </button>
                     </label>
                     {r.draft ? (
                       <div style={{ fontSize: '13px', color: 'var(--ink)' }}>
