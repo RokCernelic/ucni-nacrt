@@ -10,6 +10,7 @@ import { allCurricula, topicsOf, topicInfo, chaptersOf, chapterInfo, chapterKeys
 import TaskList from './TaskList';
 import { plural } from '@/lib/quiz/format';
 import ImportTasks from './ImportTasks';
+import BuildTest from './BuildTest';
 import { plainKey } from '@/lib/tasks/import';
 import { offerUndo } from '@/lib/undoStore';
 import { orderTasks, groupTasks, isNested } from '@/lib/tasks/order';
@@ -92,6 +93,7 @@ export default function TaskBank() {
     }
     return extra;
   }, [tasks]);
+  const [building, setBuilding] = useState(false);
   const [dedupBusy, setDedupBusy] = useState(false);
   const dedup = async () => {
     if (!confirm(`Odstranim ${duplicates.length} podvojenih nalog (enako besedilo)? Od vsake ostane najstarejša.`)) return;
@@ -197,6 +199,11 @@ export default function TaskBank() {
                 izberi vse{anyFilter ? ' (v filtru)' : ''}
               </label>
               <ImportTasks />
+              <button onClick={() => setBuilding(true)} disabled={!filtered.length}
+                title="Iz nalog v trenutnem filtru sestavi test: število nalog, delež po taksonomiji in obliki odgovora, iz baze ali generirano (AI)"
+                style={{ ...btn(true), padding: '5px 12px', opacity: filtered.length ? 1 : 0.45, cursor: filtered.length ? 'pointer' : 'not-allowed' }}>
+                🧪 Sestavi test
+              </button>
               {duplicates.length > 0 && (
                 <button onClick={() => void dedup()} disabled={dedupBusy}
                   style={{ ...btn(), color: '#b7791f', borderColor: '#ecd9a8', opacity: dedupBusy ? 0.5 : 1 }}>
@@ -214,6 +221,7 @@ export default function TaskBank() {
             </div>
 
             {error && <p style={{ color: '#c0392b', fontSize: '13px' }}>{error}</p>}
+            {building && <BuildTest pool={filtered} onClose={() => setBuilding(false)} />}
             {loaded && (
               <>
                 <TaskList tasks={[]} emptyText={anyFilter && !ordered.length ? 'Ni nalog, ki ustrezajo filtrom.' : !tasks.length ? 'Baza je še prazna. Dodaj prvo nalogo.' : undefined} />
