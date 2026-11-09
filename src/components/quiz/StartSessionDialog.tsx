@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMasterClasses } from '@/hooks/useMasterClasses';
 import { PrintPanel } from '@/components/quiz/PrintQuizDialog';
@@ -42,6 +42,7 @@ export default function StartSessionDialog({ quiz, onClose }: { quiz: Quiz; onCl
   }, [onClose]);
 
   const cls = classes.find(c => c.id === classId);
+  const printItems = useMemo(() => itemsFromQuiz(quiz), [quiz]);
   const incomplete = quiz.questions.filter(q => questionProblems(q).length > 0).length;
   const missingPins = students.filter(s => !s.pin).length;
   const teacherPin = getTeacherPin();
@@ -153,7 +154,7 @@ export default function StartSessionDialog({ quiz, onClose }: { quiz: Quiz; onCl
         {error && <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: '#c0392b', margin: '0 0 12px' }}>{error}</p>}
 
         {printWay ? (
-          <PrintPanel items={itemsFromQuiz(quiz)} title={quiz.title} quizId={quiz.id} cls={cls} students={students} onCancel={onClose} />
+          <PrintPanel items={printItems} title={quiz.title} quizId={quiz.id} cls={cls} students={students} onCancel={onClose} />
         ) : (
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
             <button onClick={onClose} style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', padding: '9px 16px', borderRadius: 'var(--r-sm)', border: '1px solid var(--hairline)', background: 'transparent', color: 'var(--ink)', cursor: 'pointer' }}>Prekliči</button>

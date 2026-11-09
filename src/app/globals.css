@@ -257,3 +257,14 @@ html.printing-questions .print-questions.ldn, .ldn.ldn-measure { font-size: 9pt;
 .pqz-preview .pqz-inline { display: flex; flex-wrap: wrap; gap: 0 4mm; }
 .pqz-preview .pqz-free { border-bottom: .2mm dotted #999; margin: 1mm 0 0 5mm; }
 .pqz-preview .pqz-sheet { margin: 0 auto; background: #fff; color: #000; box-shadow: 0 2px 14px rgba(0,0,0,.18); padding-top: 10mm; padding-bottom: 10mm; break-after: auto; page-break-after: auto; }
+
+/* Dva testa na en list A4 (zgoraj / spodaj, črtkana ločnica po sredini; hrbtna stran = nadaljevanje). Pravila veljajo za tisk in predogled. */
+.pqz-hbox { font-family: Inter, -apple-system, sans-serif; font-size: 10pt; line-height: 1.25; color: #000; box-sizing: border-box; }
+.pqz-hmeasure { position: absolute; left: -10000px; top: 0; width: 178mm; visibility: hidden; pointer-events: none; }
+.pqz-page { position: relative; box-sizing: border-box; width: 210mm; height: 297mm; overflow: hidden; background: #fff; break-after: page; page-break-after: always; }
+.pqz-page:last-child { break-after: auto; page-break-after: auto; }
+.pqz-half { position: relative; box-sizing: border-box; width: 210mm; height: 148.5mm; padding: 8mm 16mm 7mm; overflow: hidden; font-family: Inter, -apple-system, sans-serif; font-size: 10pt; line-height: 1.25; color: #000; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.pqz-half:first-child { border-bottom: .3mm dashed #666; }
+.pqz-hrow { display: grid; grid-template-columns: 1fr 1fr; column-gap: 8mm; margin-bottom: 3.5mm; break-inside: avoid; }
+.pqz-hrow.pqz-hfree { grid-template-columns: 1fr; margin-bottom: 4.5mm; }
+.pqz-hitem { min-width: 0; }
