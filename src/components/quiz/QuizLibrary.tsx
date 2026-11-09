@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import ActiveSessions from '@/components/quiz/ActiveSessions';
 import { useQuizLibrary, folderPath, QuizStorageFullError } from '@/hooks/useQuizLibrary';
 import { questionProblems } from '@/lib/quiz/scoring';
+import { deleteEmptySessionsOfQuiz } from '@/lib/quiz/sessionApi';
 import { questionsLabel, pointsLabel } from '@/lib/quiz/format';
 import StartSessionDialog from '@/components/quiz/StartSessionDialog';
 import type { QuizFolder } from '@/lib/quiz/types';
@@ -216,7 +217,7 @@ export default function QuizLibrary() {
                         <Link href={`/kvizi/statistika?k=${encodeURIComponent(q.id)}`} style={{ ...btn(), padding: '7px 10px', textDecoration: 'none' }} title="Rezultati tega kviza po učencih in nalogah">Rezultati</Link>
                         <button style={{ ...btn(), padding: '7px 10px' }} onClick={() => guard(() => lib.duplicateQuiz(q.id))}>Podvoji</button>
                         <button style={{ ...btn(), padding: '7px 10px', color: '#c0392b', borderColor: '#e0b4ae' }}
-                          onClick={() => { if (confirm(`Izbrišem kviz »${q.title}«?`)) guard(() => lib.deleteQuiz(q.id)); }}>Izbriši</button>
+                          onClick={() => { if (confirm(`Izbrišem kviz »${q.title}«? Če nima aktivne seje in nobenih rezultatov, se izbriše tudi njegova (prazna) statistika.`)) { guard(() => lib.deleteQuiz(q.id)); void deleteEmptySessionsOfQuiz(q.id).catch(() => { /* statistika ostane, kviz je izbrisan */ }); } }}>Izbriši</button>
                       </div>
                     </div>
                   );
