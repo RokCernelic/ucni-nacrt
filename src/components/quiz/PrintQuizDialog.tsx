@@ -24,7 +24,8 @@ export default function PrintQuizDialog({ items, title, quizId, defaultClassId, 
   const { classes } = useMasterClasses();
   const [pickedClass, setPickedClass] = useState('');
   const [perStudent, setPerStudent] = useState(true);
-  const [shuffle, setShuffle] = useState(true);
+  const [shuffleQ, setShuffleQ] = useState(true);
+  const [shuffleO, setShuffleO] = useState(true);
   const [sheets, setSheets] = useState<Sheet[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,16 +52,16 @@ export default function PrintQuizDialog({ items, title, quizId, defaultClassId, 
       if (perStudent) {
         if (!cls) return;
         // seja za skeniranje (odgovori gredo v skupno statistiko kvizov)
-        const session = await createPaperSession({ title, quizId, classId: cls.id, className: cls.name, students, items, shuffle });
+        const session = await createPaperSession({ title, quizId, classId: cls.id, className: cls.name, students, items, shuffleQuestions: shuffleQ, shuffleOptions: shuffleO });
         const salt = session.paper!.salt;
         list = await Promise.all(students.map(async st => ({
           key: st.id, name: st.name,
           qr: await QRCode.toDataURL(sheetToken(session.id, st.id), { margin: 0, width: 240, errorCorrectionLevel: 'M' }),
-          layout: layoutSheet(items, shuffle ? sheetSeed(salt, st.id) : null),
+          layout: layoutSheet(items, shuffleQ || shuffleO ? sheetSeed(salt, st.id) : null, { questions: shuffleQ, options: shuffleO }),
         })));
         setPrinted({ sessionId: session.id, scanQr: await QRCode.toDataURL(`${window.location.origin}/kvizi/skener`, { margin: 1, width: 220 }) });
       } else {
-        list = [{ key: 'all', name: null, qr: null, layout: layoutSheet(items, null) }];
+        list = [{ key: 'all', name: null, qr: null, layout: layoutSheet(items, shuffleO ? crypto.randomUUID() : null, { questions: false, options: shuffleO }) }];
       }
       const style = document.createElement('style');
       // odmik zgoraj/spodaj tudi na nadaljnjih straneh; številčenje strani le pri skupnem listu
@@ -95,11 +96,17 @@ export default function PrintQuizDialog({ items, title, quizId, defaultClassId, 
 
           <label style={labelStyle}>
             <input type="radio" checked={!perStudent} onChange={() => setPerStudent(false)} style={{ marginTop: '3px' }} />
-            <span>Enak list za vse<span style={{ display: 'block', fontSize: '12px', color: 'var(--muted)' }}>Ena stran; učenec vpiše ime. Brez QR kode.</span></span>
+            <span>Enak vrstni red za vse<span style={{ display: 'block', fontSize: '12px', color: 'var(--muted)' }}>Na vrhu črta za ime in priimek; isti list za vse. Brez QR kode.</span></span>
           </label>
+          {!perStudent && (
+            <label style={{ ...labelStyle, margin: '0 0 12px 26px' }}>
+              <input type="checkbox" checked={shuffleO} onChange={e => setShuffleO(e.target.checked)} style={{ marginTop: '3px' }} />
+              <span>Premešaj odgovore<span style={{ display: 'block', fontSize: '12px', color: 'var(--muted)' }}>Vrstni red možnosti (A, B, C …) se premeša; vsi dobijo isti premešani list.</span></span>
+            </label>
+          )}
           <label style={labelStyle}>
             <input type="radio" checked={perStudent} onChange={() => setPerStudent(true)} style={{ marginTop: '3px' }} />
-            <span>Poseben list za vsakega učenca<span style={{ display: 'block', fontSize: '12px', color: 'var(--muted)' }}>Ime in priimek, QR koda in obrazec za vsakega; en PDF za tisk.</span></span>
+            <span>Za vsakega učenca svoj test<span style={{ display: 'block', fontSize: '12px', color: 'var(--muted)' }}>Ime in priimek, QR koda in obrazec za vsakega; en PDF za tisk.</span></span>
           </label>
 
           {perStudent && (
@@ -111,9 +118,13 @@ export default function PrintQuizDialog({ items, title, quizId, defaultClassId, 
               <div style={{ fontSize: '12px', color: students.length ? 'var(--muted)' : '#b7791f', marginBottom: '8px' }}>
                 {!cls ? 'Dodaj razred v meniju Učenci.' : students.length ? `${students.length} učencev` : 'Ta razred nima učencev.'}
               </div>
+              <label style={{ ...labelStyle, marginBottom: '8px' }}>
+                <input type="checkbox" checked={shuffleQ} onChange={e => setShuffleQ(e.target.checked)} style={{ marginTop: '3px' }} />
+                <span>Premešaj vprašanja<span style={{ display: 'block', fontSize: '12px', color: 'var(--muted)' }}>Vsak učenec ima drugačen vrstni red vprašanj.</span></span>
+              </label>
               <label style={{ ...labelStyle, marginBottom: 0 }}>
-                <input type="checkbox" checked={shuffle} onChange={e => setShuffle(e.target.checked)} style={{ marginTop: '3px' }} />
-                <span>Vsak učenec drugačen vrstni red<span style={{ display: 'block', fontSize: '12px', color: 'var(--muted)' }}>Premešajo se vprašanja in možnosti; črke v obrazcu ustrezajo premešanemu listu.</span></span>
+                <input type="checkbox" checked={shuffleO} onChange={e => setShuffleO(e.target.checked)} style={{ marginTop: '3px' }} />
+                <span>Premešaj odgovore<span style={{ display: 'block', fontSize: '12px', color: 'var(--muted)' }}>Vsak učenec ima drugačen vrstni red možnosti; črke v obrazcu ustrezajo njegovemu listu, zato je vsak test unikaten.</span></span>
               </label>
             </div>
           )}

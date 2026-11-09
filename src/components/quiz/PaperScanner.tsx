@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { joinChannel, joinStatsChannel } from '@/lib/quiz/sessionApi';
 import { loadPaperSession, savePaperAnswers, isPaperOpen, type PaperSession } from '@/lib/quiz/paperSession';
-import { layoutSheet, frameGeometry, parseToken, sheetSeed, type FrameGeometry, type SheetLayout, type LayoutItem } from '@/lib/quiz/printSheet';
+import { layoutSheet, frameGeometry, parseToken, sheetSeed, shuffleOpts, type FrameGeometry, type SheetLayout, type LayoutItem } from '@/lib/quiz/printSheet';
 import { toGray, locate, readLocated, project, type SheetReading } from '@/lib/quiz/omr';
 
 type Item = LayoutItem & { correct: string[]; points: number };
@@ -137,7 +137,7 @@ export default function PaperScanner() {
               if (!paper || !st) setStatus('List ne pripada nobeni od tvojih sej.');
               else if (!(await sessionOpen(tok.sessionId))) setStatus('Ta seja je končana — skeniranje ni več mogoče.');
               else {
-                const layout = layoutSheet(paper.items, paper.shuffle ? sheetSeed(paper.salt, tok.studentId) : null);
+                const layout = layoutSheet(paper.items, paper.shuffle ? sheetSeed(paper.salt, tok.studentId) : null, shuffleOpts(paper));
                 const geom = frameGeometry(layout, true);
                 const reading = readLocated(g, geom, loc);
                 if (!reading) setStatus('Okvir ni dovolj jasen — približaj ali poravnaj list.');

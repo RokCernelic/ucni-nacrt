@@ -76,15 +76,17 @@ export const LETTERS = 'ABCDEFGHIJKL';
  * Z `seed` se vrstni red vprašanj in možnosti določi deterministično (isti seed → isti list),
  * zato skener iz QR kode ugotovi, katera črka je katera izvirna možnost.
  */
-export function layoutSheet<T extends LayoutItem>(items: T[], seed: string | null): SheetLayout<T> {
+export function layoutSheet<T extends LayoutItem>(items: T[], seed: string | null, opts: { questions?: boolean; options?: boolean } = {}): SheetLayout<T> {
   const rng = seed ? makeRng(seed) : null;
-  const order = <U,>(a: U[]) => (rng ? shuffled(a, rng) : a);
+  const qRng = opts.questions === false ? null : rng;
+  const oRng = opts.options === false ? null : rng;
+  const order = <U,>(a: U[]) => (qRng ? shuffled(a, qRng) : a);
   const choice = order(items.filter(i => i.choice));
   const free = order(items.filter(i => !i.choice));
   let n = 0;
   const wrap = (item: T): SheetItem<T> => ({
     n: ++n, item,
-    options: (rng ? shuffled(item.options, rng) : item.options).map((o, i) => ({ letter: LETTERS[i], id: o.id, text: o.text })),
+    options: (oRng ? shuffled(item.options, oRng) : item.options).map((o, i) => ({ letter: LETTERS[i], id: o.id, text: o.text })),
   });
   return { choice: choice.map(wrap), free: free.map(wrap) };
 }
@@ -95,6 +97,10 @@ export function parseToken(s: string): { sessionId: string; studentId: string } 
   const m = /^UN1\|([0-9a-f-]{36})\|(.+)$/i.exec(s.trim());
   return m ? { sessionId: m[1], studentId: m[2] } : null;
 }
+/** Kaj se premeša na listu: vprašanja in/ali vrstni red odgovorov (starejše seje: `shuffle` = oboje). */
+export const shuffleOpts = (p: { shuffle: boolean; shuffleQuestions?: boolean; shuffleOptions?: boolean }) => ({
+  questions: p.shuffleQuestions ?? p.shuffle, options: p.shuffleOptions ?? p.shuffle,
+});
 /** Seme mešanja za učenca (sol je shranjena v seji). */
 export const sheetSeed = (salt: string, studentId: string) => `${salt}${studentId}`;
 

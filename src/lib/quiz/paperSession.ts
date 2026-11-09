@@ -9,7 +9,10 @@ import { sortByLastName } from '@/lib/names';
 /** Podatki natisnjenega kviza v seji (stolpec `paper`): dovolj, da skener obnovi razpored vsakega lista. */
 export interface PaperInfo {
   salt: string;
+  /** vsaj nekaj se premeša (starejše seje: vprašanja in odgovori) */
   shuffle: boolean;
+  shuffleQuestions?: boolean;
+  shuffleOptions?: boolean;
   /** vse postavke v izvirnem vrstnem redu (brez besedila) */
   items: (LayoutItem & { correct: string[]; points: number })[];
 }
@@ -24,7 +27,7 @@ const code = () => Array.from({ length: 6 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ2345
  */
 export async function createPaperSession(opts: {
   title: string; quizId: string | null; classId: string; className: string;
-  students: { id: string; name: string; pin?: string }[]; items: PrintItem[]; shuffle: boolean;
+  students: { id: string; name: string; pin?: string }[]; items: PrintItem[]; shuffleQuestions: boolean; shuffleOptions: boolean;
 }): Promise<PaperSession> {
   const sb = getSupabaseBrowserClient();
   const salt = Math.random().toString(36).slice(2, 10);
@@ -32,12 +35,12 @@ export async function createPaperSession(opts: {
     .filter(i => i.choice && !i.multi && i.correct.length === 1)
     .map(i => ({ id: i.id, kind: 'mc', prompt: i.prompt, points: i.points, options: i.options, correct: i.correct[0] }));
   const paper: PaperInfo = {
-    salt, shuffle: opts.shuffle,
+    salt, shuffle: opts.shuffleQuestions || opts.shuffleOptions, shuffleQuestions: opts.shuffleQuestions, shuffleOptions: opts.shuffleOptions,
     items: opts.items.map(i => ({ id: i.id, choice: i.choice, multi: i.multi, options: i.options.map(o => ({ id: o.id, text: '' })), correct: i.correct, points: i.points })),
   };
   const { data, error } = await sb.from('quiz_sessions').insert({
     code: code(), quiz_id: opts.quizId, quiz_title: opts.title || 'Kviz', quiz: { questions },
-    class_id: opts.classId, class_name: opts.className, mode: 'student', shuffle: opts.shuffle, show_solutions: false,
+    class_id: opts.classId, class_name: opts.className, mode: 'student', shuffle: opts.shuffleQuestions || opts.shuffleOptions, show_solutions: false,
     status: 'open', phase: 'revealed', paper,
   }).select().single();
   if (error) throw new Error(error.message);
