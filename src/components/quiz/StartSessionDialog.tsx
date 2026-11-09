@@ -19,7 +19,9 @@ export default function StartSessionDialog({ quiz, onClose }: { quiz: Quiz; onCl
   const { classes } = useMasterClasses();
   const { updateQuiz } = useQuizLibrary();
   const [classId, setClassId] = useState<string>('');
-  const [mode, setMode] = useState<SessionMode>('teacher');
+  const [way, setWay] = useState<SessionMode | 'print'>('teacher');
+  const mode: SessionMode = way === 'print' ? 'teacher' : way;
+  const printWay = way === 'print';
   const [shuffle, setShuffle] = useState(true);
   const [showSolutions, setShowSolutions] = useState(false);
   const [printing, setPrinting] = useState(false);
@@ -89,7 +91,7 @@ export default function StartSessionDialog({ quiz, onClose }: { quiz: Quiz; onCl
         <p style={{ fontFamily: 'var(--font-sans)', fontSize: '14px', color: 'var(--ink)', fontWeight: 600, margin: '0 0 18px' }}>{quiz.title || 'Brez naslova'}</p>
 
         {/* razred */}
-        <div style={label}>Razred</div>
+        <div style={label}>Kviz je razpisan za:</div>
         {classes.length === 0 ? (
           <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--muted)', margin: '0 0 16px' }}>Najprej ustvari razred in vpiši učence v meniju Učenci.</p>
         ) : (
@@ -114,43 +116,57 @@ export default function StartSessionDialog({ quiz, onClose }: { quiz: Quiz; onCl
         {/* način */}
         <div style={label}>Način</div>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '18px' }}>
-          <button style={choice(mode === 'teacher')} onClick={() => setMode('teacher')}>
-            <div style={{ fontSize: '14px', fontWeight: 600 }}>Vodim jaz</div>
-            <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '3px', lineHeight: 1.4 }}>Vsi na istem vprašanju. Ti zakleneš, razkriješ in greš naprej.</div>
+          <button style={choice(way === 'teacher')} onClick={() => setWay('teacher')}>
+            <div style={{ fontSize: '14px', fontWeight: 600 }}>Projekcija</div>
+            <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '3px', lineHeight: 1.4 }}>Kviz vodi učitelj, učenci odgovarjajo na isto vprašanje.</div>
           </button>
-          <button style={choice(mode === 'student')} onClick={() => setMode('student')}>
-            <div style={{ fontSize: '14px', fontWeight: 600 }}>Vsak sam</div>
-            <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '3px', lineHeight: 1.4 }}>Vsak rešuje v svojem tempu in na koncu odda.</div>
+          <button style={choice(way === 'student')} onClick={() => setWay('student')}>
+            <div style={{ fontSize: '14px', fontWeight: 600 }}>Tablica</div>
+            <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '3px', lineHeight: 1.4 }}>Učenci rešujejo vsak na svoji napravi.</div>
+          </button>
+          <button style={choice(way === 'print')} onClick={() => setWay('print')}>
+            <div style={{ fontSize: '14px', fontWeight: 600 }}>Natisnjeno</div>
+            <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '3px', lineHeight: 1.4 }}>Kviz / test se natisne.</div>
           </button>
         </div>
 
-        {/* nastavitve */}
-        <label style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--ink)', marginBottom: '10px', cursor: 'pointer' }}>
-          <input type="checkbox" checked={shuffle} onChange={e => setShuffle(e.target.checked)} style={{ marginTop: '3px' }} />
-          <span>Premešaj vrstni red
-            <span style={{ display: 'block', fontSize: '12px', color: 'var(--muted)' }}>
-              {mode === 'teacher' ? 'Možnosti so na vsakem iPadu premešane, dokler ne zakleneš; potem povsod izvirni vrstni red.' : 'Vprašanja in možnosti so za vsakega učenca premešani.'}
-            </span>
-          </span>
-        </label>
-        <label style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--ink)', marginBottom: '18px', cursor: 'pointer' }}>
-          <input type="checkbox" checked={showSolutions} onChange={e => setShowSolutions(e.target.checked)} style={{ marginTop: '3px' }} />
-          <span>Pokaži rešitve na koncu
-            <span style={{ display: 'block', fontSize: '12px', color: 'var(--muted)' }}>Po koncu seje učenci vidijo pregled po vprašanjih s pravilnimi odgovori. Izklopi, če bo kviz reševal še drug razred.</span>
-          </span>
-        </label>
+        {/* nastavitve (le za zagon seje) */}
+        {!printWay && (
+          <>
+            <label style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--ink)', marginBottom: '10px', cursor: 'pointer' }}>
+              <input type="checkbox" checked={shuffle} onChange={e => setShuffle(e.target.checked)} style={{ marginTop: '3px' }} />
+              <span>Premešaj vrstni red
+                <span style={{ display: 'block', fontSize: '12px', color: 'var(--muted)' }}>
+                  {mode === 'teacher' ? 'Možnosti so na vsakem iPadu premešane, dokler ne zakleneš; potem povsod izvirni vrstni red.' : 'Vprašanja in možnosti so za vsakega učenca premešani.'}
+                </span>
+              </span>
+            </label>
+            <label style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--ink)', marginBottom: '18px', cursor: 'pointer' }}>
+              <input type="checkbox" checked={showSolutions} onChange={e => setShowSolutions(e.target.checked)} style={{ marginTop: '3px' }} />
+              <span>Pokaži rešitve na koncu
+                <span style={{ display: 'block', fontSize: '12px', color: 'var(--muted)' }}>Po koncu seje učenci vidijo pregled po vprašanjih s pravilnimi odgovori. Izklopi, če bo kviz reševal še drug razred.</span>
+              </span>
+            </label>
+          </>
+        )}
 
         {incomplete > 0 && <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: '#b7791f', margin: '0 0 12px' }}>⚠ Kviz ima nedokončana vprašanja ({incomplete}) — dokončaj jih v urejevalniku.</p>}
         {error && <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: '#c0392b', margin: '0 0 12px' }}>{error}</p>}
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-          <button onClick={() => setPrinting(true)} disabled={!quiz.questions.length} title="Natisni kviz na A4 za ročno reševanje (obrazec s krogci in QR kodo)"
-            style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', padding: '9px 16px', borderRadius: 'var(--r-sm)', border: '1px solid var(--hairline)', background: 'transparent', color: 'var(--ink)', cursor: 'pointer', marginRight: 'auto' }}>🖨 Natisni kviz</button>
           <button onClick={onClose} style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', padding: '9px 16px', borderRadius: 'var(--r-sm)', border: '1px solid var(--hairline)', background: 'transparent', color: 'var(--ink)', cursor: 'pointer' }}>Prekliči</button>
-          <button onClick={start} disabled={!canStart}
-            style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600, padding: '9px 18px', borderRadius: 'var(--r-sm)', border: 'none', background: 'var(--forest)', color: '#fff', cursor: canStart ? 'pointer' : 'not-allowed', opacity: canStart ? 1 : 0.5 }}>
-            {busy ? 'Zaganjam …' : '▶ Začni sejo'}
-          </button>
+          {printWay ? (
+            <button onClick={() => setPrinting(true)} disabled={!quiz.questions.length}
+              title="Natisne kviz na A4 za ročno reševanje (obrazec s krogci in QR kodo)"
+              style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600, padding: '9px 18px', borderRadius: 'var(--r-sm)', border: 'none', background: 'var(--forest)', color: '#fff', cursor: quiz.questions.length ? 'pointer' : 'not-allowed', opacity: quiz.questions.length ? 1 : 0.5 }}>
+              🖨 Natisni …
+            </button>
+          ) : (
+            <button onClick={start} disabled={!canStart}
+              style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600, padding: '9px 18px', borderRadius: 'var(--r-sm)', border: 'none', background: 'var(--forest)', color: '#fff', cursor: canStart ? 'pointer' : 'not-allowed', opacity: canStart ? 1 : 0.5 }}>
+              {busy ? 'Zaganjam …' : '▶ Začni sejo'}
+            </button>
+          )}
         </div>
       </div>
       {printing && <PrintQuizDialog items={itemsFromQuiz(quiz)} title={quiz.title} quizId={quiz.id} defaultClassId={classId || undefined} onClose={() => setPrinting(false)} />}
