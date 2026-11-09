@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTasks } from '@/hooks/useTasks';
 import { useTaskSelection } from '@/hooks/useTaskSelection';
-import { ANSWER_KINDS, type AnswerKind, type Task, type TaskDraft } from '@/lib/tasks/types';
+import { ANSWER_KINDS, LETTERS, isChoice, correctIds, type AnswerKind, type Task, type TaskDraft } from '@/lib/tasks/types';
 import { BLOOM_3, BLOOM_6, classOfBloom, planTest, genRequestFor, type Slot } from '@/lib/tasks/buildTest';
-import { btn, tinyLabel, input, Chip } from './ui';
+import { btn, tinyLabel, input, Chip, Rich, TaskAnswer } from './ui';
 
 const MAX_TOTAL = 40;
 const PARALLEL = 3;
@@ -14,7 +14,8 @@ const kindName = (k: AnswerKind) => ANSWER_KINDS.find(a => a.id === k)?.name ?? 
 const plain = (html: string) => html.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
 
 type Phase = 'setup' | 'running' | 'done';
-interface Result { slot: Slot; task: Task | null; error?: string }
+/** `task` = naloga iz baze; `draft` = generirana, še neshranjena; `keep` = ostane v testu */
+interface Result { slot: Slot; task: Task | null; draft?: TaskDraft; error?: string; keep: boolean }
 
 /** Okno »Sestavi test«: iz nalog v trenutnem filtru izbere / generira test po zahtevani zgradbi. */
 export default function BuildTest({ pool, onClose }: { pool: Task[]; onClose: () => void }) {
@@ -44,12 +45,13 @@ export default function BuildTest({ pool, onClose }: { pool: Task[]; onClose: ()
   const [phase, setPhase] = useState<Phase>('setup');
   const [progress, setProgress] = useState(0);
   const [genTotal, setGenTotal] = useState(0);
+  const [saving, setSaving] = useState(false);
   const [results, setResults] = useState<Result[]>([]);
   const [error, setError] = useState<string | null>(null);
   const abort = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && phase !== 'running') onClose(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && phase === 'setup') onClose(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose, phase]);
@@ -79,7 +81,7 @@ export default function BuildTest({ pool, onClose }: { pool: Task[]; onClose: ()
   const build = async () => {
     setPhase('running'); setError(null); setProgress(0); setResults([]); setGenTotal(plan.generated);
     const ctl = new AbortController(); abort.current = ctl;
-    const out: Result[] = plan.slots.map(slot => ({ slot, task: slot.task }));
+    const out: Result[] = plan.slots.map(slot => ({ slot, task: slot.task, keep: true }));
     const todo = out.map((r, i) => ({ r, i })).filter(x => !x.r.task && x.r.slot.seed);
     let done = 0, next = 0;
     const worker = async () => {
@@ -93,24 +95,18 @@ export default function BuildTest({ pool, onClose }: { pool: Task[]; onClose: ()
             body: JSON.stringify({ task, mode: 'similar', mods: req.mods, extra: req.extra }) });
           const data = await res.json().catch(() => ({}));
           if (!res.ok) throw new Error(data.error ?? `Napaka ${res.status}`);
-          const draft = data.draft as TaskDraft;
-          // generirana naloga se shrani kot osnutek v bazo (ugnezdena pod izvirno), da jo je mogoče izbrati in pregledati
-          const saved = await save({ ...draft, status: 'draft', source: 'ai', parent_id: slot.seed!.parent_id ?? slot.seed!.id });
-          out[job.i] = { slot, task: saved };
+          // generirana naloga se v bazo shrani šele ob potrditvi (po pregledu)
+          out[job.i] = { slot, task: null, draft: data.draft as TaskDraft, keep: true };
         } catch (e) {
           if (ctl.signal.aborted) return;
-          out[job.i] = { slot, task: null, error: e instanceof Error ? e.message : String(e) };
+          out[job.i] = { slot, task: null, error: e instanceof Error ? e.message : String(e), keep: false };
         }
         setProgress(++done);
       }
     };
     await Promise.all(Array.from({ length: Math.min(PARALLEL, todo.length) }, worker));
     if (ctl.signal.aborted) return;
-    for (const r of out) if (!r.task && !r.error) r.error = 'V filtru ni nobene naloge, iz katere bi se dalo generirati.';
-    const final = out.filter(r => r.task);
-    // izbor v bazi: samo naloge tega testa
-    setMany([...selected], false);
-    setMany(final.map(r => r.task!.id), true);
+    for (const r of out) if (!r.task && !r.draft && !r.error) { r.keep = false; r.error = 'V filtru ni nobene naloge, iz katere bi se dalo generirati.'; }
     setResults(out);
     setPhase('done');
   };
@@ -119,14 +115,33 @@ export default function BuildTest({ pool, onClose }: { pool: Task[]; onClose: ()
 
   const field: React.CSSProperties = { ...input, width: '64px', padding: '4px 6px', textAlign: 'right' };
   const sectionLabel = (t: string) => <div style={{ ...tinyLabel, margin: '16px 0 6px' }}>{t}</div>;
-  const got = results.filter(r => r.task);
-  const gaps = results.filter(r => !r.task);
-  const pts = got.reduce((s, r) => s + (r.task!.points || 0), 0);
-  const mins = got.reduce((s, r) => s + (r.task!.minutes || 0), 0);
-  const nGen = got.filter(r => !r.slot.task).length;
+  const got = results.filter(r => (r.task || r.draft) && r.keep);
+  const gaps = results.filter(r => !r.task && !r.draft);
+  const item = (r: Result) => (r.task ?? r.draft)!;
+  const pts = got.reduce((s, r) => s + (item(r).points || 0), 0);
+  const mins = got.reduce((s, r) => s + (item(r).minutes || 0), 0);
+  const nGen = got.filter(r => r.draft).length;
+  const setKeep = (i: number, keep: boolean) => setResults(rs => rs.map((r, j) => (j === i ? { ...r, keep } : r)));
+
+  /** Potrdi test: shrani obdržane generirane naloge (osnutki pod izvirno nalogo) in izbere vse naloge testa. */
+  const confirmTest = async () => {
+    setSaving(true); setError(null);
+    try {
+      const ids: string[] = [];
+      for (const r of got) {
+        if (r.task) { ids.push(r.task.id); continue; }
+        const saved = await save({ ...r.draft!, status: 'draft', source: 'ai', parent_id: r.slot.seed!.parent_id ?? r.slot.seed!.id });
+        ids.push(saved.id);
+      }
+      setMany([...selected], false);
+      setMany(ids, true);
+      onClose();
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    finally { setSaving(false); }
+  };
 
   return (
-    <div onClick={() => phase !== 'running' && onClose()} style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(10,20,12,0.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '5vh 16px', overflowY: 'auto' }}>
+    <div onClick={() => phase === 'setup' && onClose()} style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(10,20,12,0.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '5vh 16px', overflowY: 'auto' }}>
       <div onClick={e => e.stopPropagation()} style={{ background: 'var(--canvas)', borderRadius: 'var(--r-md)', width: '100%', maxWidth: '640px', padding: '22px 26px 24px', fontFamily: 'var(--font-sans)', boxShadow: '0 12px 40px rgba(0,0,0,.25)' }}>
         <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '26px', fontWeight: 400, margin: '0 0 4px', color: 'var(--ink)' }}>Generiraj test</h2>
         <p style={{ fontSize: '12px', color: 'var(--muted)', margin: 0, lineHeight: 1.5 }}>
@@ -222,31 +237,58 @@ export default function BuildTest({ pool, onClose }: { pool: Task[]; onClose: ()
         {phase === 'done' && (
           <div style={{ marginTop: '16px' }}>
             <p style={{ fontSize: '13px', color: 'var(--ink)', margin: '0 0 4px' }}>
-              <b>Test je sestavljen: {got.length} {got.length === 1 ? 'naloga' : 'nalog'}</b>
+              <b>Test: {got.length} {got.length === 1 ? 'naloga' : 'nalog'}</b>
               {pts > 0 && ` · ${String(pts).replace('.', ',')} točk`}{mins > 0 && ` · ${mins} min`}
             </p>
             <p style={{ fontSize: '12px', color: 'var(--muted)', margin: '0 0 10px', lineHeight: 1.5 }}>
-              Naloge so izbrane v bazi (spodaj se pokaže vrstica za tisk / kviz).
-              {nGen > 0 && ` ${nGen} generiranih je shranjenih kot osnutek pod izvirno nalogo — preglej jih pred uporabo.`}
+              Pregled: z odkljukanjem nalogo izločiš iz testa. {nGen > 0 && `${nGen} generiranih še ni v bazi — shranijo se šele, ko test potrdiš (kot osnutki pod izvirno nalogo).`}
             </p>
             {gaps.length > 0 && (
               <div style={{ background: '#fdf6e3', borderRadius: 'var(--r-sm)', padding: '8px 10px', fontSize: '12px', color: '#8a5a00', marginBottom: '10px', lineHeight: 1.5 }}>
                 {gaps.length} {gaps.length === 1 ? 'mesto ni zapolnjeno' : 'mest ni zapolnjenih'}: {gaps[0].error}
               </div>
             )}
-            <ol style={{ margin: 0, paddingLeft: '22px', fontSize: '12px', color: 'var(--body)', lineHeight: 1.5 }}>
-              {results.map((r, i) => (
-                <li key={i} style={{ marginBottom: '3px', opacity: r.task ? 1 : 0.5 }}>
-                  <span style={{ color: 'var(--muted)' }}>
-                    [{classes.find(c => c.id === r.slot.classId)?.id.replace(/^[lb]/, '') ?? '?'} · {kindName(r.slot.kind)}{r.task && !r.slot.task ? ' · AI' : ''}{r.slot.mismatch ? ' · približno' : ''}]
-                  </span>{' '}
-                  {r.task ? plain(r.task.body).slice(0, 110) + (plain(r.task.body).length > 110 ? ' …' : '') : '(prazno mesto)'}
-                </li>
-              ))}
-            </ol>
-            <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
-              <button onClick={onClose} style={{ ...btn(true), padding: '8px 16px' }}>Zapri</button>
-              <button onClick={() => setPhase('setup')} style={btn()}>← Nastavitve</button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {results.map((r, i) => {
+                if (!r.task && !r.draft) return null;
+                const t = item(r);
+                const label = `${classes.find(c => c.id === r.slot.classId)?.id.replace(/^[lb]/, '') ?? '?'} · ${kindName(t.answer_kind)}${r.draft ? ' · AI (novo)' : ''}${r.slot.mismatch ? ' · približno' : ''}`;
+                const asTask = t as Task;
+                return (
+                  <div key={i} style={{ border: `1px solid ${r.draft ? '#ecd9a8' : 'var(--hairline)'}`, borderRadius: 'var(--r-sm)', padding: '8px 10px', opacity: r.keep ? 1 : 0.45, background: r.draft ? '#fffdf6' : 'transparent' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: 'var(--muted)', cursor: 'pointer', marginBottom: '4px' }}>
+                      <input type="checkbox" checked={r.keep} onChange={e => setKeep(i, e.target.checked)} />
+                      <b style={{ color: r.draft ? '#8a5a00' : 'var(--forest)' }}>{i + 1}.</b> {label}
+                    </label>
+                    {r.draft ? (
+                      <div style={{ fontSize: '13px', color: 'var(--ink)' }}>
+                        <Rich html={t.body} />
+                        {isChoice(t.answer_kind) && t.options && (
+                          <ol style={{ margin: '4px 0', paddingLeft: '4px', listStyle: 'none', fontSize: '12px' }}>
+                            {t.options.map((o, j) => <li key={o.id} style={{ fontWeight: correctIds(t).includes(o.id) ? 700 : 400, color: correctIds(t).includes(o.id) ? 'var(--green-ok)' : 'inherit' }}>{LETTERS[j]}) {o.text}</li>)}
+                          </ol>
+                        )}
+                        <div style={{ fontSize: '12px', color: 'var(--body)', marginTop: '4px' }}>
+                          <b>Odgovor:</b> <TaskAnswer task={asTask} />
+                        </div>
+                        {t.solution && <details style={{ fontSize: '12px', marginTop: '3px' }}><summary style={{ cursor: 'pointer', color: 'var(--muted)' }}>rešitev</summary><Rich html={t.solution} /></details>}
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: '12px', color: 'var(--body)', lineHeight: 1.5 }}>{plain(t.body).slice(0, 160) + (plain(t.body).length > 160 ? ' …' : '')}</div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {error && <p style={{ color: '#c0392b', fontSize: '12px' }}>{error}</p>}
+            <div style={{ display: 'flex', gap: '8px', marginTop: '16px', alignItems: 'center' }}>
+              <button onClick={() => void confirmTest()} disabled={saving || got.length === 0}
+                style={{ ...btn(true), padding: '8px 16px', opacity: saving || !got.length ? 0.5 : 1 }}>
+                {saving ? 'Shranjujem …' : `✓ Potrdi test (${got.length})`}
+              </button>
+              <button onClick={() => setPhase('setup')} disabled={saving} style={btn()}>← Nastavitve</button>
+              <span style={{ flex: 1 }} />
+              <button onClick={onClose} disabled={saving} style={btn()}>Zavrzi</button>
             </div>
           </div>
         )}
