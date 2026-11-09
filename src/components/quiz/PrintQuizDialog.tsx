@@ -40,7 +40,7 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
   const [printPlan, setPrintPlan] = useState<HalvesPlan | null>(null);
   /** vprašanja se mešajo le pri listih po učencih; pri enakem listu je vrstni red vprašanj vedno izviren */
   const qShuffle = perStudent && shuffleQ;
-  const hp = useHalvesPlan(items, halves, perStudent, title, { questions: qShuffle, options: shuffleO });
+  const hp = useHalvesPlan(items, halves, perStudent, title);
   /** vprašanja, ki se prilegajo (pri dveh testih na list se preostala odrežejo za vse učence enako) */
   const effItems = useMemo(() => (halves && hp.plan ? items.filter(i => hp.plan!.keptIds.has(i.id)) : items), [halves, hp.plan, items]);
 
@@ -87,9 +87,8 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
       let printItems = items;
       let exact: HalvesPlan | null = null;
       if (halves) {
-        // natančen izbor za dejanske učence in dejanska semena mešanja: isti vprašanja za vse, test vsakega se prilega
-        const seeds = perStudent ? (qShuffle || shuffleO ? students.map(st => sheetSeed(salt, st.id)) : [null]) : [shuffleO ? eqSeed : null];
-        exact = hp.compute(seeds);
+        // izbor vprašanj je skupen vsem učencem (enako težki testi); vsak list ima svojo razporeditev po stolpcih
+        exact = hp.plan;
         if (!exact) throw new Error('Meritev vprašanj še ni pripravljena — poskusi znova.');
         printItems = items.filter(i => exact!.keptIds.has(i.id));
         if (!printItems.length) throw new Error('Nobeno vprašanje se ne prilega na polovico lista.');
@@ -171,10 +170,10 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
         </span>
       </label>
       {halves && (
-        <div style={{ margin: '0 0 8px 26px', fontSize: '12px', fontWeight: 600, color: !hp.plan ? 'var(--muted)' : hp.plan.dropped.length ? '#b7791f' : 'var(--green-ok)' }}>
+        <div style={{ margin: '0 0 8px 26px', fontSize: '12px', fontWeight: 600, color: !hp.plan ? 'var(--muted)' : hp.plan.droppedItems.length ? '#b7791f' : 'var(--green-ok)' }}>
           {!hp.plan ? 'Merim …'
-            : hp.plan.dropped.length === 0 ? `✓ Prilegajo se vsa vprašanja (${hp.plan.total}).`
-            : `⚠ Prilega se ${hp.plan.kept} od ${hp.plan.total} vprašanj — ${hp.plan.dropped.length} jih bo odrezanih (zadnja v izvirnem vrstnem redu, enako za vse učence). Zmanjšaj število nalog.`}
+            : hp.plan.droppedItems.length === 0 ? `✓ Prilegajo se vsa vprašanja (${hp.plan.total}).`
+            : `⚠ Prilega se ${hp.plan.kept} od ${hp.plan.total} vprašanj. Odrezano za vse učence enako: ${hp.plan.droppedItems.map(d => `»${d.prompt.replace(/\s+/g, ' ').slice(0, 40)}${d.prompt.length > 40 ? '…' : ''}«`).join(', ')}. Zmanjšaj število nalog ali jih odstrani sam.`}
         </div>
       )}
       {hp.node}
@@ -211,8 +210,8 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
             <span style={{ flex: 1, color: 'var(--muted)', fontSize: '12px' }}>
               {preview.halves && hp.plan ? (
                 <>
-                  <b style={{ color: hp.plan.dropped.length ? '#b7791f' : 'var(--green-ok)' }}>
-                    {hp.plan.dropped.length ? `Prilega se ${hp.plan.kept} od ${hp.plan.total} vprašanj — odrezanih: ${hp.plan.dropped.length}` : `Prilegajo se vsa vprašanja (${hp.plan.total})`}
+                  <b style={{ color: hp.plan.droppedItems.length ? '#b7791f' : 'var(--green-ok)' }}>
+                    {hp.plan.droppedItems.length ? `Prilega se ${hp.plan.kept} od ${hp.plan.total} vprašanj — odrezanih: ${hp.plan.droppedItems.length}` : `Prilegajo se vsa vprašanja (${hp.plan.total})`}
                   </b>
                   {' · levo sprednja, desno hrbtna stran (zgoraj en test, spodaj drug).'}
                 </>
@@ -224,7 +223,7 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
           <div onClick={e => e.stopPropagation()} style={{ flex: 1, overflow: 'auto', padding: '16px' }}>
             {preview.halves && hp.plan ? (
               <div className="pqz-preview" style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap', zoom: 0.6 }}>
-                <HalvesPages sheets={preview.sheets} plan={hp.plan} title={title} placeholder duplicate={!perStudent} />
+                <HalvesPages sheets={preview.sheets} plan={hp.plan} title={title} placeholder duplicate={!perStudent} scramble={qShuffle} />
               </div>
             ) : (
               <div className="pqz-preview" style={{ width: 'fit-content', margin: '0 auto' }}>
@@ -239,7 +238,7 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
       {sheets && createPortal(
         <div className="print-questions pqz" aria-hidden>
           {printPlan
-            ? <HalvesPages sheets={sheets} plan={printPlan} title={title} className={cls?.name} duplicate={!perStudent} />
+            ? <HalvesPages sheets={sheets} plan={printPlan} title={title} className={cls?.name} duplicate={!perStudent} scramble={qShuffle} />
             : sheets.map(sh => <QuizSheet key={sh.key} sheet={sh} title={title} className={cls?.name} />)}
         </div>,
         document.body,
