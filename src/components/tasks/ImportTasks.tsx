@@ -8,7 +8,7 @@ import { allCurricula, topicLabel } from '@/lib/tasks/topics';
 import { Rich, TaskBadges, btn, input } from './ui';
 import type { Task } from '@/lib/tasks/types';
 
-/** Gumb + okno za uvoz nalog iz .txt ali .tex. */
+/** Gumb + okno za uvoz nalog iz .txt. */
 export default function ImportTasks() {
   const { tasks, importMany } = useTasks();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -57,9 +57,9 @@ export default function ImportTasks() {
 
   return (
     <>
-      <button onClick={() => fileRef.current?.click()} title="Uvozi naloge iz besedilne (.txt) ali LaTeX (.tex) datoteke" style={btn()}>⬆ Uvozi (.txt / .tex)</button>
+      <button onClick={() => fileRef.current?.click()} title="Uvozi naloge iz besedilne datoteke (.txt)" style={btn()}>⬆ Uvozi .txt</button>
       <a href="/primer-naloge.txt" download style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--muted)' }}>primer .txt</a>
-      <input ref={fileRef} type="file" accept=".txt,.tex,text/plain" hidden onChange={e => { void pick(e.target.files?.[0]); e.target.value = ''; }} />
+      <input ref={fileRef} type="file" accept=".txt,text/plain" hidden onChange={e => { void pick(e.target.files?.[0]); e.target.value = ''; }} />
       {done && <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--green-ok)' }}>✓ {done}</span>}
 
       {file && result && (
