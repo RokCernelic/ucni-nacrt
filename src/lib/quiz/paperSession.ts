@@ -36,7 +36,7 @@ export async function createPaperSession(opts: {
     .map(i => ({ id: i.id, kind: 'mc', prompt: i.prompt, points: i.points, options: i.options, correct: i.correct[0] }));
   const paper: PaperInfo = {
     salt, shuffle: opts.shuffleQuestions || opts.shuffleOptions, shuffleQuestions: opts.shuffleQuestions, shuffleOptions: opts.shuffleOptions,
-    items: opts.items.map(i => ({ id: i.id, choice: i.choice, multi: i.multi, options: i.options.map(o => ({ id: o.id, text: '' })), correct: i.correct, points: i.points })),
+    items: opts.items.map(i => ({ id: i.id, choice: i.choice, multi: i.multi, options: i.options.map(o => ({ id: o.id, text: '', ...(o.keepPlace ? { keepPlace: true } : {}) })), noShuffle: i.noShuffle, correct: i.correct, points: i.points })),
   };
   const { data, error } = await sb.from('quiz_sessions').insert({
     code: code(), quiz_id: opts.quizId, quiz_title: opts.title || 'Kviz', quiz: { questions },

@@ -11,7 +11,10 @@ export interface PrintItem {
   html: string;
   /** besedilo vprašanja brez oblikovanja (posnetek seje za statistiko) */
   prompt: string;
-  options: { id: string; text: string }[];
+  /** `keepPlace`: ob mešanju odgovorov ostane na svojem mestu (npr. »nič od naštetega«) */
+  options: { id: string; text: string; keepPlace?: boolean }[];
+  /** vrstnega reda možnosti se ne meša (drži / ne drži) */
+  noShuffle?: boolean;
   /** id-ji pravilnih možnosti */
   correct: string[];
   points: number;
@@ -29,6 +32,7 @@ export function itemsFromTasks(tasks: Task[], toPlain: (html: string) => string)
     return {
       id: t.id, choice, multi: t.answer_kind === 'multi', html: t.body, prompt: toPlain(t.body),
       options: choice ? t.options!.map(o => ({ id: o.id, text: o.text })) : [],
+      noShuffle: t.answer_kind === 'tf',
       correct, points: t.points > 0 ? t.points : 1,
       space: t.answer_kind === 'numeric' ? 15 : t.answer_kind === 'short' ? 15 : 25,
     };
@@ -39,7 +43,7 @@ export function itemsFromQuiz(quiz: Quiz): PrintItem[] {
   return quiz.questions.map(q => {
     const img = q.image ? `<p><img src="${q.image}" alt=""></p>` : '';
     const html = `<p>${plainHtml(q.prompt)}</p>${img}`;
-    if (q.kind === 'mc') return { id: q.id, choice: true, html, prompt: q.prompt, options: q.options.map(o => ({ id: o.id, text: o.text })), correct: q.correct ? [q.correct] : [], points: q.points, space: 0 };
+    if (q.kind === 'mc') return { id: q.id, choice: true, html, prompt: q.prompt, options: q.options.map(o => ({ id: o.id, text: o.text, ...(o.keepPlace ? { keepPlace: true } : {}) })), noShuffle: q.options.length === 2 && q.options[0].text === 'Drži' && q.options[1].text === 'Ne drži', correct: q.correct ? [q.correct] : [], points: q.points, space: 0 };
     if (q.kind === 'open') return { id: q.id, choice: false, html: q.html || html, prompt: q.prompt, options: [], correct: [], points: q.points, space: Math.min(q.space ?? 25, 25) };
     return { id: q.id, choice: false, html, prompt: q.prompt, options: [], correct: [], points: q.points, space: 15 };
   });
@@ -58,6 +62,13 @@ function makeRng(seed: string): () => number {
   };
 }
 
+/** Premeša možnosti, a tiste s `keepPlace` pusti na njihovem mestu. */
+function shuffleOptions<O extends { keepPlace?: boolean }>(arr: O[], rng: () => number): O[] {
+  const free = shuffled(arr.filter(o => !o.keepPlace), rng);
+  let i = 0;
+  return arr.map(o => (o.keepPlace ? o : free[i++]));
+}
+
 function shuffled<T>(arr: T[], rng: () => number): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
@@ -65,7 +76,7 @@ function shuffled<T>(arr: T[], rng: () => number): T[] {
 }
 
 /** Postavka za razpored: pri skeniranju zadošča brez besedila (id, izbirnost, možnosti). */
-export type LayoutItem = Pick<PrintItem, 'id' | 'choice' | 'multi' | 'options'>;
+export type LayoutItem = Pick<PrintItem, 'id' | 'choice' | 'multi' | 'options' | 'noShuffle'>;
 export interface SheetItem<T extends LayoutItem = PrintItem> { n: number; item: T; options: { letter: string; id: string; text: string }[] }
 export interface SheetLayout<T extends LayoutItem = PrintItem> { choice: SheetItem<T>[]; free: SheetItem<T>[] }
 
@@ -86,7 +97,7 @@ export function layoutSheet<T extends LayoutItem>(items: T[], seed: string | nul
   let n = 0;
   const wrap = (item: T): SheetItem<T> => ({
     n: ++n, item,
-    options: (oRng ? shuffled(item.options, oRng) : item.options).map((o, i) => ({ letter: LETTERS[i], id: o.id, text: o.text })),
+    options: (oRng && item.choice && !item.noShuffle ? shuffleOptions(item.options, oRng) : item.options).map((o, i) => ({ letter: LETTERS[i], id: o.id, text: o.text })),
   });
   return { choice: choice.map(wrap), free: free.map(wrap) };
 }

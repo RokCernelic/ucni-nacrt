@@ -86,7 +86,7 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
           {!perStudent && (
             <label style={{ ...labelStyle, margin: '0 0 12px 26px' }}>
               <input type="checkbox" checked={shuffleO} onChange={e => setShuffleO(e.target.checked)} style={{ marginTop: '3px' }} />
-              <span>Premešaj odgovore<span style={{ display: 'block', fontSize: '12px', color: 'var(--muted)' }}>Vrstni red možnosti (A, B, C …) se premeša; vsi dobijo isti premešani list.</span></span>
+              <span>Premešaj odgovore<span style={{ display: 'block', fontSize: '12px', color: 'var(--muted)' }}>Vrstni red možnosti (A, B, C …) se premeša le pri izbirnih nalogah (ne pri drži / ne drži, številskih in odprtih); vsi dobijo isti list.</span></span>
             </label>
           )}
           <label style={labelStyle}>
@@ -106,7 +106,7 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
               </label>
               <label style={{ ...labelStyle, marginBottom: 0 }}>
                 <input type="checkbox" checked={shuffleO} onChange={e => setShuffleO(e.target.checked)} style={{ marginTop: '3px' }} />
-                <span>Premešaj odgovore<span style={{ display: 'block', fontSize: '12px', color: 'var(--muted)' }}>Vsak učenec ima drugačen vrstni red možnosti; črke v obrazcu ustrezajo njegovemu listu, zato je vsak test unikaten.</span></span>
+                <span>Premešaj odgovore<span style={{ display: 'block', fontSize: '12px', color: 'var(--muted)' }}>Vsak učenec ima drugačen vrstni red možnosti, a le pri izbirnih nalogah (ne pri drži / ne drži, številskih in odprtih); črke v obrazcu ustrezajo njegovemu listu.</span></span>
               </label>
             </div>
           )}
