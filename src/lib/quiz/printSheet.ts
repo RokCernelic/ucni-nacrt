@@ -87,11 +87,13 @@ export const LETTERS = 'ABCDEFGHIJKL';
  * Z `seed` se vrstni red vprašanj in možnosti določi deterministično (isti seed → isti list),
  * zato skener iz QR kode ugotovi, katera črka je katera izvirna možnost.
  */
-export function layoutSheet<T extends LayoutItem>(items: T[], seed: string | null, opts: { questions?: boolean; options?: boolean } = {}): SheetLayout<T> {
+export function layoutSheet<T extends LayoutItem>(items: T[], seed: string | null, opts: { questions?: boolean; options?: boolean; order?: string[] } = {}): SheetLayout<T> {
   const rng = seed ? makeRng(seed) : null;
   const qRng = opts.questions === false ? null : rng;
   const oRng = opts.options === false ? null : rng;
-  const order = <U,>(a: U[]) => (qRng ? shuffled(a, qRng) : a);
+  // izrecen vrstni red (npr. razporeditev za dva testa na list: številčenje gre po vrsti v bralnem redu) ima prednost pred mešanjem
+  const pos = opts.order ? new Map(opts.order.map((id, i) => [id, i])) : null;
+  const order = <U extends { id: string },>(a: U[]) => (pos ? [...a].sort((x, y) => (pos.get(x.id) ?? 1e9) - (pos.get(y.id) ?? 1e9)) : qRng ? shuffled(a, qRng) : a);
   const choice = order(items.filter(i => i.choice));
   const free = order(items.filter(i => !i.choice));
   let n = 0;

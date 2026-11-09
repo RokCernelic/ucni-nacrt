@@ -6,7 +6,7 @@ import QRCode from 'qrcode';
 import { useMasterClasses } from '@/hooks/useMasterClasses';
 import { useRoster } from '@/hooks/useRoster';
 import { SheetHead, FrameView, ItemBody, type Sheet } from './QuizSheetParts';
-import { HalvesPages, useHalvesPlan, type HalvesPlan } from './HalvesSheet';
+import { HalvesPages, useHalvesPlan, findOrder, type HalvesPlan } from './HalvesSheet';
 import { layoutSheet, sheetToken, sheetSeed, frameGeometry, type PrintItem, type SheetLayout } from '@/lib/quiz/printSheet';
 import { createPaperSession } from '@/lib/quiz/paperSession';
 import Link from 'next/link';
@@ -48,15 +48,25 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
   const canPrint = items.length > 0 && !busy && (!perStudent || students.length > 0) && (!halves || (!!hp.plan && effItems.length > 0));
 
   /** Listi za tisk: po učencih (QR + premešanje po soli seje) ali en enak list. */
-  const buildSheets = async (listItems: PrintItem[], sessionId?: string, salt?: string, eqSeed?: string): Promise<Sheet[]> => {
+  const buildSheets = async (listItems: PrintItem[], sessionId?: string, salt?: string, eqSeed?: string, orders?: Record<string, string[]>): Promise<Sheet[]> => {
     if (perStudent && sessionId && salt) {
       return Promise.all(students.map(async st => ({
         key: st.id, name: st.name,
         qr: await QRCode.toDataURL(sheetToken(sessionId, st.id), { margin: 0, width: 240, errorCorrectionLevel: 'M' }),
-        layout: layoutSheet(listItems, qShuffle || shuffleO ? sheetSeed(salt, st.id) : null, { questions: qShuffle, options: shuffleO }),
+        // izrecen vrstni red (dva testa na list): številčenje gre po vrsti v bralnem redu; odgovori se po želji premešajo
+        layout: orders?.[st.id]
+          ? layoutSheet(listItems, shuffleO ? sheetSeed(salt, st.id) : null, { questions: false, options: shuffleO, order: orders[st.id] })
+          : layoutSheet(listItems, qShuffle || shuffleO ? sheetSeed(salt, st.id) : null, { questions: qShuffle, options: shuffleO }),
       })));
     }
-    return [{ key: 'all', name: null, qr: null, layout: layoutSheet(listItems, shuffleO ? (eqSeed ?? crypto.randomUUID()) : null, { questions: false, options: shuffleO }) }];
+    return [{ key: 'all', name: null, qr: null, layout: layoutSheet(listItems, shuffleO ? (eqSeed ?? crypto.randomUUID()) : null, { questions: false, options: shuffleO, order: orders?.all }) }];
+  };
+
+  /** Vrstni red vprašanj za dva testa na list: številke po vrsti v bralnem redu, pri mešanju vprašanj drugačen za vsakega učenca. */
+  const halvesOrder = (plan: HalvesPlan, forItems: PrintItem[], key: string | null, withQr: boolean): string[] => {
+    const o = findOrder(forItems, plan.m, withQr, key);
+    if (!o) throw new Error('Vprašanj ni mogoče razporediti na polovici lista — zmanjšaj število nalog.');
+    return o;
   };
 
   /** Predogled: en list (ne cel razred) z vzorčnim imenom, datumom in QR kodo; pri dveh testih na list dva vzorčna testa. */
@@ -67,11 +77,13 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
       const mk = async (key: string, seed: string): Promise<Sheet> => ({
         key, name: 'IME IN PRIIMEK',
         qr: await QRCode.toDataURL(sheetToken('00000000-0000-0000-0000-000000000000', key), { margin: 0, width: 240, errorCorrectionLevel: 'M' }),
-        layout: layoutSheet(effItems, qShuffle || shuffleO ? seed : null, { questions: qShuffle, options: shuffleO }),
+        layout: halves && hp.plan
+          ? layoutSheet(effItems, shuffleO ? seed : null, { questions: false, options: shuffleO, order: halvesOrder(hp.plan, effItems, qShuffle ? seed : null, true) })
+          : layoutSheet(effItems, qShuffle || shuffleO ? seed : null, { questions: qShuffle, options: shuffleO }),
       });
       const rnd = () => Math.random().toString(36).slice(2, 10);
       if (halves) {
-        setPreview({ sheets: perStudent ? [await mk('predogled-1', 'predogled0'), await mk('predogled-2', 'predogled1')] : await buildSheets(effItems, undefined, undefined, 'predogled0'), idx: 0, halves: true });
+        setPreview({ sheets: perStudent ? [await mk('predogled-1', 'predogled0'), await mk('predogled-2', 'predogled1')] : await buildSheets(effItems, undefined, undefined, 'predogled0', { all: halvesOrder(hp.plan!, effItems, null, false) }), idx: 0, halves: true });
       } else {
         setPreview({ sheets: [perStudent ? await mk('predogled', rnd()) : (await buildSheets(effItems))[0]], idx: 0 });
       }
@@ -96,12 +108,14 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
       let list: Sheet[];
       if (perStudent) {
         if (!cls) return;
+        // dva testa na list: vrstni red vprašanj po učencih (številke po vrsti); shranjen v seji za skener in točkovanje
+        const orders = exact ? Object.fromEntries(students.map(st => [st.id, halvesOrder(exact!, printItems, qShuffle ? sheetSeed(salt, st.id) : null, true)])) : undefined;
         // seja za skeniranje (odgovori gredo v skupno statistiko kvizov)
-        const session = await createPaperSession({ title, quizId, classId: cls.id, className: cls.name, students, items: printItems, shuffleQuestions: qShuffle, shuffleOptions: shuffleO, salt });
-        list = await buildSheets(printItems, session.id, session.paper!.salt);
+        const session = await createPaperSession({ title, quizId, classId: cls.id, className: cls.name, students, items: printItems, shuffleQuestions: qShuffle, shuffleOptions: shuffleO, salt, orders });
+        list = await buildSheets(printItems, session.id, session.paper!.salt, undefined, orders);
         setPrinted({ sessionId: session.id, scanQr: await QRCode.toDataURL(`${window.location.origin}/kvizi/skener`, { margin: 1, width: 220 }) });
       } else {
-        list = await buildSheets(printItems, undefined, undefined, eqSeed);
+        list = await buildSheets(printItems, undefined, undefined, eqSeed, exact ? { all: halvesOrder(exact, printItems, null, false) } : undefined);
       }
       const style = document.createElement('style');
       // odmik zgoraj/spodaj tudi na nadaljnjih straneh; številčenje strani le pri skupnem listu
@@ -223,7 +237,7 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
           <div onClick={e => e.stopPropagation()} style={{ flex: 1, overflow: 'auto', padding: '16px' }}>
             {preview.halves && hp.plan ? (
               <div className="pqz-preview" style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap', zoom: 0.6 }}>
-                <HalvesPages sheets={preview.sheets} plan={hp.plan} title={title} placeholder duplicate={!perStudent} scramble={qShuffle} />
+                <HalvesPages sheets={preview.sheets} plan={hp.plan} title={title} placeholder duplicate={!perStudent} />
               </div>
             ) : (
               <div className="pqz-preview" style={{ width: 'fit-content', margin: '0 auto' }}>
@@ -238,7 +252,7 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
       {sheets && createPortal(
         <div className="print-questions pqz" aria-hidden>
           {printPlan
-            ? <HalvesPages sheets={sheets} plan={printPlan} title={title} className={cls?.name} duplicate={!perStudent} scramble={qShuffle} />
+            ? <HalvesPages sheets={sheets} plan={printPlan} title={title} className={cls?.name} duplicate={!perStudent} />
             : sheets.map(sh => <QuizSheet key={sh.key} sheet={sh} title={title} className={cls?.name} />)}
         </div>,
         document.body,

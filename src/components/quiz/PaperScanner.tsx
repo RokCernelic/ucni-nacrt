@@ -137,7 +137,7 @@ export default function PaperScanner() {
               if (!paper || !st) setStatus('List ne pripada nobeni od tvojih sej.');
               else if (!(await sessionOpen(tok.sessionId))) setStatus('Ta seja je končana — skeniranje ni več mogoče.');
               else {
-                const layout = layoutSheet(paper.items, paper.shuffle ? sheetSeed(paper.salt, tok.studentId) : null, shuffleOpts(paper));
+                const layout = layoutSheet(paper.items, paper.shuffle ? sheetSeed(paper.salt, tok.studentId) : null, { ...shuffleOpts(paper), order: paper.orders?.[tok.studentId] });
                 const geom = frameGeometry(layout, true);
                 const reading = readLocated(g, geom, loc);
                 if (!reading) setStatus('Okvir ni dovolj jasen — približaj ali poravnaj list.');

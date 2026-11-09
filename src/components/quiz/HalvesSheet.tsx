@@ -10,9 +10,11 @@ import { SheetHead, FrameView, ItemBody, type Sheet } from './QuizSheetParts';
  * na hrbtni strani (dvostransko tiskanje) sta zgoraj nadaljevanje prvega, spodaj nadaljevanje drugega.
  *
  * Vsak test ima štiri stolpce: sprednja stran levo in desno (pod glavo in okvirjem z odgovori), hrbtna stran levo in desno.
- * Vrstni red vprašanj po stolpcih in vrsticah ni pomemben, zato se vprašanja razporedijo tako, da je prostor čim bolje
- * izkoriščen (pakiranje po višini). Če vsa ne gredo, algoritem najprej preveri, katera vprašanja je najbolje odrezati
- * (največ ohranjenih točk; ob enakem raje odreže kasnejša), in isti izbor velja za vse učence.
+ * Številčenje gre VEDNO po vrsti v bralnem redu (levi stolpec navzdol, nato desni, nato hrbtna stran), da učenec brez
+ * zmede sledi vpisovanju v krogce; kdo je katera naloga, pa je shranjeno (vrstni red po učencih), zato točkovanje,
+ * skener in statistika vedo, katera naloga je katera. Z mešanjem vprašanj ima vsak učenec drugačen vrstni red nalog;
+ * algoritem poišče vrstni red, pri katerem se zaporedno polnjenje stolpcev izide. Če vsa vprašanja ne gredo, najprej
+ * preveri, katera je najbolje odrezati (največ ohranjenih točk; ob enakem raje kasnejša), isti izbor velja za vse.
  */
 
 const HALF_H = 148.5;                   // mm: polovica A4
@@ -58,19 +60,7 @@ function capsFor(layoutForFrame: SheetLayout, m: Measured, withQr: boolean): num
   return [c1, c1, INNER, INNER];
 }
 
-/** First-fit po danem vrstnem redu; vrne stolpce ali null, če se kaj ne prilega. */
-function firstFit<T>(order: T[], h: (x: T) => number, caps: number[]): T[][] | null {
-  const cols: T[][] = caps.map(() => []);
-  const used = caps.map(() => 0);
-  for (const x of order) {
-    const hx = h(x);
-    const k = caps.findIndex((cap, i) => used[i] + hx <= cap + 1e-6);
-    if (k < 0) return null;
-    cols[k].push(x); used[k] += hx;
-  }
-  return cols;
-}
-/** Zaporedno polnjenje (vrstni red ostane): levi stolpec do vrha, nato naslednji … */
+/** Zaporedno polnjenje (vrstni red ostane): levi stolpec do vrha, nato naslednji … Vrne stolpce ali null, če se kaj ne prilega. */
 function nextFit<T>(order: T[], h: (x: T) => number, caps: number[]): T[][] | null {
   const cols: T[][] = caps.map(() => []);
   let k = 0, used = 0;
@@ -84,18 +74,29 @@ function nextFit<T>(order: T[], h: (x: T) => number, caps: number[]): T[][] | nu
 }
 
 /**
- * Razporeditev v štiri stolpce, ki NE ZAVISI od vrstnega reda vhoda (kanonični vrstni red: višina padajoče, nato ključ):
- * padajoče po višini, nato naključno (deterministično). Tako je prileganje enako za vse premešane liste istega izbora.
+ * Poišče vrstni red vprašanj (izbirna najprej, nato prosta), pri katerem se zaporedno polnjenje štirih stolpcev izide.
+ * Z `seed` najprej poskusi naključne vrstne rede (vsak učenec drugačen); nato vedno še determinističnega (izvirni,
+ * padajoče, naraščajoče, naključni s fiksnim semenom) — če se izide izbor v načrtu, se izide tudi pri vsakem učencu.
+ * Vrne id-je po številkah ali null.
  */
-function packCanonical<T>(items: T[], h: (x: T) => number, key: (x: T) => string, caps: number[], tries = 60): T[][] | null {
-  const canon = [...items].sort((a, b) => h(b) - h(a) || (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0));
-  const ffd = firstFit(canon, h, caps);
-  if (ffd) return ffd;
-  const rng = mulberry('pakiranje');
-  for (let t = 0; t < tries; t++) {
-    const r = firstFit(shuffled(canon, rng), h, caps);
-    if (r) return r;
+export function findOrder(items: PrintItem[], m: Measured, withQr: boolean, seed: string | null, tries = 300): string[] | null {
+  const choice = items.filter(i => i.choice), free = items.filter(i => !i.choice);
+  const caps = capsFor(layoutSheet(items, null), m, withQr);
+  const h = (i: PrintItem) => m.heights[i.id] ?? 0;
+  const attempt = (c: PrintItem[], f: PrintItem[]): string[] | null => {
+    const seq = [...c, ...f];
+    return nextFit(seq, h, caps) ? seq.map(i => i.id) : null;
+  };
+  if (seed) {
+    const rng = mulberry(seed);
+    for (let t = 0; t < tries; t++) { const r = attempt(shuffled(choice, rng), shuffled(free, rng)); if (r) return r; }
   }
+  const by = (dir: 1 | -1) => (a: PrintItem[]) => [...a].sort((x, y) => dir * (h(y) - h(x)) || (x.id < y.id ? -1 : 1));
+  const desc = by(1), asc = by(-1);
+  const det = attempt(choice, free) ?? attempt(desc(choice), desc(free)) ?? attempt(asc(choice), asc(free));
+  if (det) return det;
+  const rng = mulberry('nacrt');
+  for (let t = 0; t < 120; t++) { const r = attempt(shuffled(choice, rng), shuffled(free, rng)); if (r) return r; }
   return null;
 }
 
@@ -113,10 +114,10 @@ export function planFor(items: PrintItem[], m: Measured, withQr: boolean): Halve
 
   const feasible = (keep: boolean[]): boolean => {
     const list = seq.filter((_, i) => keep[i]);
-    const frameLayout = { choice: list.filter(c => c.item.choice), free: [] } as unknown as SheetLayout;
-    const caps = capsFor(frameLayout, m, withQr);
+    const kept = list.map(c => c.item as PrintItem);
+    const caps = capsFor(layoutSheet(kept, null), m, withQr);
     if (list.reduce((s, c) => s + hOf(c), 0) > caps.reduce((a, b) => a + b, 0) + 1e-6) return false;
-    return !!packCanonical(list, hOf, c => c.item.id, caps, 25);
+    return !!findOrder(kept, m, withQr, null);
   };
 
   let keep: boolean[] = Array(n).fill(true);
@@ -151,25 +152,6 @@ export function planFor(items: PrintItem[], m: Measured, withQr: boolean): Halve
   }
   const keptIds = new Set(seq.filter((_, i) => keep[i]).map(c => c.item.id));
   return { kept: keptIds.size, total: n, keptIds, droppedItems: items.filter(i => !keptIds.has(i.id)), m };
-}
-
-/**
- * Razporedi vprašanja lista v štiri stolpce. Brez mešanja vrstni red ostane zaporeden (levo navzdol, nato desno …);
- * z mešanjem (`scrambleSeed`) ima vsak učenec drugačno razporeditev. Znotraj stolpca so vprašanja po številki.
- */
-export function placeItems(layout: SheetLayout, m: Measured, withQr: boolean, scrambleSeed: string | null): SheetItem[][] {
-  const seq = [...layout.choice, ...layout.free];
-  const h = (c: SheetItem) => m.heights[c.item.id] ?? 0;
-  const caps = capsFor(layout, m, withQr);
-  let cols: SheetItem[][] | null = null;
-  if (scrambleSeed) {
-    const rng = mulberry(scrambleSeed);
-    for (let t = 0; t < 40 && !cols; t++) cols = firstFit(shuffled(seq, rng), h, caps);
-  }
-  if (!scrambleSeed) cols = nextFit(seq, h, caps);   // brez mešanja: vrstni red ostane zaporeden, če gre
-  cols ??= packCanonical(seq, h, c => c.item.id, caps);
-  cols ??= [seq, [], [], []]; // ne bi se smelo zgoditi (izbor je preverjen)
-  return cols.map(c => [...c].sort((a, b) => a.n - b.n));
 }
 
 // ───────────────────────── merjenje ─────────────────────────
@@ -224,10 +206,12 @@ export function useHalvesPlan(items: PrintItem[], enabled: boolean, withQr: bool
 
 // ───────────────────────── izris ─────────────────────────
 
-function HalfView({ sheet, part, plan, title, className, placeholder, scramble }: {
-  sheet: Sheet; part: 1 | 2; plan: HalvesPlan; title: string; className?: string; placeholder?: boolean; scramble?: boolean;
+function HalfView({ sheet, part, plan, title, className, placeholder }: {
+  sheet: Sheet; part: 1 | 2; plan: HalvesPlan; title: string; className?: string; placeholder?: boolean;
 }) {
-  const cols = placeItems(sheet.layout, plan.m, !!sheet.qr, scramble ? `${sheet.key}|razpored` : null);
+  // številke so po vrsti v bralnem redu: levi stolpec navzdol, nato desni, nato hrbtna stran
+  const seq = [...sheet.layout.choice, ...sheet.layout.free];
+  const cols = nextFit(seq, c => plan.m.heights[c.item.id] ?? 0, capsFor(sheet.layout, plan.m, !!sheet.qr)) ?? [seq, [], [], []];
   const [left, right] = part === 1 ? [cols[0], cols[1]] : [cols[2], cols[3]];
   const col = (items: SheetItem[]) => <div className="pqz-hcol">{items.map(c => <div className="pqz-hitem" key={c.n}><ItemBody c={c} /></div>)}</div>;
   return (
@@ -245,10 +229,10 @@ function HalfView({ sheet, part, plan, title, className, placeholder, scramble }
 
 /**
  * Strani za tisk: po dva lista (učenca) na list A4; sprednja in hrbtna stran vsakega para.
- * `duplicate`: en sam enak list (brez imen) se natisne zgoraj in spodaj. `scramble`: vsak učenec ima drugačno razporeditev.
+ * `duplicate`: en sam enak list (brez imen) se natisne zgoraj in spodaj.
  */
-export function HalvesPages({ sheets, plan, title, className, placeholder, duplicate, scramble }: {
-  sheets: Sheet[]; plan: HalvesPlan; title: string; className?: string; placeholder?: boolean; duplicate?: boolean; scramble?: boolean;
+export function HalvesPages({ sheets, plan, title, className, placeholder, duplicate }: {
+  sheets: Sheet[]; plan: HalvesPlan; title: string; className?: string; placeholder?: boolean; duplicate?: boolean;
 }) {
   const pairs: [Sheet, Sheet | undefined][] = [];
   if (duplicate && sheets[0]) pairs.push([sheets[0], sheets[0]]);
@@ -257,8 +241,8 @@ export function HalvesPages({ sheets, plan, title, className, placeholder, dupli
     <>
       {pairs.flatMap(([a, b], pi) => ([1, 2] as const).map(part => (
         <div className="pqz-page" key={`${pi}-${part}`}>
-          <div className="pqz-half"><HalfView sheet={a} part={part} plan={plan} title={title} className={className} placeholder={placeholder} scramble={scramble} /></div>
-          <div className="pqz-half">{b && <HalfView sheet={b} part={part} plan={plan} title={title} className={className} placeholder={placeholder} scramble={scramble} />}</div>
+          <div className="pqz-half"><HalfView sheet={a} part={part} plan={plan} title={title} className={className} placeholder={placeholder} /></div>
+          <div className="pqz-half">{b && <HalfView sheet={b} part={part} plan={plan} title={title} className={className} placeholder={placeholder} />}</div>
         </div>
       )))}
     </>
