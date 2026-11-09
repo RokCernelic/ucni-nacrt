@@ -5,10 +5,34 @@ const SUP: Record<string, string> = { '0': '⁰', '1': '¹', '2': '²', '3': '³
 const SUB: Record<string, string> = { '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄', '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉', '+': '₊', '-': '₋', '−': '₋' };
 const map = (s: string, m: Record<string, string>) => (s.split('').every(c => c in m) ? s.split('').map(c => m[c]).join('') : null);
 
+const SPACED = new Set(['=', '+', '−', '-', '×', '·', '≈', '≠', '<', '>', '≤', '≥', '→', '⇒', '±']);
+const simple = (t: string) => /^[\p{L}\p{N}.,²³¹⁰⁴-⁹⁻⁺_]+$/u.test(t);
+const paren = (t: string) => (simple(t) ? t : `(${t})`);
+
+/** MathML → navadno besedilo (kviz nima enačb): ulomek a/b, potence in indeksi z Unicode, koren √. */
+function mathToText(el: Element): string {
+  const kids = Array.from(el.children);
+  const txt = (e: Element | undefined) => (e ? mathToText(e) : '');
+  switch (el.localName) {
+    case 'mfrac': return `${paren(txt(kids[0]))}/${paren(txt(kids[1]))}`;
+    case 'msup': { const e = txt(kids[1]); return txt(kids[0]) + (map(e, SUP) ?? `^(${e})`); }
+    case 'msub': { const e = txt(kids[1]); return txt(kids[0]) + (map(e, SUB) ?? `_(${e})`); }
+    case 'msubsup': { const lo = txt(kids[1]), up = txt(kids[2]); return txt(kids[0]) + (map(lo, SUB) ?? `_(${lo})`) + (map(up, SUP) ?? `^(${up})`); }
+    case 'msqrt': { const i = kids.map(mathToText).join(''); return simple(i) ? `√${i}` : `√(${i})`; }
+    case 'mroot': return `${txt(kids[1])}√(${txt(kids[0])})`;
+    case 'mspace': return ' ';
+    case 'annotation': case 'annotation-xml': return '';
+    case 'mo': { const t = (el.textContent ?? '').trim(); return SPACED.has(t) ? ` ${t} ` : t; }
+    case 'mtext': return el.textContent ?? '';
+    default: return kids.length ? kids.map(mathToText).join('') : (el.textContent ?? '');
+  }
+}
+
 /** Obogaten HTML naloge → navadno besedilo (kviz ima besedilo vprašanj brez oblikovanja). */
 export function htmlToPlain(html: string): string {
   if (typeof window === 'undefined') return html.replace(/<[^>]*>/g, '');
   const root = new DOMParser().parseFromString(`<body>${html}</body>`, 'text/html').body;
+  root.querySelectorAll('math').forEach(e => { e.replaceWith(mathToText(e).replace(/[ \u00a0\u202f\u2009]+/g, ' ').trim()); });
   root.querySelectorAll('sup').forEach(e => { const t = e.textContent ?? ''; e.replaceWith(map(t, SUP) ?? `^(${t})`); });
   root.querySelectorAll('sub').forEach(e => { const t = e.textContent ?? ''; e.replaceWith(map(t, SUB) ?? `_(${t})`); });
   root.querySelectorAll('br').forEach(e => e.replaceWith('\n'));

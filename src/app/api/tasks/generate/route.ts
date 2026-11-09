@@ -7,6 +7,15 @@ import { emptyTask, type TaskDraft, type AnswerKind, type TaskKind } from '@/lib
 export const maxDuration = 60;
 
 /** Previdnostno čiščenje modelovega HTML-ja (urejevalnik ga ob shranjevanju še enkrat počisti). */
+/** Besede (4+ črk) iz HTML-ja — za preverjanje, da je model pri popravljanju zapisa enačb pustil besedilo nespremenjeno. */
+const wordSet = (h: string) => new Set((h.replace(/<[^>]*>/g, ' ').toLowerCase().match(/[a-zčšžćđ]{4,}/g) ?? []));
+const sameWords = (a: string, b: string) => {
+  const x = wordSet(a), y = wordSet(b);
+  if (!x.size && !y.size) return true;
+  let common = 0; x.forEach(w => { if (y.has(w)) common++; });
+  return common / Math.max(1, new Set([...x, ...y]).size) >= 0.9;
+};
+
 const cleanHtml = (h: string) => h
   .replace(/<\s*(script|style|iframe|object|embed|img)[\s\S]*?(<\/\s*\1\s*>|>)/gi, '')
   .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
@@ -20,6 +29,17 @@ const KIND_IDS: TaskKind[] = ['racunska', 'besedilna', 'graficna', 'skica', 'eks
 const MC_STYLE = 'Pri IZBIRNIH nalogah (mc, multi, tf) naj bosta besedilo vprašanja in možnosti praviloma JEDRNATA: kratko vprašanje (običajno ena ali dve povedi, brez nepotrebnega opisa situacije) ' +
   'in kratke možnosti (beseda, številka z enoto ali krajša poved). Daljše besedilo ali daljše možnosti le, kadar naloge drugače ni mogoče smiselno zastaviti (npr. potrebni podatki, utemeljitev). ';
 
+/**
+ * Zapis enačb in formul: v besedilu, rešitvi in kratkem odgovoru (HTML) uporabi MathML, ki ga aplikacija prikaže in izvozi v LaTeX;
+ * v možnostih izbirnih nalog (navadno besedilo) Unicode znake. Velja za generiranje in popravljanje.
+ */
+const MATH_STYLE = 'ZAPIS ENAČB IN FORMUL (pomembno za berljivost): v besedilu naloge, rešitvi in kratkem odgovoru (to je HTML) zapiši vsako enačbo, formulo in račun z MathML (<math>…</math>), ne kot niz z / ali ^. ' +
+  'Deljenje praviloma zapiši kot ULOMEK: <math><mfrac><mrow>števec</mrow><mrow>imenovalec</mrow></mfrac></math>; potence z <msup>, indekse z <msub>, korene z <msqrt>. ' +
+  'Spremenljivke so v <mi>, številke v <mn>, znaki v <mo>; enote pokončno (<mi mathvariant="normal">N</mi>), med številom in enoto ozek presledek (&#8239;); množenje z · ali ×, minus z − (U+2212), decimalna VEJICA (ne pika), grške črke (Δ, ρ, η …) kot Unicode. ' +
+  'Primer: <math><mi>W</mi><mo>=</mo><mi>F</mi><mo>·</mo><mi>s</mi><mo>=</mo><mn>20</mn><mo>&#8239;</mo><mi mathvariant="normal">N</mi><mo>·</mo><mn>3</mn><mo>&#8239;</mo><mi mathvariant="normal">m</mi><mo>=</mo><mn>60</mn><mo>&#8239;</mo><mi mathvariant="normal">J</mi></math>. ' +
+  'Račun v rešitvi razporedi po korakih, vsak v svojem <p>: najprej obrazec, nato vstavljeni podatki, nato rezultat z enoto. Zelo kratkih izrazov (npr. »5 N«, »2 m/s«) ni treba pisati z MathML. ' +
+  'V MOŽNOSTIH izbirnih nalog (navadno besedilo, brez HTML in MathML) uporabi Unicode: potence in indeksi kot m², s⁻¹, 3·10⁸, ulomek kot a/b ali ½, · in × za množenje, − za minus, Δ, ρ … Ne uporabljaj LaTeXa ($ … $, \\frac …). ';
+
 const SIMILAR_SYSTEM = 'Si slovenski učitelj naravoslovja in tehnike v osnovni šoli. Pišeš naloge v lepi slovenščini, primerne za učence, strokovno pravilne. ' +
   'Dobiš obstoječo nalogo in seznam podpoglavij učnega načrta s standardi znanja. Ugotovi, v katero podpoglavje naloga spada in katere standarde preverja, nato napiši PODOBNO novo nalogo: ' +
   'ista tema, isti standardi, ista težavnost, Bloomova stopnja, vrsta in oblika odgovora, podobna dolžina in struktura, vendar z drugimi podatki, drugačnim kontekstom in drugim izidom (ne le zamenjane številke). ' +
@@ -27,7 +47,7 @@ const SIMILAR_SYSTEM = 'Si slovenski učitelj naravoslovja in tehnike v osnovni 
   'Poskrbi, da so rešitev in odgovor pravilni (preveri račun). Uporabljaj SI enote. Odgovori SAMO s klicem orodja »ustvari_nalogo« (brez besedila).';
 
 const COMPLETE_SYSTEM = 'Si slovenski učitelj naravoslovja in tehnike v osnovni šoli. Dobiš obstoječo nalogo (morda nepopolno ali nepravilno oblikovano) in seznam podpoglavij s standardi. ' +
-  'Besedila naloge NE spreminjaj (razen da ločiš vprašanje od naštetih možnosti A), B), C) … ) — le dopolni manjkajoče: pravilno obliko odgovora (answer_kind) in možnosti s pravilnim odgovorom, ' +
+  'Besedila naloge NE spreminjaj po vsebini (razen da ločiš vprašanje od naštetih možnosti A), B), C) … ), smeš pa in moraš PREUREDITI ZAPIS ENAČB IN FORMUL v besedilu, odgovoru in rešitvi, da so čim bolj berljive (ulomki, potence, indeksi, enote – glej pravila spodaj) — poleg tega dopolni manjkajoče: pravilno obliko odgovora (answer_kind) in možnosti s pravilnim odgovorom, ' +
   'kratek odgovor, rešitev s postopkom (preprost HTML, jasno razložena za učenca), podpoglavje in standarde, težavnost, Bloomovo stopnjo, vrste naloge, točke in čas. ' +
   'Že izpolnjene vrednosti prepiši nespremenjene. Če naloga vsebuje A) B) C) D) možnosti, jih vrni v polju options (brez črk), v body pa samo vprašanje. Rešitev preveri z računom. Odgovori SAMO s klicem orodja »ustvari_nalogo« (brez besedila).';
 
@@ -46,7 +66,7 @@ const tool: Anthropic.Tool = {
     properties: {
       topic_key: { type: ['string', 'null'], description: 'Ključ podpoglavja iz seznama, v katerega spada ORIGINALNA naloga (natančno kot v seznamu). Če je naloga že povezana, uporabi ta ključ.' },
       standard_ids: { type: 'array', items: { type: 'string' }, description: 'ID-ji standardov izbranega podpoglavja, ki jih nova naloga preverja (natančno kot v seznamu).' },
-      body: { type: 'string', description: 'Besedilo nove naloge kot preprost HTML (<p>, <b>, <i>, <sub>, <sup>, <ul>/<ol>/<li>, <br>). Brez LaTeXa, brez slik. Podnaloge a), b), c) v svojih <p> z <b>a)</b>.' },
+      body: { type: 'string', description: 'Besedilo nove naloge kot preprost HTML (<p>, <b>, <i>, <sub>, <sup>, <ul>/<ol>/<li>, <br>). Formule in enačbe v MathML (<math>), brez LaTeXa, brez slik. Podnaloge a), b), c) v svojih <p> z <b>a)</b>.' },
       answer_kind: { type: 'string', enum: ANSWER_KINDS },
       options: { type: 'array', items: { type: 'string' }, description: 'Besedila možnosti (za mc in multi; za tf pusti prazno).' },
       correct_index: { type: ['integer', 'null'], description: 'Indeks pravilne možnosti (mc: 0 = A …; tf: 0 = Drži, 1 = Ne drži).' },
@@ -54,8 +74,8 @@ const tool: Anthropic.Tool = {
       correct_numeric: { type: ['string', 'null'], description: 'Pravilna številska vrednost (samo za numeric), npr. "42,5".' },
       unit: { type: ['string', 'null'] },
       tolerance: { type: ['number', 'null'], description: 'Dovoljen odmik za numeric (absolutni), sicer null.' },
-      answer: { type: ['string', 'null'], description: 'Kratek končni odgovor (npr. "a) 420 N, b) 21 J, c) 21 J").' },
-      solution: { type: ['string', 'null'], description: 'Postopek reševanja kot preprost HTML.' },
+      answer: { type: ['string', 'null'], description: 'Kratek končni odgovor kot preprost HTML (npr. "a) 420 N, b) 21 J, c) 21 J"); formule v MathML.' },
+      solution: { type: ['string', 'null'], description: 'Postopek reševanja kot preprost HTML; enačbe v MathML, po korakih (vsak korak v svojem <p>).' },
       difficulty: { type: 'integer', enum: [1, 2, 3] },
       bloom: { type: 'integer', enum: [1, 2, 3, 4, 5, 6] },
       kinds: { type: 'array', items: { type: 'string', enum: KIND_IDS } },
@@ -110,7 +130,7 @@ export async function POST(request: Request) {
     const res = await client.messages.create({
       model: MODEL,
       max_tokens: 4000,
-      system: mode === 'variant' ? VARIANT_SYSTEM : mode === 'complete' ? COMPLETE_SYSTEM : SIMILAR_SYSTEM + ' ' + MC_STYLE,
+      system: (mode === 'variant' ? VARIANT_SYSTEM : mode === 'complete' ? COMPLETE_SYSTEM : SIMILAR_SYSTEM + ' ' + MC_STYLE) + ' ' + MATH_STYLE,
       tools: [tool],
       tool_choice: { type: 'auto' }, // model ne podpira prisilne izbire orodja; sistemsko navodilo zahteva klic
       messages: [{
@@ -168,14 +188,15 @@ export async function POST(request: Request) {
       const sameKind = keepKind || draft.answer_kind === (src.answer_kind ?? 'open');
       const filled = (v: string | null | undefined) => !!v && v.replace(/<[^>]*>/g, '').trim() !== '';
       Object.assign(draft, {
-        body: (draft.answer_kind === 'mc' || draft.answer_kind === 'multi') && src.answer_kind !== 'mc' && src.answer_kind !== 'multi' ? draft.body : src.body,
+        body: (draft.answer_kind === 'mc' || draft.answer_kind === 'multi') && src.answer_kind !== 'mc' && src.answer_kind !== 'multi' ? draft.body
+          : sameWords(src.body ?? '', draft.body) ? draft.body : src.body, // preurejen zapis enačb sprejmemo le, če je besedilo ostalo enako
         answer_kind: keepKind ? src.answer_kind : draft.answer_kind,
         options: sameKind && src.options?.length ? src.options : draft.options,
         correct: sameKind && src.correct ? src.correct : draft.correct,
         unit: src.unit ?? draft.unit,
         tolerance: src.tolerance ?? draft.tolerance,
-        answer: filled(src.answer) ? src.answer : draft.answer,
-        solution: filled(src.solution) ? src.solution : draft.solution,
+        answer: filled(src.answer) ? (draft.answer && sameWords(src.answer!, draft.answer) ? draft.answer : src.answer) : draft.answer,
+        solution: filled(src.solution) ? (draft.solution && sameWords(src.solution!, draft.solution) ? draft.solution : src.solution) : draft.solution,
         difficulty: src.difficulty ?? draft.difficulty,
         bloom: src.bloom ?? draft.bloom,
         kinds: src.kinds?.length ? src.kinds : draft.kinds,
