@@ -17,6 +17,8 @@ interface QuestionBase {
   image?: string;
   /** točke za pravilen odgovor (privzeto 1) */
   points: number;
+  /** naloga v bazi, iz katere je vprašanje nastalo (za oznake: težavnost, Bloom, poglavje) */
+  taskId?: string;
 }
 
 export interface McQuestion extends QuestionBase {

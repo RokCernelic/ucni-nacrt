@@ -33,7 +33,7 @@ export function tasksToQuestions(tasks: Task[]): { questions: Question[]; skippe
   const rest: Question[] = [];
   for (const t of tasks) {
     const image = firstImage(t.body);
-    const base = { id: crypto.randomUUID(), points: t.points > 0 ? t.points : 1, ...(image ? { image } : {}) };
+    const base = { id: crypto.randomUUID(), taskId: t.id, points: t.points > 0 ? t.points : 1, ...(image ? { image } : {}) };
     let prompt = htmlToPlain(t.body);
     if (quizReady(t) && t.answer_kind !== 'numeric') {
       choice.push({ ...base, kind: 'mc', prompt, options: t.options!.map(o => ({ id: o.id, text: o.text })), correct: t.correct });

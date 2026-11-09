@@ -13,6 +13,9 @@ import { questionsLabel, pointsLabel, formatNumber } from '@/lib/quiz/format';
 import { parseQuizText, readTextFile, type TextImportResult } from '@/lib/quiz/textImport';
 import type { Quiz, Question, McQuestion, NumericQuestion, QuizFolder } from '@/lib/quiz/types';
 import StartSessionDialog from '@/components/quiz/StartSessionDialog';
+import { useTasks } from '@/hooks/useTasks';
+import { Rich, TaskBadges } from '@/components/tasks/ui';
+import type { Task } from '@/lib/tasks/types';
 
 const LETTERS = 'ABCDEF';
 const MAX_OPTIONS = 6;
@@ -51,8 +54,8 @@ function AutoTextarea({ value, onChange, placeholder }: { value: string; onChang
   );
 }
 
-function QuestionCard({ q, index, total, onChange, onMove, onDuplicate, onDelete, onError }: {
-  q: Question; index: number; total: number;
+function QuestionCard({ q, index, total, onChange, onMove, onDuplicate, onDelete, onError, onDone }: {
+  q: Question; index: number; total: number; onDone?: () => void;
   onChange: (q: Question) => void; onMove: (dir: -1 | 1) => void; onDuplicate: () => void; onDelete: () => void;
   onError: (msg: string) => void;
 }) {
@@ -83,6 +86,7 @@ function QuestionCard({ q, index, total, onChange, onMove, onDuplicate, onDelete
             style={{ ...input, width: '64px', padding: '4px 6px', fontSize: '13px' }} />
         </span>
         <span style={{ flex: 1 }} />
+        {onDone && <button style={{ ...btn(true), padding: '5px 12px' }} onClick={onDone} title="Zapri urejanje (pogled kot v bazi nalog)">✓ Končano</button>}
         <button title="Premakni gor" style={{ ...iconBtn, opacity: index === 0 ? 0.35 : 1 }} disabled={index === 0} onClick={() => onMove(-1)}>↑</button>
         <button title="Premakni dol" style={{ ...iconBtn, opacity: index === total - 1 ? 0.35 : 1 }} disabled={index === total - 1} onClick={() => onMove(1)}>↓</button>
         <button title="Podvoji vprašanje" style={iconBtn} onClick={onDuplicate}>⧉</button>
@@ -184,9 +188,72 @@ function QuestionCard({ q, index, total, onChange, onMove, onDuplicate, onDelete
   );
 }
 
+const badgeStyle = (bg: string, color = '#fff'): React.CSSProperties => ({
+  fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 700, color, background: bg, borderRadius: '4px', padding: '2px 6px', whiteSpace: 'nowrap',
+});
+
+/** Vprašanje v enakem pogledu kot naloga v bazi nalog (oznake iz povezane naloge), z gumbi za urejanje. */
+function QuestionView({ q, index, total, task, onEdit, onMove, onDuplicate, onDelete }: {
+  q: Question; index: number; total: number; task?: Task;
+  onEdit: () => void; onMove: (dir: -1 | 1) => void; onDuplicate: () => void; onDelete: () => void;
+}) {
+  const problems = questionProblems(q);
+  const small: React.CSSProperties = { ...btn(), padding: '3px 9px', fontSize: '11px' };
+  return (
+    <div style={{ border: `1px solid ${problems.length ? '#ecd9a8' : 'var(--hairline)'}`, borderRadius: 'var(--r-md)', background: 'var(--canvas)', padding: '10px 12px', fontSize: '13px', color: 'var(--body)', lineHeight: 1.5, fontFamily: 'var(--font-sans)' }}>
+      <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+        <span style={{ color: 'var(--muted)', minWidth: '22px', fontVariantNumeric: 'tabular-nums' }}>{index + 1}.</span>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          {q.kind === 'open' && q.html ? <Rich html={q.html} /> : <div style={{ whiteSpace: 'pre-wrap' }}>{q.prompt || <i style={{ color: 'var(--muted)' }}>(brez besedila)</i>}</div>}
+          {q.image && (/* eslint-disable-next-line @next/next/no-img-element */
+            <img src={q.image} alt="" style={{ maxWidth: '280px', maxHeight: '180px', borderRadius: 'var(--r-sm)', border: '1px solid var(--hairline)' }} />)}
+          {q.kind === 'mc' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              {q.options.map((o, oi) => {
+                const right = q.correct === o.id;
+                return (
+                  <div key={o.id} style={{ color: right ? 'var(--green-ok)' : undefined, fontWeight: right ? 600 : 400 }}>
+                    <b style={{ fontWeight: 700 }}>{LETTERS[oi]})</b> {o.text}{right && ' ✓'}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {q.kind === 'numeric' && (
+            <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Rešitev: {q.correct}{q.tolerance ? ` ± ${formatNumber(q.tolerance)}` : ''}</div>
+          )}
+          {q.kind === 'open' && q.answer && (
+            <div style={{ fontSize: '12px', color: 'var(--muted)', whiteSpace: 'pre-wrap' }}>Rešitev: {q.answer}</div>
+          )}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
+            {task ? <TaskBadges task={task} /> : (
+              <span style={badgeStyle('transparent', 'var(--muted)')}>{q.kind === 'numeric' ? 'številsko · kviz' : q.kind === 'open' ? 'odprto (ročni pregled)' : 'izbirno · kviz'}</span>
+            )}
+            <span style={badgeStyle('var(--surface)', 'var(--body)')}>{pointsLabel(q.points)}</span>
+            {problems.length > 0 && <span style={{ fontSize: '11px', color: '#b7791f' }}>⚠ {problems.join(' · ')}</span>}
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flexShrink: 0 }}>
+          <button onClick={onEdit} style={small}>✎ Uredi</button>
+          <div style={{ display: 'flex', gap: '4px' }}>
+            <button title="Premakni gor" disabled={index === 0} onClick={() => onMove(-1)} style={{ ...small, flex: 1, opacity: index === 0 ? 0.35 : 1 }}>↑</button>
+            <button title="Premakni dol" disabled={index === total - 1} onClick={() => onMove(1)} style={{ ...small, flex: 1, opacity: index === total - 1 ? 0.35 : 1 }}>↓</button>
+          </div>
+          <button onClick={onDuplicate} style={small}>⧉ Podvoji</button>
+          <button onClick={onDelete} style={{ ...small, color: '#c0392b', borderColor: '#e0b4ae' }}>× Odstrani</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function QuizEditor({ quizId }: { quizId: string }) {
   const { user, loading } = useAuth();
   const lib = useQuizLibrary();
+  const { tasks } = useTasks();
+  /** vprašanja, ki so odprta za urejanje (ostala so v pogledu kot v bazi nalog) */
+  const [editing, setEditing] = useState<Set<string>>(new Set());
+  const toggleEditing = (id: string, on: boolean) => setEditing(prev => { const n = new Set(prev); if (on) n.add(id); else n.delete(id); return n; });
   const [draft, setDraft] = useState<Quiz | null>(null);
   const [status, setStatus] = useState<'saved' | 'saving' | 'error'>('saved');
   const [error, setError] = useState<string | null>(null);
@@ -201,7 +268,11 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
   useEffect(() => {
     if (!lib.loaded || draft) return;
     const q = lib.quizzes.find(x => x.id === quizId);
-    if (q) setDraft(q);
+    if (q) {
+      setDraft(q);
+      // prazna (nova) vprašanja se odprejo za urejanje, ostala so v pogledu kot v bazi nalog
+      setEditing(new Set(q.questions.filter(x => !x.prompt.trim() && !x.image).map(x => x.id)));
+    }
   }, [lib.loaded, lib.quizzes, quizId, draft]);
 
   const { updateQuiz } = lib;
@@ -244,6 +315,8 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
   }
 
   const setQuestions = (questions: Question[]) => update({ ...draft, questions });
+  const addQuestion = (q: Question) => { setQuestions([...draft.questions, q]); toggleEditing(q.id, true); };
+  const taskById = new Map(tasks.map(t => [t.id, t]));
   const replaceQ = (i: number, q: Question) => setQuestions(draft.questions.map((x, j) => j === i ? q : x));
   const moveQ = (i: number, dir: -1 | 1) => {
     const j = i + dir;
@@ -316,22 +389,26 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
         {error && <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: '#c0392b', margin: '0 0 14px' }}>{error}</p>}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {draft.questions.map((q, i) => (
-            <QuestionCard key={q.id} q={q} index={i} total={draft.questions.length}
-              onChange={nq => replaceQ(i, nq)}
-              onMove={dir => moveQ(i, dir)}
-              onDuplicate={() => setQuestions([...draft.questions.slice(0, i + 1), cloneQuestion(q), ...draft.questions.slice(i + 1)])}
-              onDelete={() => { if (confirm(`Izbrišem vprašanje ${i + 1}?`)) setQuestions(draft.questions.filter((_, j) => j !== i)); }}
-              onError={msg => setError(msg)} />
-          ))}
+          {draft.questions.map((q, i) => {
+            const dup = () => setQuestions([...draft.questions.slice(0, i + 1), cloneQuestion(q), ...draft.questions.slice(i + 1)]);
+            const del = () => { if (confirm(`Odstranim vprašanje ${i + 1} iz kviza? (Naloga v bazi ostane.)`)) setQuestions(draft.questions.filter((_, j) => j !== i)); };
+            return editing.has(q.id) ? (
+              <QuestionCard key={q.id} q={q} index={i} total={draft.questions.length}
+                onChange={nq => replaceQ(i, nq)} onMove={dir => moveQ(i, dir)} onDuplicate={dup} onDelete={del}
+                onError={msg => setError(msg)} onDone={() => toggleEditing(q.id, false)} />
+            ) : (
+              <QuestionView key={q.id} q={q} index={i} total={draft.questions.length} task={q.taskId ? taskById.get(q.taskId) : undefined}
+                onEdit={() => toggleEditing(q.id, true)} onMove={dir => moveQ(i, dir)} onDuplicate={dup} onDelete={del} />
+            );
+          })}
         </div>
 
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '16px', padding: '14px', border: '1px dashed var(--hairline)', borderRadius: 'var(--r-md)', alignItems: 'center' }}>
           <span style={{ ...label, marginRight: '4px' }}>Dodaj vprašanje</span>
-          <button style={btn(true)} onClick={() => setQuestions([...draft.questions, newMcQuestion()])}>+ Izbirno</button>
-          <button style={btn()} onClick={() => setQuestions([...draft.questions, newTrueFalseQuestion()])}>+ Drži / ne drži</button>
-          <button style={btn()} onClick={() => setQuestions([...draft.questions, newNumericQuestion()])}>+ Številsko</button>
-          <button style={btn()} onClick={() => setQuestions([...draft.questions, newOpenQuestion()])}>+ Odprto</button>
+          <button style={btn(true)} onClick={() => addQuestion(newMcQuestion())}>+ Izbirno</button>
+          <button style={btn()} onClick={() => addQuestion(newTrueFalseQuestion())}>+ Drži / ne drži</button>
+          <button style={btn()} onClick={() => addQuestion(newNumericQuestion())}>+ Številsko</button>
+          <button style={btn()} onClick={() => addQuestion(newOpenQuestion())}>+ Odprto</button>
           <span style={{ flex: 1 }} />
           <button style={btn()} title="Izbriše vsa obstoječa vprašanja in uvozi vprašanja iz besedilne datoteke (.txt)" onClick={() => pickImport('replace')}>📄 Uvozi in zamenjaj</button>
           <button style={btn()} title="Doda vprašanja iz besedilne datoteke (.txt) za obstoječimi vprašanji" onClick={() => pickImport('merge')}>📄 Uvozi in združi</button>
