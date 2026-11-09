@@ -11,7 +11,7 @@ import TaskEditor from './TaskEditor';
 import { Rich, TaskBadges, TaskAnswer, Chip, btn, tinyLabel, input } from './ui';
 
 /** Seznam nalog (vsaka v svojem okvirju): kljukica za izbor, Uredi, Izbriši, + Nova naloga. */
-export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyText, showAdd = true, startIndex = 0, hideTopic, hideChapter, extraAction }: {
+export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyText, showAdd = true, startIndex = 0, hideTopic, hideChapter, extraAction, leading }: {
   tasks: Task[];
   /** nova naloga je že povezana s tem podpoglavjem */
   fixedTopic?: string;
@@ -26,6 +26,8 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
   hideChapter?: string;
   /** dodatni gumb poleg »+ Nova naloga« */
   extraAction?: React.ReactNode;
+  /** elementi pred »+ Nova naloga« v isti vrstici (npr. število nalog, izbor, uvoz) */
+  leading?: React.ReactNode;
 }) {
   const { save, remove, restore } = useTasks();
   const { selected, toggle } = useTaskSelection();
@@ -163,16 +165,20 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
         });
       })()}
 
-      {!showAdd ? null : adding ? (
+      {showAdd && (
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+          {leading}
+          {!adding && (
+            <button onClick={() => { setAdding(true); setEditingId(null); }} style={{ ...btn(), borderStyle: 'dashed', padding: '7px 14px' }}>
+              + Nova naloga
+            </button>
+          )}
+          {extraAction}
+        </div>
+      )}
+      {showAdd && adding && (
         <div style={{ border: '1px dashed var(--forest)', borderRadius: 'var(--r-md)', padding: '12px', background: 'var(--surface)' }}>
           <TaskEditor fixedTopic={fixedTopic} onCancel={() => setAdding(false)} onSave={async d => { await save(d); setAdding(false); }} />
-        </div>
-      ) : (
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <button onClick={() => { setAdding(true); setEditingId(null); }} style={{ ...btn(), borderStyle: 'dashed', padding: '7px 14px' }}>
-            + Nova naloga
-          </button>
-          {extraAction}
         </div>
       )}
     </div>

@@ -195,8 +195,11 @@ export default function TaskBank() {
               </Row>
             </div>
 
-            {/* izbor + tisk */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '12px' }}>
+            {error && <p style={{ color: '#c0392b', fontSize: '13px' }}>{error}</p>}
+            {building && <BuildTest pool={filtered} defaultTitle={defaultQuizTitle} onClose={() => setBuilding(false)} />}
+            {loaded && (
+              <>
+                <TaskList tasks={[]} leading={<>
               <span style={{ fontSize: '13px', color: 'var(--muted)' }}>
                 {loaded ? <>{anyFilter ? `${filtered.length} od ${tasks.length} nalog` : `${tasks.length} ${plural(tasks.length, 'naloga', 'nalogi', 'naloge', 'nalog')}`}</> : 'Nalagam …'}
               </span>
@@ -218,14 +221,7 @@ export default function TaskBank() {
                   {delBusy ? 'Brišem …' : `🗑 Izbriši izbrane v pogledu (${selectedInView.length})`}
                 </button>
               )}
-              <span style={{ flex: 1 }} />
-            </div>
-
-            {error && <p style={{ color: '#c0392b', fontSize: '13px' }}>{error}</p>}
-            {building && <BuildTest pool={filtered} defaultTitle={defaultQuizTitle} onClose={() => setBuilding(false)} />}
-            {loaded && (
-              <>
-                <TaskList tasks={[]} extraAction={
+            </>} extraAction={
 <button onClick={() => setBuilding(true)} disabled={!filtered.length}
                 title="Iz nalog v trenutnem filtru sestavi kviz: število nalog, delež po taksonomiji in obliki odgovora, iz baze ali generirano (AI)"
                 style={{ ...btn(true), padding: '7px 14px', opacity: filtered.length ? 1 : 0.45, cursor: filtered.length ? 'pointer' : 'not-allowed' }}>
