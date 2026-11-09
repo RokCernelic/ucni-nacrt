@@ -28,7 +28,10 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
-export default function TaskBank() {
+/** Način izbirnika (iz urejevalnika kviza): baza se odpre čez cel zaslon in izbrane naloge se dodajo v kviz. */
+export interface BankPicker { title: string; onClose: () => void; onAdd: (tasks: Task[]) => void }
+
+export default function TaskBank({ picker }: { picker?: BankPicker } = {}) {
   const { user, loading } = useAuth();
   const { tasks, loaded, error, removeMany, restore } = useTasks();
   const { selected, setMany } = useTaskSelection();
@@ -135,14 +138,24 @@ export default function TaskBank() {
 
   if (loading) return null;
 
+  const pickedTasks = picker ? orderTasks(tasks.filter(t => selected.has(t.id))) : [];
+
   return (
-    <div>
+    <div style={picker ? { position: 'fixed', inset: 0, zIndex: 1000, background: 'var(--surface, #f7f6f3)', overflowY: 'auto' } : undefined}>
+      {picker ? (
+        <div style={{ position: 'sticky', top: 0, zIndex: 5, background: 'var(--forest)', color: '#fff', padding: '12px 32px', display: 'flex', alignItems: 'center', gap: '12px', fontFamily: 'var(--font-sans)' }}>
+          <b style={{ fontSize: '15px', flex: 1 }}>Dodaj naloge iz baze v kviz »{picker.title || 'Nov kviz'}«</b>
+          <span style={{ fontSize: '12px', opacity: 0.7 }}>Obkljukaj eno ali več nalog</span>
+          <button onClick={picker.onClose} style={{ ...btn(), color: '#fff', borderColor: 'rgba(255,255,255,0.4)' }}>Zapri</button>
+        </div>
+      ) : (
       <div style={{ background: 'var(--forest)', padding: '28px 32px 24px' }}>
         <div style={{ maxWidth: '1000px', margin: '0 auto', width: '100%' }}>
           <p style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', margin: '0 0 6px' }}>Kvizi</p>
           <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(32px,4vw,48px)', fontWeight: 300, color: '#fff', lineHeight: 1 }}>Baza nalog</h1>
         </div>
       </div>
+      )}
 
       <div style={{ width: '100%', maxWidth: '1000px', margin: '0 auto', padding: '24px 32px 80px', fontFamily: 'var(--font-sans)' }}>
         {!user ? (
@@ -207,27 +220,25 @@ export default function TaskBank() {
                 <input type="checkbox" checked={allSelected} disabled={!filtered.length} onChange={e => setMany(filtered.map(t => t.id), e.target.checked)} />
                 izberi vse{anyFilter ? ' (v filtru)' : ''}
               </label>
-              <ImportTasks />
-              {duplicates.length > 0 && (
+              {!picker && <ImportTasks />}
+              {!picker && duplicates.length > 0 && (
                 <button onClick={() => void dedup()} disabled={dedupBusy}
                   style={{ ...btn(), color: '#b7791f', borderColor: '#ecd9a8', opacity: dedupBusy ? 0.5 : 1 }}>
                   {dedupBusy ? 'Odstranjujem …' : `⚠ ${duplicates.length} dvojnikov — odstrani`}
                 </button>
               )}
-              {selectedInView.length > 0 && (
+              {!picker && selectedInView.length > 0 && (
                 <button onClick={() => void deleteSelected(selectedInView.map(t => t.id))} disabled={delBusy}
                   title="Trajno izbriše obkljukane naloge, ki so trenutno vidne (izbor iz drugih poglavij ostane)"
                   style={{ ...btn(), color: '#c0392b', borderColor: '#e8b4ad', opacity: delBusy ? 0.5 : 1 }}>
                   {delBusy ? 'Brišem …' : `🗑 Izbriši izbrane v pogledu (${selectedInView.length})`}
                 </button>
               )}
-            </>} extraAction={
-<button onClick={() => setBuilding(true)} disabled={!filtered.length}
+            </>} extraAction={picker ? undefined : (<button onClick={() => setBuilding(true)} disabled={!filtered.length}
                 title="Iz nalog v trenutnem filtru sestavi kviz: število nalog, delež po taksonomiji in obliki odgovora, iz baze ali generirano (AI)"
                 style={{ ...btn(true), padding: '7px 14px', opacity: filtered.length ? 1 : 0.45, cursor: filtered.length ? 'pointer' : 'not-allowed' }}>
                 🧪 Generiraj kviz
-              </button>
-} emptyText={anyFilter && !ordered.length ? 'Ni nalog, ki ustrezajo filtrom.' : !tasks.length ? 'Baza je še prazna. Dodaj prvo nalogo.' : undefined} />
+              </button>)} emptyText={anyFilter && !ordered.length ? 'Ni nalog, ki ustrezajo filtrom.' : !tasks.length ? 'Baza je še prazna. Dodaj prvo nalogo.' : undefined} />
                 {(() => {
                   let n = 0;
                   return groups.map(g => (
@@ -256,6 +267,17 @@ export default function TaskBank() {
           </>
         )}
       </div>
+      {picker && (
+        <div style={{ position: 'sticky', bottom: 0, zIndex: 5, background: 'var(--canvas)', borderTop: '1px solid var(--hairline)', boxShadow: '0 -4px 18px rgba(0,0,0,.08)', padding: '10px 32px', display: 'flex', alignItems: 'center', gap: '12px', fontFamily: 'var(--font-sans)' }}>
+          <span style={{ fontSize: '13px', color: 'var(--forest)', fontWeight: 600 }}>Izbrano: {pickedTasks.length}</span>
+          <span style={{ flex: 1 }} />
+          <button onClick={picker.onClose} style={btn()}>Prekliči</button>
+          <button onClick={() => picker.onAdd(pickedTasks)} disabled={!pickedTasks.length}
+            style={{ ...btn(true), padding: '7px 16px', opacity: pickedTasks.length ? 1 : 0.45, cursor: pickedTasks.length ? 'pointer' : 'not-allowed' }}>
+            + Dodaj v kviz ({pickedTasks.length})
+          </button>
+        </div>
+      )}
     </div>
   );
 }

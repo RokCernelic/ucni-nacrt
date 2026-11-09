@@ -16,6 +16,10 @@ import StartSessionDialog from '@/components/quiz/StartSessionDialog';
 import { useTasks } from '@/hooks/useTasks';
 import { Rich, TaskBadges } from '@/components/tasks/ui';
 import type { Task } from '@/lib/tasks/types';
+import TaskBank from '@/components/tasks/TaskBank';
+import { useTaskSelection } from '@/hooks/useTaskSelection';
+import { tasksToQuestions } from '@/lib/tasks/toQuiz';
+import { questionToDraft, questionMatchesTask, quizTag } from '@/lib/tasks/fromQuestion';
 
 const LETTERS = 'ABCDEF';
 const MAX_OPTIONS = 6;
@@ -247,10 +251,25 @@ function QuestionView({ q, index, total, task, onEdit, onMove, onDuplicate, onDe
   );
 }
 
+/** Baza nalog čez cel zaslon: obkljukaš naloge in jih dodaš v kviz. Obstoječi izbor (za tisk) se med tem skrije in nato povrne. */
+function BankPickerShell({ title, onAdd, onClose }: { title: string; onAdd: (tasks: Task[]) => void; onClose: () => void }) {
+  const { selected, setMany } = useTaskSelection();
+  const selRef = useRef<Set<string>>(selected);
+  useEffect(() => { selRef.current = selected; });
+  useEffect(() => {
+    const stash = [...selRef.current];
+    setMany(stash, false);
+    return () => { setMany([...selRef.current], false); setMany(stash, true); };
+  }, [setMany]);
+  return <TaskBank picker={{ title, onAdd, onClose }} />;
+}
+
 export default function QuizEditor({ quizId }: { quizId: string }) {
   const { user, loading } = useAuth();
   const lib = useQuizLibrary();
-  const { tasks } = useTasks();
+  const { tasks, save: saveTask, loaded: tasksLoaded } = useTasks();
+  const [picking, setPicking] = useState(false);
+  const [bankBusy, setBankBusy] = useState(false);
   /** vprašanja, ki so odprta za urejanje (ostala so v pogledu kot v bazi nalog) */
   const [editing, setEditing] = useState<Set<string>>(new Set());
   const toggleEditing = (id: string, on: boolean) => setEditing(prev => { const n = new Set(prev); if (on) n.add(id); else n.delete(id); return n; });
@@ -263,6 +282,8 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
   const importMode = useRef<'replace' | 'merge'>('merge');
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pending = useRef<Quiz | null>(null);
+  const draftRef = useRef<Quiz | null>(null);
+  useEffect(() => { draftRef.current = draft; });
 
   // naloži kviz enkrat (nadaljnje urejanje teče prek osnutka)
   useEffect(() => {
@@ -318,6 +339,44 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
   const addQuestion = (q: Question) => { setQuestions([...draft.questions, q]); toggleEditing(q.id, true); };
   const taskById = new Map(tasks.map(t => [t.id, t]));
   const replaceQ = (i: number, q: Question) => setQuestions(draft.questions.map((x, j) => j === i ? q : x));
+  /** Spremeni eno vprašanje glede na najnovejše stanje kviza (varno tudi po asinhronem shranjevanju v bazo). */
+  const patchQ = (id: string, patch: Partial<Question>) => {
+    const d = draftRef.current;
+    if (d) update({ ...d, questions: d.questions.map(x => (x.id === id ? ({ ...x, ...patch } as Question) : x)) });
+  };
+
+  /**
+   * Konec urejanja vprašanja: ročno napisano vprašanje se doda v bazo nalog; urejeno vprašanje iz baze dobi kopijo,
+   * ugnezdeno pod izvirno nalogo (kopija je od tedaj povezana z vprašanjem; nadaljnja urejanja jo posodabljajo).
+   */
+  const finishEditing = async (i: number) => {
+    const q = draft.questions[i];
+    toggleEditing(q.id, false);
+    if ((!q.prompt.trim() && !q.image) || questionProblems(q).length || !tasksLoaded) return; // nedokončano vprašanje še ne gre v bazo
+    const tag = quizTag(draft.id);
+    const task = q.taskId ? taskById.get(q.taskId) : undefined;
+    if (task && questionMatchesTask(q, task)) return;          // nespremenjeno
+    setBankBusy(true);
+    try {
+      if (!task) {
+        const saved = await saveTask(questionToDraft(q, { tag }));
+        patchQ(q.id, { taskId: saved.id });
+      } else if (task.tags.includes(tag)) {
+        await saveTask({ ...questionToDraft(q, { base: task, parentId: task.parent_id, tag }), id: task.id });
+      } else {
+        const saved = await saveTask(questionToDraft(q, { base: task, parentId: task.parent_id ?? task.id, tag }));
+        patchQ(q.id, { taskId: saved.id });
+      }
+    } catch (e) { setError(`V bazo nalog ni bilo mogoče shraniti: ${e instanceof Error ? e.message : String(e)}`); }
+    finally { setBankBusy(false); }
+  };
+
+  const addFromBank = (picked: Task[]) => {
+    const { questions } = tasksToQuestions(picked);
+    update({ ...draft, questions: [...draft.questions, ...questions] });
+    setPicking(false);
+  };
+
   const moveQ = (i: number, dir: -1 | 1) => {
     const j = i + dir;
     if (j < 0 || j >= draft.questions.length) return;
@@ -395,7 +454,7 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
             return editing.has(q.id) ? (
               <QuestionCard key={q.id} q={q} index={i} total={draft.questions.length}
                 onChange={nq => replaceQ(i, nq)} onMove={dir => moveQ(i, dir)} onDuplicate={dup} onDelete={del}
-                onError={msg => setError(msg)} onDone={() => toggleEditing(q.id, false)} />
+                onError={msg => setError(msg)} onDone={() => void finishEditing(i)} />
             ) : (
               <QuestionView key={q.id} q={q} index={i} total={draft.questions.length} task={q.taskId ? taskById.get(q.taskId) : undefined}
                 onEdit={() => toggleEditing(q.id, true)} onMove={dir => moveQ(i, dir)} onDuplicate={dup} onDelete={del} />
@@ -409,6 +468,8 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
           <button style={btn()} onClick={() => addQuestion(newTrueFalseQuestion())}>+ Drži / ne drži</button>
           <button style={btn()} onClick={() => addQuestion(newNumericQuestion())}>+ Številsko</button>
           <button style={btn()} onClick={() => addQuestion(newOpenQuestion())}>+ Odprto</button>
+          <button style={{ ...btn(), borderColor: 'var(--forest)', fontWeight: 600 }} onClick={() => { flush(); setPicking(true); }}
+            title="Odpre bazo nalog: obkljukaš eno ali več nalog in jih dodaš v kviz">+ Iz baze nalog</button>
           <span style={{ flex: 1 }} />
           <button style={btn()} title="Izbriše vsa obstoječa vprašanja in uvozi vprašanja iz besedilne datoteke (.txt)" onClick={() => pickImport('replace')}>📄 Uvozi in zamenjaj</button>
           <button style={btn()} title="Doda vprašanja iz besedilne datoteke (.txt) za obstoječimi vprašanji" onClick={() => pickImport('merge')}>📄 Uvozi in združi</button>
@@ -437,6 +498,8 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
         )}
       </div>
       {starting && <StartSessionDialog quiz={draft} onClose={() => setStarting(false)} />}
+      {picking && <BankPickerShell title={draft.title} onAdd={addFromBank} onClose={() => setPicking(false)} />}
+      {bankBusy && <div style={{ position: 'fixed', right: '16px', bottom: '16px', background: 'var(--forest)', color: '#fff', fontFamily: 'var(--font-sans)', fontSize: '12px', padding: '8px 12px', borderRadius: 'var(--r-sm)' }}>Shranjujem v bazo nalog …</div>}
     </div>
   );
 }
