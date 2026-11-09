@@ -179,15 +179,7 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
             </div>
           )}
 
-          {hasSolutions && (
-        <label style={{ ...labelStyle, margin: '14px 0 4px' }}>
-          <input type="checkbox" checked={withSolutions} onChange={e => setWithSolutions(e.target.checked)} style={{ marginTop: '3px' }} />
-          <span>Dodaj stran z rešitvami (za učitelja)
-            <span style={{ display: 'block', fontSize: '12px', color: 'var(--muted)' }}>Zadnja stran natisa: pravilni odgovori in rešitve iz baze nalog. Natisne se enkrat, ne za vsakega učenca.</span>
-          </span>
-        </label>
-      )}
-      <label style={{ ...labelStyle, margin: '14px 0 4px' }}>
+          <label style={{ ...labelStyle, margin: '14px 0 4px' }}>
         <input type="checkbox" checked={halves} onChange={e => setHalves(e.target.checked)} style={{ marginTop: '3px' }} />
         <span>Dva testa na en list A4 (privarčuj papir)
           <span style={{ display: 'block', fontSize: '12px', color: 'var(--muted)' }}>
@@ -204,6 +196,14 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
         </div>
       )}
       {hp.node}
+      {hasSolutions && (
+        <label style={{ ...labelStyle, margin: '14px 0 4px' }}>
+          <input type="checkbox" checked={withSolutions} onChange={e => setWithSolutions(e.target.checked)} style={{ marginTop: '3px' }} />
+          <span>Dodaj stran z rešitvami (za učitelja)
+            <span style={{ display: 'block', fontSize: '12px', color: 'var(--muted)' }}>Zadnja stran natisa: pravilni odgovori in rešitve iz baze nalog. Natisne se enkrat, ne za vsakega učenca.</span>
+          </span>
+        </label>
+      )}
 
       {error && <p style={{ fontSize: '13px', color: '#c0392b', margin: '8px 0 0' }}>{error}</p>}
           {printed && (

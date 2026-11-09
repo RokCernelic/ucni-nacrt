@@ -27,8 +27,8 @@ export interface PrintItem {
 }
 
 const hasText = (h?: string) => !!h && h.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim() !== '';
-/** Ali ima postavka rešitev ali odgovor v besedilni obliki (za stran z rešitvami)? */
-export const hasSolutionText = (i: PrintItem) => hasText(i.solution) || !!i.answerText?.trim();
+/** Ali ima postavka rešitev za stran z rešitvami: pravilno izbirno možnost, odgovor ali postopek iz baze? */
+export const hasSolutionText = (i: PrintItem) => (i.choice && i.correct.length > 0) || hasText(i.solution) || !!i.answerText?.trim();
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const plainHtml = (s: string) => esc(s).replace(/\n/g, '<br>');

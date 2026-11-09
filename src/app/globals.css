@@ -281,3 +281,5 @@ html.printing-questions .print-questions.ldn, .ldn.ldn-measure { font-size: 9pt;
 .pqz-solbody .rich-content p { margin: 0 0 .5mm; }
 .pqz-solnote { margin-top: 4mm; font-size: 8pt; color: #666; }
 .pqz-preview .pqz-sol { break-before: auto; page-break-before: auto; background: #fff; margin: 12px auto 0; padding-top: 10mm; padding-bottom: 10mm; box-shadow: 0 2px 14px rgba(0,0,0,.18); }
+.pqz-solopts { margin: .5mm 0 0 5mm; }
+.pqz-solright { font-weight: 700; }

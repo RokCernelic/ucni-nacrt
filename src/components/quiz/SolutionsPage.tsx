@@ -6,7 +6,7 @@ import { todayLabel } from './QuizSheetParts';
 
 /**
  * Zadnja stran natisa: rešitve za učitelja. Številke in črke so v izvirnem vrstnem redu (nemešano); pri učencih s
- * premešanim listom se lahko razlikujejo, zato je pri izbirnih vprašanjih poleg črke vedno napisano tudi besedilo odgovora.
+ * premešanim listom se lahko razlikujejo. Izbirna vprašanja: samo vprašanje, odgovori in označen pravilni odgovor.
  * Ne prikaže nič, če nobena postavka nima rešitve.
  */
 export default function SolutionsPage({ items, title, halves }: { items: PrintItem[]; title: string; halves?: boolean }) {
@@ -23,18 +23,30 @@ export default function SolutionsPage({ items, title, halves }: { items: PrintIt
       </header>
       <ol style={{ listStyle: 'none', padding: 0, margin: 0 }}>
         {all.map(c => {
-          const right = c.item.choice ? c.options.filter(o => c.item.correct.includes(o.id)) : [];
+          // izbirna (ABCD): samo vprašanje, odgovori in označen pravilni odgovor — brez pojasnil
+          if (c.item.choice) {
+            return (
+              <li key={c.n} className="pqz-solitem">
+                <div className="pqz-solq"><b>{c.n}.</b> {c.item.prompt.replace(/\s+/g, ' ').trim()}</div>
+                <div className="pqz-solopts">
+                  {c.options.map(o => {
+                    const right = c.item.correct.includes(o.id);
+                    return <div key={o.id} className={right ? 'pqz-solright' : undefined}>{right ? '✓ ' : ''}<b>{o.letter})</b> {o.text}</div>;
+                  })}
+                </div>
+              </li>
+            );
+          }
           return (
             <li key={c.n} className="pqz-solitem">
               <div className="pqz-solq"><b>{c.n}.</b> {snippet(c.item.prompt)}</div>
-              {right.length > 0 && <div><b>Pravilno:</b> {right.map(o => `${o.letter}) ${o.text}`).join('; ')}</div>}
               {c.item.answerText && <div><b>Odgovor:</b> {c.item.answerText}</div>}
               {c.item.solution && <div className="pqz-solbody"><Rich html={c.item.solution} /></div>}
             </li>
           );
         })}
       </ol>
-      <p className="pqz-solnote">Številke in črke veljajo za izvirni vrstni red; pri učencih z mešanim listom so lahko drugačne (zato je poleg črke tudi besedilo odgovora).</p>
+      <p className="pqz-solnote">Številke in črke veljajo za izvirni vrstni red; pri učencih z mešanim listom so lahko drugačne.</p>
     </section>
   );
 }
