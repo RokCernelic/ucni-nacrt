@@ -17,12 +17,15 @@ export interface Sheet { key: string; name: string | null; qr: string | null; la
 
 const todayLabel = () => new Date().toLocaleDateString('sl-SI', { day: 'numeric', month: 'numeric', year: 'numeric' });
 
-/** Tiskanje kviza na A4: odgovorni obrazec (krogci) zgoraj, vprašanja pod njim; po želji list za vsakega učenca (ime, QR, drugačen vrstni red). */
-export default function PrintQuizDialog({ items, title, quizId, defaultClassId, onClose }: {
-  items: PrintItem[]; title: string; quizId: string | null; defaultClassId?: string; onClose: () => void;
+/**
+ * Možnosti in gumb za tisk kviza: enak list za vse (črta za ime) ali svoj test za vsakega učenca (ime, QR, skener);
+ * premešanje vprašanj in/ali odgovorov. Uporabljata ga okno »Zaženi kviz« (način Natisnjeno) in samostojno okno za tisk.
+ */
+export function PrintPanel({ items, title, quizId, cls, students, classPicker, onCancel }: {
+  items: PrintItem[]; title: string; quizId: string | null;
+  cls?: { id: string; name: string }; students: { id: string; name: string; pin?: string }[];
+  classPicker?: React.ReactNode; onCancel: () => void;
 }) {
-  const { classes } = useMasterClasses();
-  const [pickedClass, setPickedClass] = useState('');
   const [perStudent, setPerStudent] = useState(true);
   const [shuffleQ, setShuffleQ] = useState(true);
   const [shuffleO, setShuffleO] = useState(true);
@@ -31,16 +34,6 @@ export default function PrintQuizDialog({ items, title, quizId, defaultClassId, 
   const [error, setError] = useState<string | null>(null);
   /** po tisku po učencih: seja za skener in rezultate */
   const [printed, setPrinted] = useState<{ sessionId: string; scanQr: string } | null>(null);
-  const classId = pickedClass || (classes.some(c => c.id === defaultClassId) ? defaultClassId! : classes[0]?.id ?? '');
-  const { students: roster } = useRoster(classId || undefined);
-  const students = useMemo(() => sortByLastName(roster), [roster]);
-  const cls = classes.find(c => c.id === classId);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
 
   const nChoice = items.filter(i => i.choice).length;
   const canPrint = items.length > 0 && !busy && (!perStudent || students.length > 0);
@@ -86,15 +79,7 @@ export default function PrintQuizDialog({ items, title, quizId, defaultClassId, 
 
   return (
     <>
-      <div onClick={e => { e.stopPropagation(); onClose(); }} className="no-print" style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(20,30,25,0.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '6vh 16px', overflowY: 'auto' }}>
-        <div onClick={e => e.stopPropagation()} role="dialog" aria-label="Natisni kviz"
-          style={{ background: 'var(--canvas)', borderRadius: 'var(--r-lg)', padding: '24px 26px', width: '100%', maxWidth: '520px', fontFamily: 'var(--font-sans)' }}>
-          <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '26px', fontWeight: 400, margin: '0 0 4px', color: 'var(--ink)' }}>Natisni kviz</h2>
-          <p style={{ fontSize: '13px', color: 'var(--muted)', margin: '0 0 16px' }}>
-            {title} · {items.length} vprašanj ({nChoice} izbirnih v obrazcu na vrhu, {items.length - nChoice} za ročno reševanje in pregled)
-          </p>
-
-          <label style={labelStyle}>
+      <label style={labelStyle}>
             <input type="radio" checked={!perStudent} onChange={() => setPerStudent(false)} style={{ marginTop: '3px' }} />
             <span>Enak vrstni red za vse<span style={{ display: 'block', fontSize: '12px', color: 'var(--muted)' }}>Na vrhu črta za ime in priimek; isti list za vse. Brez QR kode.</span></span>
           </label>
@@ -111,12 +96,9 @@ export default function PrintQuizDialog({ items, title, quizId, defaultClassId, 
 
           {perStudent && (
             <div style={{ margin: '0 0 12px 26px' }}>
-              <select value={classId} onChange={e => setPickedClass(e.target.value)}
-                style={{ width: '100%', padding: '8px 10px', borderRadius: 'var(--r-sm)', border: '1px solid var(--hairline)', background: 'var(--canvas)', color: 'var(--ink)', fontSize: '13px', marginBottom: '6px' }}>
-                {classes.map(c => <option key={c.id} value={c.id}>{c.name}{c.school ? ` · ${c.school}` : ''}</option>)}
-              </select>
+              {classPicker}
               <div style={{ fontSize: '12px', color: students.length ? 'var(--muted)' : '#b7791f', marginBottom: '8px' }}>
-                {!cls ? 'Dodaj razred v meniju Učenci.' : students.length ? `${students.length} učencev` : 'Ta razred nima učencev.'}
+                {!cls ? 'Izberi razred.' : students.length ? `${students.length} učencev` : 'Ta razred nima učencev.'}
               </div>
               <label style={{ ...labelStyle, marginBottom: '8px' }}>
                 <input type="checkbox" checked={shuffleQ} onChange={e => setShuffleQ(e.target.checked)} style={{ marginTop: '3px' }} />
@@ -141,14 +123,12 @@ export default function PrintQuizDialog({ items, title, quizId, defaultClassId, 
             </div>
           )}
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '18px' }}>
-            <button onClick={onClose} style={{ fontSize: '13px', padding: '9px 16px', borderRadius: 'var(--r-sm)', border: '1px solid var(--hairline)', background: 'transparent', color: 'var(--ink)', cursor: 'pointer' }}>Prekliči</button>
-            <button onClick={() => void print()} disabled={!canPrint}
-              style={{ fontSize: '13px', fontWeight: 600, padding: '9px 18px', borderRadius: 'var(--r-sm)', border: 'none', background: 'var(--forest)', color: '#fff', cursor: canPrint ? 'pointer' : 'not-allowed', opacity: canPrint ? 1 : 0.5 }}>
-              {busy ? 'Pripravljam …' : `🖨 Natisni${perStudent && students.length ? ` (${students.length} listov)` : ''}`}
-            </button>
-          </div>
-        </div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '18px' }}>
+        <button onClick={onCancel} style={{ fontSize: '13px', padding: '9px 16px', borderRadius: 'var(--r-sm)', border: '1px solid var(--hairline)', background: 'transparent', color: 'var(--ink)', cursor: 'pointer' }}>Prekliči</button>
+        <button onClick={() => void print()} disabled={!canPrint}
+          style={{ fontSize: '13px', fontWeight: 600, padding: '9px 18px', borderRadius: 'var(--r-sm)', border: 'none', background: 'var(--forest)', color: '#fff', cursor: canPrint ? 'pointer' : 'not-allowed', opacity: canPrint ? 1 : 0.5 }}>
+          {busy ? 'Pripravljam …' : `🖨 Natisni${perStudent && students.length ? ` (${students.length} listov)` : ''}`}
+        </button>
       </div>
 
       {sheets && createPortal(
@@ -160,6 +140,44 @@ export default function PrintQuizDialog({ items, title, quizId, defaultClassId, 
         document.body,
       )}
     </>
+  );
+}
+
+/** Samostojno okno za tisk kviza (npr. iz izbranih nalog): izbira razreda + PrintPanel. */
+export default function PrintQuizDialog({ items, title, quizId, defaultClassId, onClose }: {
+  items: PrintItem[]; title: string; quizId: string | null; defaultClassId?: string; onClose: () => void;
+}) {
+  const { classes } = useMasterClasses();
+  const [pickedClass, setPickedClass] = useState('');
+  const classId = pickedClass || (classes.some(c => c.id === defaultClassId) ? defaultClassId! : classes[0]?.id ?? '');
+  const { students: roster } = useRoster(classId || undefined);
+  const students = useMemo(() => sortByLastName(roster), [roster]);
+  const cls = classes.find(c => c.id === classId);
+  const nChoice = items.filter(i => i.choice).length;
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div onClick={e => { e.stopPropagation(); onClose(); }} className="no-print" style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(20,30,25,0.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '6vh 16px', overflowY: 'auto' }}>
+      <div onClick={e => e.stopPropagation()} role="dialog" aria-label="Natisni kviz"
+        style={{ background: 'var(--canvas)', borderRadius: 'var(--r-lg)', padding: '24px 26px', width: '100%', maxWidth: '520px', fontFamily: 'var(--font-sans)' }}>
+        <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '26px', fontWeight: 400, margin: '0 0 4px', color: 'var(--ink)' }}>Natisni kviz</h2>
+        <p style={{ fontSize: '13px', color: 'var(--muted)', margin: '0 0 16px' }}>
+          {title} · {items.length} vprašanj ({nChoice} izbirnih v obrazcu na vrhu, {items.length - nChoice} za ročno reševanje in pregled)
+        </p>
+        <PrintPanel items={items} title={title} quizId={quizId} cls={cls} students={students} onCancel={onClose}
+          classPicker={
+            <select value={classId} onChange={e => setPickedClass(e.target.value)}
+              style={{ width: '100%', padding: '8px 10px', borderRadius: 'var(--r-sm)', border: '1px solid var(--hairline)', background: 'var(--canvas)', color: 'var(--ink)', fontSize: '13px', marginBottom: '6px' }}>
+              {classes.map(c => <option key={c.id} value={c.id}>{c.name}{c.school ? ` · ${c.school}` : ''}</option>)}
+            </select>
+          } />
+      </div>
+    </div>
   );
 }
 

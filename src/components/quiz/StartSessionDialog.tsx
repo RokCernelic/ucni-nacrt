@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMasterClasses } from '@/hooks/useMasterClasses';
-import PrintQuizDialog from '@/components/quiz/PrintQuizDialog';
+import { PrintPanel } from '@/components/quiz/PrintQuizDialog';
 import { itemsFromQuiz } from '@/lib/quiz/printSheet';
 import { useRoster } from '@/hooks/useRoster';
 import { useQuizLibrary } from '@/hooks/useQuizLibrary';
@@ -24,7 +24,6 @@ export default function StartSessionDialog({ quiz, onClose }: { quiz: Quiz; onCl
   const printWay = way === 'print';
   const [shuffle, setShuffle] = useState(true);
   const [showSolutions, setShowSolutions] = useState(false);
-  const [printing, setPrinting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { students, save } = useRoster(classId || undefined);
@@ -81,7 +80,7 @@ export default function StartSessionDialog({ quiz, onClose }: { quiz: Quiz; onCl
   });
 
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(20,30,25,0.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '6vh 16px', overflowY: 'auto' }}>
+    <div onClick={onClose} className="no-print" style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(20,30,25,0.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '6vh 16px', overflowY: 'auto' }}>
       <div onClick={e => e.stopPropagation()} role="dialog" aria-label="Zaženi kviz"
         style={{ width: '100%', maxWidth: '560px', background: 'var(--canvas)', borderRadius: 'var(--r-lg)', boxShadow: '0 20px 60px rgba(0,0,0,0.25)', padding: '24px' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '18px' }}>
@@ -153,23 +152,18 @@ export default function StartSessionDialog({ quiz, onClose }: { quiz: Quiz; onCl
         {incomplete > 0 && <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: '#b7791f', margin: '0 0 12px' }}>⚠ Kviz ima nedokončana vprašanja ({incomplete}) — dokončaj jih v urejevalniku.</p>}
         {error && <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: '#c0392b', margin: '0 0 12px' }}>{error}</p>}
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-          <button onClick={onClose} style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', padding: '9px 16px', borderRadius: 'var(--r-sm)', border: '1px solid var(--hairline)', background: 'transparent', color: 'var(--ink)', cursor: 'pointer' }}>Prekliči</button>
-          {printWay ? (
-            <button onClick={() => setPrinting(true)} disabled={!quiz.questions.length}
-              title="Natisne kviz na A4 za ročno reševanje (obrazec s krogci in QR kodo)"
-              style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600, padding: '9px 18px', borderRadius: 'var(--r-sm)', border: 'none', background: 'var(--forest)', color: '#fff', cursor: quiz.questions.length ? 'pointer' : 'not-allowed', opacity: quiz.questions.length ? 1 : 0.5 }}>
-              🖨 Natisni …
-            </button>
-          ) : (
+        {printWay ? (
+          <PrintPanel items={itemsFromQuiz(quiz)} title={quiz.title} quizId={quiz.id} cls={cls} students={students} onCancel={onClose} />
+        ) : (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+            <button onClick={onClose} style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', padding: '9px 16px', borderRadius: 'var(--r-sm)', border: '1px solid var(--hairline)', background: 'transparent', color: 'var(--ink)', cursor: 'pointer' }}>Prekliči</button>
             <button onClick={start} disabled={!canStart}
               style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600, padding: '9px 18px', borderRadius: 'var(--r-sm)', border: 'none', background: 'var(--forest)', color: '#fff', cursor: canStart ? 'pointer' : 'not-allowed', opacity: canStart ? 1 : 0.5 }}>
               {busy ? 'Zaganjam …' : '▶ Začni sejo'}
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
-      {printing && <PrintQuizDialog items={itemsFromQuiz(quiz)} title={quiz.title} quizId={quiz.id} defaultClassId={classId || undefined} onClose={() => setPrinting(false)} />}
     </div>
   );
 }
