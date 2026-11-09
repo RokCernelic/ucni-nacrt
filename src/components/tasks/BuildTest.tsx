@@ -4,14 +4,35 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTasks } from '@/hooks/useTasks';
 import { useTaskSelection } from '@/hooks/useTaskSelection';
 import { ANSWER_KINDS, LETTERS, isChoice, correctIds, type AnswerKind, type Task, type TaskDraft } from '@/lib/tasks/types';
-import { BLOOM_3, BLOOM_6, classOfBloom, planTest, genRequestFor, type Slot } from '@/lib/tasks/buildTest';
+import { BLOOM_3, BLOOM_6, apportion, classOfBloom, planTest, genRequestFor, type Slot } from '@/lib/tasks/buildTest';
 import { btn, tinyLabel, input, Chip, Rich, TaskAnswer } from './ui';
 
 const MAX_TOTAL = 40;
 const PARALLEL = 3;
 
+function SliderRow({ label, info, warn, value, onChange }: { label: string; info: string; warn?: boolean; value: number; onChange: (v: number) => void }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '3px 0' }}>
+      <span style={{ flex: '0 0 210px', fontSize: '13px', color: 'var(--ink)' }}>{label}</span>
+      <input type="range" min={0} max={100} step={1} value={value} onChange={e => onChange(Number(e.target.value))} style={{ flex: 1, minWidth: 0 }} />
+      <b style={{ width: '40px', textAlign: 'right', fontSize: '13px' }}>{value} %</b>
+      <span style={{ width: '74px', fontSize: '11px', color: warn ? '#b7791f' : 'var(--muted)' }}>{info}</span>
+    </div>
+  );
+}
+
 const kindName = (k: AnswerKind) => ANSWER_KINDS.find(a => a.id === k)?.name ?? k;
 const plain = (html: string) => html.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+
+/** Premik enega drsnika: preostanek do 100 % se razdeli med ostale v razmerju njihovih vrednosti (cela števila, vsota = 100). */
+function rebalance<K extends string>(vals: Record<K, number>, id: K, value: number): Record<K, number> {
+  const v = Math.min(100, Math.max(0, Math.round(value)));
+  const others = (Object.keys(vals) as K[]).filter(k => k !== id);
+  if (!others.length) return { ...vals, [id]: 100 };
+  const sum = others.reduce((a, k) => a + (vals[k] || 0), 0);
+  const w = Object.fromEntries(others.map(k => [k, sum > 0 ? vals[k] || 0 : 1]));
+  return { ...apportion(100 - v, w), [id]: v } as Record<K, number>;
+}
 
 type Phase = 'setup' | 'running' | 'done';
 /** `task` = naloga iz baze; `draft` = generirana, še neshranjena; `keep` = ostane v testu */
@@ -34,9 +55,8 @@ export default function BuildTest({ pool, onClose }: { pool: Task[]; onClose: ()
   const [kindW, setKindW] = useState<Partial<Record<AnswerKind, number>>>(() => {
     const cnt: Partial<Record<AnswerKind, number>> = {};
     for (const t of pool) cnt[t.answer_kind] = (cnt[t.answer_kind] ?? 0) + 1;
-    const out: Partial<Record<AnswerKind, number>> = {};
-    for (const k of ANSWER_KINDS) out[k.id] = cnt[k.id] ? Math.max(5, Math.round((cnt[k.id]! / Math.max(1, pool.length)) * 20) * 5) : 0;
-    return out;
+    const any = pool.length > 0;
+    return apportion(100, Object.fromEntries(ANSWER_KINDS.map(k => [k.id, any ? cnt[k.id] ?? 0 : 1]))) as Partial<Record<AnswerKind, number>>;
   });
   const [share, setShare] = useState(0);
   const [fillGaps, setFillGaps] = useState(true);
@@ -160,30 +180,16 @@ export default function BuildTest({ pool, onClose }: { pool: Task[]; onClose: ()
               <Chip active={fine} onClick={() => setFine(true)}>6 stopenj (Bloom)</Chip>
             </div>
             {classes.map(c => (
-              <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '3px 0' }}>
-                <span style={{ flex: 1, fontSize: '13px', color: 'var(--ink)' }}>{c.label}</span>
-                <span style={{ fontSize: '11px', color: (availBloom[c.id] ?? 0) === 0 ? '#b7791f' : 'var(--muted)' }}>v filtru: {availBloom[c.id] ?? 0}</span>
-                <input type="number" min={0} max={100} value={bloomW[c.id] ?? 0} onChange={e => setBloomW({ ...bloomW, [c.id]: Math.max(0, Number(e.target.value) || 0) })} style={field} />
-                <span style={{ fontSize: '12px', color: 'var(--muted)' }}>%</span>
-              </div>
+              <SliderRow key={c.id} label={c.label} info={`v filtru: ${availBloom[c.id] ?? 0}`} warn={(availBloom[c.id] ?? 0) === 0}
+                value={bloomW[c.id] ?? 0} onChange={v => setBloomW(rebalance(bloomW, c.id, v))} />
             ))}
-            <div style={{ fontSize: '11px', color: bloomSum === 100 ? 'var(--muted)' : '#b7791f', marginTop: '2px' }}>
-              Skupaj {bloomSum} % {bloomSum !== 100 && bloomSum > 0 && '(razmerja se preračunajo na 100 %)'}
-              {noBloom > 0 && ` · ${noBloom} nalog v filtru nima Bloomove stopnje in se ne uporabi`}
-            </div>
+            {noBloom > 0 && <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '2px' }}>{noBloom} nalog v filtru nima Bloomove stopnje in se ne uporabi.</div>}
 
             {sectionLabel('Delež po obliki odgovora')}
             {ANSWER_KINDS.map(k => (
-              <div key={k.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '3px 0' }}>
-                <span style={{ flex: 1, fontSize: '13px', color: 'var(--ink)' }}>{k.name}{k.quiz ? ' · kviz' : ''}</span>
-                <span style={{ fontSize: '11px', color: (kindW[k.id] ?? 0) > 0 && !availKind[k.id] ? '#b7791f' : 'var(--muted)' }}>v filtru: {availKind[k.id] ?? 0}</span>
-                <input type="number" min={0} max={100} value={kindW[k.id] ?? 0} onChange={e => setKindW({ ...kindW, [k.id]: Math.max(0, Number(e.target.value) || 0) })} style={field} />
-                <span style={{ fontSize: '12px', color: 'var(--muted)' }}>%</span>
-              </div>
+              <SliderRow key={k.id} label={`${k.name}${k.quiz ? ' · kviz' : ''}`} info={`v filtru: ${availKind[k.id] ?? 0}`} warn={(kindW[k.id] ?? 0) > 0 && !availKind[k.id]}
+                value={kindW[k.id] ?? 0} onChange={v => setKindW(rebalance(kindW as Record<AnswerKind, number>, k.id, v))} />
             ))}
-            <div style={{ fontSize: '11px', color: kindSum === 100 ? 'var(--muted)' : '#b7791f', marginTop: '2px' }}>
-              Skupaj {kindSum} % {kindSum !== 100 && kindSum > 0 && '(razmerja se preračunajo na 100 %)'}
-            </div>
 
             {sectionLabel('Iz baze ali generirano')}
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
