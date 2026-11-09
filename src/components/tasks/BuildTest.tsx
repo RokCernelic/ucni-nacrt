@@ -13,12 +13,21 @@ import { btn, tinyLabel, input, Chip, Rich, TaskAnswer } from './ui';
 const MAX_TOTAL = 40;
 const PARALLEL = 3;
 
-function SliderRow({ label, info, warn, value, onChange }: { label: string; info: string; warn?: boolean; value: number; onChange: (v: number) => void }) {
+function SliderRow({ label, info, warn, value, onChange, locked, canLock, onToggleLock }: {
+  label: string; info: string; warn?: boolean; value: number; onChange: (v: number) => void;
+  locked: boolean; canLock: boolean; onToggleLock: () => void;
+}) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '3px 0' }}>
       <span style={{ flex: '0 0 210px', fontSize: '13px', color: 'var(--ink)' }}>{label}</span>
-      <input type="range" min={0} max={100} step={1} value={value} onChange={e => onChange(Number(e.target.value))} style={{ flex: 1, minWidth: 0 }} />
+      <input type="range" min={0} max={100} step={1} value={value} disabled={locked} onChange={e => onChange(Number(e.target.value))} style={{ flex: 1, minWidth: 0, opacity: locked ? 0.45 : 1 }} />
       <b style={{ width: '40px', textAlign: 'right', fontSize: '13px' }}>{value} %</b>
+      <button type="button" onClick={onToggleLock} disabled={!locked && !canLock}
+        title={locked ? 'Odkleni drsnik' : canLock ? 'Zakleni vrednost: drsnik se ne spreminja, ko premikaš druge' : 'Vsaj dva drsnika morata ostati odklenjena'}
+        style={{ width: '28px', height: '26px', borderRadius: '4px', cursor: locked || canLock ? 'pointer' : 'not-allowed', fontSize: '13px', lineHeight: 1, opacity: !locked && !canLock ? 0.3 : 1,
+          border: `1px solid ${locked ? 'var(--forest)' : 'var(--hairline)'}`, background: locked ? 'var(--forest)' : 'transparent', color: locked ? '#fff' : 'var(--muted)' }}>
+        {locked ? '🔒' : '🔓'}
+      </button>
       <span style={{ width: '74px', fontSize: '11px', color: warn ? '#b7791f' : 'var(--muted)' }}>{info}</span>
     </div>
   );
@@ -27,14 +36,19 @@ function SliderRow({ label, info, warn, value, onChange }: { label: string; info
 const kindName = (k: AnswerKind) => ANSWER_KINDS.find(a => a.id === k)?.name ?? k;
 const plain = (html: string) => html.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
 
-/** Premik enega drsnika: preostanek do 100 % se razdeli med ostale v razmerju njihovih vrednosti (cela števila, vsota = 100). */
-function rebalance<K extends string>(vals: Record<K, number>, id: K, value: number): Record<K, number> {
-  const v = Math.min(100, Math.max(0, Math.round(value)));
+/**
+ * Premik enega drsnika: preostanek do 100 % se razdeli med NEZAKLENJENE ostale v razmerju njihovih vrednosti
+ * (cela števila, vsota = 100). Zaklenjeni drsniki ostanejo, kjer so; premaknjeni drsnik ne more preseči 100 % − zaklenjeno.
+ */
+function rebalance<K extends string>(vals: Record<K, number>, id: K, value: number, locked: Set<string>): Record<K, number> {
   const others = (Object.keys(vals) as K[]).filter(k => k !== id);
-  if (!others.length) return { ...vals, [id]: 100 };
-  const sum = others.reduce((a, k) => a + (vals[k] || 0), 0);
-  const w = Object.fromEntries(others.map(k => [k, sum > 0 ? vals[k] || 0 : 1]));
-  return { ...apportion(100 - v, w), [id]: v } as Record<K, number>;
+  const free = others.filter(k => !locked.has(k));
+  if (!free.length) return vals;
+  const lockedSum = others.filter(k => locked.has(k)).reduce((a, k) => a + (vals[k] || 0), 0);
+  const v = Math.min(100 - lockedSum, Math.max(0, Math.round(value)));
+  const sum = free.reduce((a, k) => a + (vals[k] || 0), 0);
+  const w = Object.fromEntries(free.map(k => [k, sum > 0 ? vals[k] || 0 : 1]));
+  return { ...vals, ...apportion(100 - lockedSum - v, w), [id]: v } as Record<K, number>;
 }
 
 type Phase = 'setup' | 'running' | 'done';
@@ -63,6 +77,9 @@ export default function BuildTest({ pool, defaultTitle, onClose }: { pool: Task[
     const any = pool.length > 0;
     return apportion(100, Object.fromEntries(ANSWER_KINDS.map(k => [k.id, any ? cnt[k.id] ?? 0 : 1]))) as Partial<Record<AnswerKind, number>>;
   });
+  const [lockedB, setLockedB] = useState<Set<string>>(new Set());
+  const [lockedK, setLockedK] = useState<Set<string>>(new Set());
+  const toggleLock = (set: Set<string>, setSet: (s: Set<string>) => void, id: string) => { const n = new Set(set); if (n.has(id)) n.delete(id); else n.add(id); setSet(n); };
   const [share, setShare] = useState(0);
   const [fillGaps, setFillGaps] = useState(true);
   const [seedKey, setSeedKey] = useState(() => String(Math.random()));
@@ -201,19 +218,21 @@ export default function BuildTest({ pool, defaultTitle, onClose }: { pool: Task[
 
             {sectionLabel('Delež po taksonomiji')}
             <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
-              <Chip active={!fine} onClick={() => setFine(false)}>3 stopnje</Chip>
-              <Chip active={fine} onClick={() => setFine(true)}>6 stopenj (Bloom)</Chip>
+              <Chip active={!fine} onClick={() => { setFine(false); setLockedB(new Set()); }}>3 stopnje</Chip>
+              <Chip active={fine} onClick={() => { setFine(true); setLockedB(new Set()); }}>6 stopenj (Bloom)</Chip>
             </div>
             {classes.map(c => (
               <SliderRow key={c.id} label={c.label} info={`v filtru: ${availBloom[c.id] ?? 0}`} warn={(availBloom[c.id] ?? 0) === 0}
-                value={bloomW[c.id] ?? 0} onChange={v => setBloomW(rebalance(bloomW, c.id, v))} />
+                value={bloomW[c.id] ?? 0} onChange={v => setBloomW(rebalance(bloomW, c.id, v, lockedB))}
+                locked={lockedB.has(c.id)} canLock={classes.length - lockedB.size > 2 && !lockedB.has(c.id)} onToggleLock={() => toggleLock(lockedB, setLockedB, c.id)} />
             ))}
             {noBloom > 0 && <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '2px' }}>{noBloom} nalog v filtru nima Bloomove stopnje in se ne uporabi.</div>}
 
             {sectionLabel('Delež po obliki odgovora')}
             {ANSWER_KINDS.map(k => (
               <SliderRow key={k.id} label={`${k.name}${k.quiz ? ' · kviz' : ''}`} info={`v filtru: ${availKind[k.id] ?? 0}`} warn={(kindW[k.id] ?? 0) > 0 && !availKind[k.id]}
-                value={kindW[k.id] ?? 0} onChange={v => setKindW(rebalance(kindW as Record<AnswerKind, number>, k.id, v))} />
+                value={kindW[k.id] ?? 0} onChange={v => setKindW(rebalance(kindW as Record<AnswerKind, number>, k.id, v, lockedK))}
+                locked={lockedK.has(k.id)} canLock={ANSWER_KINDS.length - lockedK.size > 2 && !lockedK.has(k.id)} onToggleLock={() => toggleLock(lockedK, setLockedK, k.id)} />
             ))}
 
             {sectionLabel('Iz baze ali generirano')}
