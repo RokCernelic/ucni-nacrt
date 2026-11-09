@@ -18,7 +18,7 @@ export type PaperSession = QuizSession & { paper: PaperInfo | null };
 const code = () => Array.from({ length: 6 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('');
 
 /**
- * Ustvari sejo za natisnjen kviz (zaključena, brez naprav): odgovori iz skenerja gredo v iste
+ * Ustvari sejo za natisnjen kviz (odprta, dokler je učitelj ročno ne konča; brez naprav): odgovori iz skenerja gredo v iste
  * tabele kot pri kvizu v živo, zato je statistika skupna. V posnetek vprašanj gredo le izbirna
  * z eno pravilno možnostjo (samodejno točkovanje); ostalo učitelj pregleda ročno.
  */
@@ -35,11 +35,10 @@ export async function createPaperSession(opts: {
     salt, shuffle: opts.shuffle,
     items: opts.items.map(i => ({ id: i.id, choice: i.choice, multi: i.multi, options: i.options.map(o => ({ id: o.id, text: '' })), correct: i.correct, points: i.points })),
   };
-  const now = new Date().toISOString();
   const { data, error } = await sb.from('quiz_sessions').insert({
     code: code(), quiz_id: opts.quizId, quiz_title: opts.title || 'Kviz', quiz: { questions },
     class_id: opts.classId, class_name: opts.className, mode: 'student', shuffle: opts.shuffle, show_solutions: false,
-    status: 'ended', phase: 'revealed', ended_at: now, paper,
+    status: 'open', phase: 'revealed', paper,
   }).select().single();
   if (error) throw new Error(error.message);
   const session = data as PaperSession;
@@ -71,4 +70,11 @@ export async function savePaperAnswers(sessionId: string, studentId: string, ans
   }
   const { error: e3 } = await sb.from('quiz_session_students').update({ submitted_at: now, joined_at: now }).eq('session_id', sessionId).eq('student_id', studentId);
   if (e3) throw new Error(e3.message);
+}
+
+/** Ali je seja natisnjenega kviza še odprta (skeniranje dovoljeno)? Po ročnem koncu seje skeniranje ni več mogoče. */
+export async function isPaperOpen(sessionId: string): Promise<boolean> {
+  const { data, error } = await getSupabaseBrowserClient().from('quiz_sessions').select('status').eq('id', sessionId).single();
+  if (error) throw new Error(error.message);
+  return data?.status === 'open';
 }

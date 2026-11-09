@@ -399,12 +399,23 @@ export default function LiveSession({ sessionId }: { sessionId: string }) {
 
   const live = isLive(session);
   const endSession = () => {
-    if (confirm('Končam sejo? Učenci ne bodo mogli več odgovarjati.')) void act({ status: 'ended', ended_at: new Date().toISOString() });
+    if (confirm(session.paper ? 'Končam sejo? Skeniranje listov ne bo več mogoče.' : 'Končam sejo? Učenci ne bodo mogli več odgovarjati.')) void act({ status: 'ended', ended_at: new Date().toISOString() });
   };
 
   // ── konec seje: podrobni rezultati ──
-  if (!live) {
-    return <SessionResults session={session} students={students} answers={answers} teacher={teacher} teacherAnswers={teacherAnswers} />;
+  if (!live || session.paper) {
+    return (
+      <>
+        {live && (
+          <div style={{ background: '#eef6ee', borderBottom: '1px solid #bfe3c0', padding: '10px 32px', fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--ink)', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{ flex: 1 }}>🖨 Natisnjen kviz — seja je odprta in skeniranje deluje, dokler je ne končaš. Vsak nov sken lista prepiše prejšnjega.</span>
+            <Link href="/kvizi/skener" style={{ color: 'var(--forest)', fontWeight: 600 }}>📷 Skener</Link>
+            <button onClick={endSession} style={{ fontSize: '12px', fontWeight: 500, color: '#c0392b', background: 'transparent', border: '1px solid #e0b4ae', borderRadius: 'var(--r-sm)', padding: '5px 12px', cursor: 'pointer' }}>Končaj sejo</button>
+          </div>
+        )}
+        <SessionResults session={session} students={students} answers={answers} teacher={teacher} teacherAnswers={teacherAnswers} />
+      </>
+    );
   }
 
   return (

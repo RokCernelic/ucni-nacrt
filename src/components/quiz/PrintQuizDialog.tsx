@@ -124,7 +124,7 @@ export default function PrintQuizDialog({ items, title, quizId, defaultClassId, 
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={printed.scanQr} alt="" style={{ width: '110px', height: '110px', flex: 'none' }} />
               <div style={{ fontSize: '13px', color: 'var(--ink)', lineHeight: 1.5 }}>
-                <b>Skeniranje:</b> s telefonom odpri to kodo (Učni načrt → Kvizi → Skener), prijavi se z istim računom in skeniraj okvirje z odgovori.
+                <b>Skeniranje:</b> s telefonom odpri to kodo (Učni načrt → Kvizi → Skener), prijavi se z istim računom in skeniraj okvirje z odgovori. Isti list lahko skeniraš večkrat (velja zadnje skeniranje). Seja je med aktivnimi, dokler je ne končaš — potem skeniranje ni več mogoče.
                 <div style={{ marginTop: '6px' }}><Link href={`/kvizi/seja/${printed.sessionId}`} style={{ color: 'var(--forest)', fontWeight: 600 }}>Rezultati tega tiska →</Link></div>
               </div>
             </div>

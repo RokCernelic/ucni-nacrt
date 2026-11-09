@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuizLibrary } from '@/hooks/useQuizLibrary';
-import { loadAllHistory, joinStatsChannel, isLive, participated, type QuizSession, type SessionStudent, type SessionAnswer } from '@/lib/quiz/sessionApi';
+import { loadAllHistory, joinStatsChannel, isLive, isPaperSession, participated, type QuizSession, type SessionStudent, type SessionAnswer } from '@/lib/quiz/sessionApi';
 import { scoreAnswers } from '@/lib/quiz/scoring';
 import { SessionResults } from './LiveSession';
 import { ceilPct } from '@/lib/quiz/format';
@@ -40,7 +40,7 @@ export default function QuizStats() {
   const groups = useMemo(() => {
     if (!data) return [];
     const m = new Map<string, QuizSession[]>();
-    for (const s of data.sessions.filter(x => !isLive(x))) m.set(keyOf(s), [...(m.get(keyOf(s)) ?? []), s]);
+    for (const s of data.sessions.filter(x => !isLive(x) || isPaperSession(x))) m.set(keyOf(s), [...(m.get(keyOf(s)) ?? []), s]);
     return [...m.entries()].map(([key, sessions]) => {
       let sum = 0, n = 0, people = 0;
       for (const s of sessions) {

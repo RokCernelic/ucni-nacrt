@@ -29,7 +29,7 @@ export default function ActiveSessions() {
   }, [refresh]);
 
   const end = async (a: ActiveSession) => {
-    if (!confirm(`Končam sejo »${a.session.quiz_title}« (${a.session.class_name})? Učenci ne bodo mogli več odgovarjati.`)) return;
+    if (!confirm(`Končam sejo »${a.session.quiz_title}« (${a.session.class_name})? ${a.session.paper ? 'Skeniranje listov ne bo več mogoče.' : 'Učenci ne bodo mogli več odgovarjati.'}`)) return;
     try {
       await updateSession(a.session.id, { status: 'ended', ended_at: new Date().toISOString() });
       refresh();
@@ -54,20 +54,25 @@ export default function ActiveSessions() {
             <div key={a.session.id} style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', background: 'var(--canvas)', border: '1px solid var(--hairline)', borderLeft: '3px solid var(--green-ok)', borderRadius: 'var(--r-md)', padding: '12px 16px' }}>
               <div style={{ flex: '1 1 220px', minWidth: 0 }}>
                 <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--ink)' }}>
-                  <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--green-ok)', marginRight: '8px' }}>● V TEKU</span>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--green-ok)', marginRight: '8px' }}>{a.session.paper ? '🖨 NATISNJENO' : '● V TEKU'}</span>
                   {a.session.quiz_title}
                 </div>
                 <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '2px' }}>
-                  {a.session.class_name} · {a.session.mode === 'teacher' ? 'vodi učitelj' : 'vsak sam'} · {fmtTime(a.session.created_at)}
+                  {a.session.class_name} · {a.session.paper ? 'natisnjeno' : a.session.mode === 'teacher' ? 'vodi učitelj' : 'vsak sam'} · {fmtTime(a.session.created_at)}
                 </div>
               </div>
               <div style={{ fontSize: '13px', color: 'var(--muted)', fontVariantNumeric: 'tabular-nums' }}>
-                koda <b style={{ color: 'var(--ink)', letterSpacing: '0.08em' }}>{a.session.code}</b> · {studentsLabel(a.joined)} od {a.total}
+                {a.session.paper
+                  ? <>skenirano: <b style={{ color: 'var(--ink)' }}>{a.joined}</b> od {a.total}</>
+                  : <>koda <b style={{ color: 'var(--ink)', letterSpacing: '0.08em' }}>{a.session.code}</b> · {studentsLabel(a.joined)} od {a.total}</>}
               </div>
               <div style={{ display: 'flex', gap: '6px' }}>
+                {!!a.session.paper && (
+                  <Link href="/kvizi/skener" style={{ fontSize: '12px', fontWeight: 500, color: 'var(--forest)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', padding: '6px 12px', textDecoration: 'none' }}>📷 Skener</Link>
+                )}
                 <Link href={`/kvizi/seja/${a.session.id}`}
                   style={{ fontSize: '12px', fontWeight: 600, color: '#fff', background: 'var(--forest)', borderRadius: 'var(--r-sm)', padding: '7px 12px', textDecoration: 'none' }}>
-                  Odpri
+                  {a.session.paper ? 'Rezultati' : 'Odpri'}
                 </Link>
                 <button onClick={() => void end(a)}
                   style={{ fontSize: '12px', fontWeight: 500, color: '#c0392b', background: 'transparent', border: '1px solid #e0b4ae', borderRadius: 'var(--r-sm)', padding: '6px 12px', cursor: 'pointer' }}>

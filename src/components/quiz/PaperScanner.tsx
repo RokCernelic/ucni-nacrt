@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { joinChannel, joinStatsChannel } from '@/lib/quiz/sessionApi';
-import { loadPaperSession, savePaperAnswers, type PaperSession } from '@/lib/quiz/paperSession';
+import { loadPaperSession, savePaperAnswers, isPaperOpen, type PaperSession } from '@/lib/quiz/paperSession';
 import { layoutSheet, frameGeometry, parseToken, sheetSeed, type FrameGeometry, type SheetLayout, type LayoutItem } from '@/lib/quiz/printSheet';
 import { toGray, locate, readLocated, project, type SheetReading } from '@/lib/quiz/omr';
 
@@ -42,6 +42,16 @@ export default function PaperScanner() {
   const [error, setError] = useState<string | null>(null);
   const paused = useRef(false);
   useEffect(() => { paused.current = !!hit; }, [hit]);
+
+  /** Ali je seja še odprta (učitelj je ni ročno končal)? Rezultat velja nekaj sekund, da ne preverjamo ob vsaki sličici. */
+  const openCache = useRef(new Map<string, { t: number; open: boolean }>());
+  const sessionOpen = useCallback(async (id: string, fresh = false) => {
+    const c = openCache.current.get(id);
+    if (!fresh && c && Date.now() - c.t < 4000) return c.open;
+    const open = await isPaperOpen(id);
+    openCache.current.set(id, { t: Date.now(), open });
+    return open;
+  }, []);
 
   const getSession = useCallback((id: string) => {
     let p = sessions.current.get(id);
@@ -125,6 +135,7 @@ export default function PaperScanner() {
               const st = s.students.find(x => x.student_id === tok.studentId);
               const paper = s.session.paper;
               if (!paper || !st) setStatus('List ne pripada nobeni od tvojih sej.');
+              else if (!(await sessionOpen(tok.sessionId))) setStatus('Ta seja je končana — skeniranje ni več mogoče.');
               else {
                 const layout = layoutSheet(paper.items, paper.shuffle ? sheetSeed(paper.salt, tok.studentId) : null);
                 const geom = frameGeometry(layout, true);
@@ -171,7 +182,7 @@ export default function PaperScanner() {
     };
     void tick();
     return () => { stop = true; clearTimeout(timer); };
-  }, [running, getSession]);
+  }, [running, getSession, sessionOpen]);
 
   // točkovanje prebranega lista
   const score = hit ? hit.layout.choice.map((c, i) => {
@@ -195,6 +206,11 @@ export default function PaperScanner() {
     if (!hit) return;
     setBusy(true); setError(null);
     try {
+      if (!(await sessionOpen(hit.sessionId, true))) {
+        setError('Ta seja je bila medtem končana — rezultat ni shranjen.');
+        setHit(null); lastSig.current = { s: '', n: 0 };
+        return;
+      }
       const s = await getSession(hit.sessionId);
       const scored = new Set((s.session.quiz.questions ?? []).map(q => q.id));
       const answers = hit.layout.choice.flatMap((c, i) => {

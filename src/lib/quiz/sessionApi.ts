@@ -30,6 +30,8 @@ export interface QuizSession {
   created_at: string;
   last_activity_at: string;
   ended_at: string | null;
+  /** natisnjen kviz (skener); seja je odprta, dokler je učitelj ročno ne konča */
+  paper?: unknown | null;
 }
 
 export interface SessionStudent {
@@ -72,8 +74,11 @@ function newCode(): string {
   return Array.from(bytes, b => CODE_ALPHABET[b % CODE_ALPHABET.length]).join('');
 }
 
-export const isLive = (s: Pick<QuizSession, 'status' | 'last_activity_at'>) =>
-  s.status === 'open' && Date.now() - new Date(s.last_activity_at).getTime() < 3 * 60 * 60 * 1000;
+export const isPaperSession = (s: Pick<QuizSession, 'paper'>) => !!s.paper;
+
+/** Seja teče: odprta in (razen natisnjenih kvizov, ki tečejo do ročnega konca) z nedavno aktivnostjo. */
+export const isLive = (s: Pick<QuizSession, 'status' | 'last_activity_at'> & { paper?: unknown | null }) =>
+  s.status === 'open' && (!!s.paper || Date.now() - new Date(s.last_activity_at).getTime() < 3 * 60 * 60 * 1000);
 
 // ───────────────────────── učitelj ─────────────────────────
 
@@ -194,6 +199,7 @@ export async function loadAllHistory() {
 
 export interface ActiveSession {
   session: QuizSession;
+  /** povezani učenci (natisnjen kviz: učenci z vsaj enim skeniranim listom) */
   joined: number;
   total: number;
 }
@@ -203,16 +209,16 @@ export async function loadActiveSessions(): Promise<ActiveSession[]> {
   const sb = getSupabaseBrowserClient();
   const { data, error } = await sb
     .from('quiz_sessions')
-    .select('*, quiz_session_students(student_id, device_id)')
+    .select('*, quiz_session_students(student_id, device_id, submitted_at)')
     .eq('status', 'open')
     .order('created_at', { ascending: false });
   if (error) throw new Error(error.message);
-  type Row = QuizSession & { quiz_session_students: { student_id: string; device_id: string | null }[] };
+  type Row = QuizSession & { quiz_session_students: { student_id: string; device_id: string | null; submitted_at: string | null }[] };
   return ((data ?? []) as Row[])
     .filter(isLive)
     .map(({ quiz_session_students: st, ...session }) => {
       const students = st.filter(x => !isTeacherRow(x));
-      return { session, joined: students.filter(x => x.device_id).length, total: students.length };
+      return { session, joined: students.filter(x => (session.paper ? x.submitted_at : x.device_id)).length, total: students.length };
     });
 }
 
@@ -233,7 +239,7 @@ export async function loadStudentHistory(studentId: string): Promise<StudentHist
     .from('quiz_session_students')
     .select('*, quiz_sessions!inner(*)')
     .eq('student_id', studentId)
-    .eq('quiz_sessions.status', 'ended')
+    .or('status.eq.ended,paper.not.is.null', { referencedTable: 'quiz_sessions' })
     .order('created_at', { referencedTable: 'quiz_sessions', ascending: false });
   if (error) throw new Error(error.message);
   const rows = (data ?? []) as (SessionStudent & { quiz_sessions: QuizSession })[];
