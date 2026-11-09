@@ -154,7 +154,7 @@ function QuestionCard({ q, index, total, onChange, onMove, onDuplicate, onDelete
       ) : q.kind === 'open' ? (
         <div style={{ marginTop: '14px' }}>
           <div style={{ ...label, marginBottom: '6px' }}>Vzorčni odgovor / rešitev (vidiš le ti)</div>
-          <AutoTextarea value={q.answer ?? ''} onChange={v => onChange({ ...q, answer: v })} placeholder="npr. W = F · s = 420 J" />
+          <AutoTextarea value={q.answer ?? ''} onChange={v => onChange({ ...q, answer: v })} placeholder="npr. A = F · s = 420 J" />
           <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--muted)', margin: '6px 0 0' }}>
             Odprto vprašanje se ne točkuje samodejno — na natisnjenem listu dobi prostor za odgovor, na iPadu kratko okence.
           </p>
