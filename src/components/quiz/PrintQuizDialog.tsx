@@ -7,7 +7,8 @@ import { useMasterClasses } from '@/hooks/useMasterClasses';
 import { useRoster } from '@/hooks/useRoster';
 import { SheetHead, FrameView, ItemBody, type Sheet } from './QuizSheetParts';
 import { HalvesPages, useHalvesPlan, findOrder, type HalvesPlan } from './HalvesSheet';
-import { layoutSheet, sheetToken, sheetSeed, frameGeometry, type PrintItem, type SheetLayout } from '@/lib/quiz/printSheet';
+import SolutionsPage from './SolutionsPage';
+import { layoutSheet, sheetToken, sheetSeed, frameGeometry, hasSolutionText, type PrintItem, type SheetLayout } from '@/lib/quiz/printSheet';
 import { createPaperSession } from '@/lib/quiz/paperSession';
 import Link from 'next/link';
 import { setPrintTitle } from '@/lib/printTitle';
@@ -36,6 +37,10 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
   const [preview, setPreview] = useState<{ sheets: Sheet[]; idx: number; halves?: boolean } | null>(null);
   /** dva testa na en list A4 (zgoraj / spodaj) */
   const [halves, setHalves] = useState(false);
+  /** stran z rešitvami (za učitelja) kot zadnja stran natisa — če rešitve obstajajo */
+  const hasSolutions = useMemo(() => items.some(hasSolutionText), [items]);
+  const [withSolutions, setWithSolutions] = useState(true);
+  const [solItems, setSolItems] = useState<PrintItem[] | null>(null);
   /** izbor vprašanj, s katerim se je natisnilo dva testa na list (za izris strani) */
   const [printPlan, setPrintPlan] = useState<HalvesPlan | null>(null);
   /** vprašanja se mešajo le pri listih po učencih; pri enakem listu je vrstni red vprašanj vedno izviren */
@@ -128,8 +133,8 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
       document.head.appendChild(style);
       const root = document.documentElement;
       const restoreTitle = setPrintTitle(title);
-      const done = () => { root.classList.remove('printing-questions'); setSheets(null); setPrintPlan(null); style.remove(); restoreTitle(); window.removeEventListener('afterprint', done); };
-      flushSync(() => { setPrintPlan(exact); setSheets(list); });
+      const done = () => { root.classList.remove('printing-questions'); setSheets(null); setPrintPlan(null); setSolItems(null); style.remove(); restoreTitle(); window.removeEventListener('afterprint', done); };
+      flushSync(() => { setPrintPlan(exact); setSolItems(withSolutions && hasSolutions ? printItems : null); setSheets(list); });
       root.classList.add('printing-questions');
       window.addEventListener('afterprint', done);
       window.print();
@@ -174,7 +179,15 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
             </div>
           )}
 
-          <label style={{ ...labelStyle, margin: '14px 0 4px' }}>
+          {hasSolutions && (
+        <label style={{ ...labelStyle, margin: '14px 0 4px' }}>
+          <input type="checkbox" checked={withSolutions} onChange={e => setWithSolutions(e.target.checked)} style={{ marginTop: '3px' }} />
+          <span>Dodaj stran z rešitvami (za učitelja)
+            <span style={{ display: 'block', fontSize: '12px', color: 'var(--muted)' }}>Zadnja stran natisa: pravilni odgovori in rešitve iz baze nalog. Natisne se enkrat, ne za vsakega učenca.</span>
+          </span>
+        </label>
+      )}
+      <label style={{ ...labelStyle, margin: '14px 0 4px' }}>
         <input type="checkbox" checked={halves} onChange={e => setHalves(e.target.checked)} style={{ marginTop: '3px' }} />
         <span>Dva testa na en list A4 (privarčuj papir)
           <span style={{ display: 'block', fontSize: '12px', color: 'var(--muted)' }}>
@@ -244,6 +257,11 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
                 <QuizSheet sheet={preview.sheets[preview.idx]} title={title} placeholder />
               </div>
             )}
+            {withSolutions && hasSolutions && (
+              <div className="pqz-preview" style={{ width: 'fit-content', margin: '0 auto' }}>
+                <SolutionsPage items={effItems} title={title} />
+              </div>
+            )}
           </div>
         </div>,
         document.body,
@@ -254,6 +272,7 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
           {printPlan
             ? <HalvesPages sheets={sheets} plan={printPlan} title={title} className={cls?.name} duplicate={!perStudent} />
             : sheets.map(sh => <QuizSheet key={sh.key} sheet={sh} title={title} className={cls?.name} />)}
+          {solItems && <SolutionsPage items={solItems} title={title} halves={!!printPlan} />}
         </div>,
         document.body,
       )}

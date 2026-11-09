@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useMasterClasses } from '@/hooks/useMasterClasses';
 import { PrintPanel } from '@/components/quiz/PrintQuizDialog';
 import { itemsFromQuiz } from '@/lib/quiz/printSheet';
+import { useTasks } from '@/hooks/useTasks';
 import { useRoster } from '@/hooks/useRoster';
 import { useQuizLibrary } from '@/hooks/useQuizLibrary';
 import { questionProblems } from '@/lib/quiz/scoring';
@@ -42,7 +43,9 @@ export default function StartSessionDialog({ quiz, onClose }: { quiz: Quiz; onCl
   }, [onClose]);
 
   const cls = classes.find(c => c.id === classId);
-  const printItems = useMemo(() => itemsFromQuiz(quiz), [quiz]);
+  const { tasks: bankTasks } = useTasks();
+  const taskMap = useMemo(() => new Map(bankTasks.map(t => [t.id, t])), [bankTasks]);
+  const printItems = useMemo(() => itemsFromQuiz(quiz, taskMap), [quiz, taskMap]);
   const incomplete = quiz.questions.filter(q => questionProblems(q).length > 0).length;
   const missingPins = students.filter(s => !s.pin).length;
   const teacherPin = getTeacherPin();

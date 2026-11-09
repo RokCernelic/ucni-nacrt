@@ -268,3 +268,16 @@ html.printing-questions .print-questions.ldn, .ldn.ldn-measure { font-size: 9pt;
 .pqz-hcols { display: grid; grid-template-columns: 1fr 1fr; column-gap: 8mm; align-items: start; }
 .pqz-hcol { min-width: 0; }
 .pqz-hitem { min-width: 0; margin-bottom: 3.5mm; }
+
+/* Stran z rešitvami (zadnja stran natisa kviza, za učitelja). */
+.pqz-sol { box-sizing: border-box; width: 210mm; padding: 0 16mm; font-family: Inter, -apple-system, sans-serif; font-size: 9.5pt; line-height: 1.3; color: #000; break-before: page; page-break-before: always; }
+.pqz-sol.pqz-sol-halves { padding: 10mm 16mm; }
+.pqz-sol .pqz-head { display: flex; align-items: baseline; gap: 5mm; white-space: nowrap; overflow: hidden; border-bottom: .3mm solid #000; padding-bottom: 1.5mm; margin-bottom: 3mm; }
+.pqz-sol .pqz-title { font-size: 10pt; font-weight: 600; color: #444; }
+.pqz-sol .pqz-name { font-size: 12pt; font-weight: 700; flex: 1; }
+.pqz-sol .pqz-meta { font-size: 9.5pt; color: #444; }
+.pqz-solitem { margin-bottom: 3mm; break-inside: avoid; }
+.pqz-solq { color: #333; }
+.pqz-solbody .rich-content p { margin: 0 0 .5mm; }
+.pqz-solnote { margin-top: 4mm; font-size: 8pt; color: #666; }
+.pqz-preview .pqz-sol { break-before: auto; page-break-before: auto; background: #fff; margin: 12px auto 0; padding-top: 10mm; padding-bottom: 10mm; box-shadow: 0 2px 14px rgba(0,0,0,.18); }

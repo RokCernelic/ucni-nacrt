@@ -20,7 +20,15 @@ export interface PrintItem {
   points: number;
   /** prostor za odgovor pri prostih vprašanjih (mm) */
   space: number;
+  /** rešitev (postopek, HTML) iz baze nalog — za stran z rešitvami na koncu tiska */
+  solution?: string;
+  /** pravilni odgovor kot besedilo (številska in odprta vprašanja) */
+  answerText?: string;
 }
+
+const hasText = (h?: string) => !!h && h.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim() !== '';
+/** Ali ima postavka rešitev ali odgovor v besedilni obliki (za stran z rešitvami)? */
+export const hasSolutionText = (i: PrintItem) => hasText(i.solution) || !!i.answerText?.trim();
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const plainHtml = (s: string) => esc(s).replace(/\n/g, '<br>');
@@ -35,17 +43,21 @@ export function itemsFromTasks(tasks: Task[], toPlain: (html: string) => string)
       noShuffle: t.answer_kind === 'tf',
       correct, points: t.points > 0 ? t.points : 1,
       space: t.answer_kind === 'numeric' ? 15 : t.answer_kind === 'short' ? 15 : 25,
+      solution: hasText(t.solution ?? undefined) ? t.solution! : undefined,
+      answerText: !choice ? (t.answer_kind === 'numeric' && t.correct ? `${t.correct}${t.tolerance ? ` ± ${String(t.tolerance).replace('.', ',')}` : ''}${t.unit ? ` ${t.unit}` : ''}` : hasText(t.answer ?? undefined) ? toPlain(t.answer!) : undefined) : undefined,
     };
   });
 }
 
-export function itemsFromQuiz(quiz: Quiz): PrintItem[] {
+export function itemsFromQuiz(quiz: Quiz, tasksById?: Map<string, Task>): PrintItem[] {
   return quiz.questions.map(q => {
+    const sol = (q.taskId ? tasksById?.get(q.taskId)?.solution : null) ?? undefined;
+    const solution = hasText(sol) ? sol : undefined;
     const img = q.image ? `<p><img src="${q.image}" alt=""></p>` : '';
     const html = `<p>${plainHtml(q.prompt)}</p>${img}`;
-    if (q.kind === 'mc') return { id: q.id, choice: true, html, prompt: q.prompt, options: q.options.map(o => ({ id: o.id, text: o.text, ...(o.keepPlace ? { keepPlace: true } : {}) })), noShuffle: q.options.length === 2 && q.options[0].text === 'Drži' && q.options[1].text === 'Ne drži', correct: q.correct ? [q.correct] : [], points: q.points, space: 0 };
-    if (q.kind === 'open') return { id: q.id, choice: false, html: q.html || html, prompt: q.prompt, options: [], correct: [], points: q.points, space: Math.min(q.space ?? 25, 25) };
-    return { id: q.id, choice: false, html, prompt: q.prompt, options: [], correct: [], points: q.points, space: 15 };
+    if (q.kind === 'mc') return { id: q.id, choice: true, html, prompt: q.prompt, options: q.options.map(o => ({ id: o.id, text: o.text, ...(o.keepPlace ? { keepPlace: true } : {}) })), noShuffle: q.options.length === 2 && q.options[0].text === 'Drži' && q.options[1].text === 'Ne drži', correct: q.correct ? [q.correct] : [], points: q.points, space: 0, solution };
+    if (q.kind === 'open') return { id: q.id, choice: false, html: q.html || html, prompt: q.prompt, options: [], correct: [], points: q.points, space: Math.min(q.space ?? 25, 25), solution, answerText: q.answer?.trim() || undefined };
+    return { id: q.id, choice: false, html, prompt: q.prompt, options: [], correct: [], points: q.points, space: 15, solution, answerText: `${q.correct}${q.tolerance ? ` ± ${String(q.tolerance).replace('.', ',')}` : ''}` };
   });
 }
 
