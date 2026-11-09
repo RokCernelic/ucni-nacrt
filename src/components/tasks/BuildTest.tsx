@@ -2,7 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTasks } from '@/hooks/useTasks';
-import { useTaskSelection } from '@/hooks/useTaskSelection';
+import { useRouter } from 'next/navigation';
+import { useQuizLibrary } from '@/hooks/useQuizLibrary';
+import { tasksToQuestions } from '@/lib/tasks/toQuiz';
+import { orderTasks } from '@/lib/tasks/order';
 import { ANSWER_KINDS, LETTERS, isChoice, correctIds, type AnswerKind, type Task, type TaskDraft } from '@/lib/tasks/types';
 import { BLOOM_3, BLOOM_6, apportion, classOfBloom, planTest, genRequestFor, type Slot } from '@/lib/tasks/buildTest';
 import { btn, tinyLabel, input, Chip, Rich, TaskAnswer } from './ui';
@@ -35,13 +38,15 @@ function rebalance<K extends string>(vals: Record<K, number>, id: K, value: numb
 }
 
 type Phase = 'setup' | 'running' | 'done';
-/** `task` = naloga iz baze; `draft` = generirana, še neshranjena; `keep` = ostane v testu */
+/** `task` = naloga iz baze; `draft` = generirana, še neshranjena; `keep` = ostane v kvizu */
 interface Result { slot: Slot; task: Task | null; draft?: TaskDraft; error?: string; keep: boolean }
 
-/** Okno »Sestavi test«: iz nalog v trenutnem filtru izbere / generira test po zahtevani zgradbi. */
-export default function BuildTest({ pool, onClose }: { pool: Task[]; onClose: () => void }) {
+/** Okno »Generiraj kviz«: iz nalog v trenutnem filtru sestavi (ali generira) kviz po zahtevani zgradbi; ob potrditvi pristane v seznamu Kvizi. */
+export default function BuildTest({ pool, defaultTitle, onClose }: { pool: Task[]; defaultTitle: string; onClose: () => void }) {
   const { save } = useTasks();
-  const { selected, setMany } = useTaskSelection();
+  const router = useRouter();
+  const lib = useQuizLibrary();
+  const [quizTitle, setQuizTitle] = useState(defaultTitle);
 
   const [total, setTotal] = useState(() => Math.min(10, Math.max(1, pool.length)));
   const [fine, setFine] = useState(false);
@@ -163,19 +168,19 @@ export default function BuildTest({ pool, onClose }: { pool: Task[]; onClose: ()
   const nGen = got.filter(r => r.draft).length;
   const setKeep = (i: number, keep: boolean) => setResults(rs => rs.map((r, j) => (j === i ? { ...r, keep } : r)));
 
-  /** Potrdi test: shrani obdržane generirane naloge (osnutki pod izvirno nalogo) in izbere vse naloge testa. */
-  const confirmTest = async () => {
+  /** Potrdi kviz: shrani obdržane generirane naloge (osnutki pod izvirno nalogo) in ustvari kviz v knjižnici Kvizi. */
+  const confirmQuiz = async () => {
     setSaving(true); setError(null);
     try {
-      const ids: string[] = [];
+      const tasks: Task[] = [];
       for (const r of got) {
-        if (r.task) { ids.push(r.task.id); continue; }
-        const saved = await save({ ...r.draft!, status: 'draft', source: 'ai', parent_id: r.slot.seed!.parent_id ?? r.slot.seed!.id });
-        ids.push(saved.id);
+        if (r.task) { tasks.push(r.task); continue; }
+        tasks.push(await save({ ...r.draft!, status: 'draft', source: 'ai', parent_id: r.slot.seed!.parent_id ?? r.slot.seed!.id }));
       }
-      setMany([...selected], false);
-      setMany(ids, true);
+      const { questions } = tasksToQuestions(orderTasks(tasks));
+      lib.createQuizFrom(quizTitle || 'Nov kviz', questions);
       onClose();
+      router.push('/kvizi');
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     finally { setSaving(false); }
   };
@@ -183,7 +188,7 @@ export default function BuildTest({ pool, onClose }: { pool: Task[]; onClose: ()
   return (
     <div onClick={() => phase === 'setup' && onClose()} style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(10,20,12,0.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '5vh 16px', overflowY: 'auto' }}>
       <div onClick={e => e.stopPropagation()} style={{ background: 'var(--canvas)', borderRadius: 'var(--r-md)', width: '100%', maxWidth: '640px', padding: '22px 26px 24px', fontFamily: 'var(--font-sans)', boxShadow: '0 12px 40px rgba(0,0,0,.25)' }}>
-        <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '26px', fontWeight: 400, margin: '0 0 4px', color: 'var(--ink)' }}>Generiraj test</h2>
+        <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '26px', fontWeight: 400, margin: '0 0 4px', color: 'var(--ink)' }}>Generiraj kviz</h2>
         <p style={{ fontSize: '12px', color: 'var(--muted)', margin: 0, lineHeight: 1.5 }}>
           Naloge se izbirajo iz trenutnega filtra ({pool.length}). Po želji manjkajoče ali izbrani delež generira AI iz podobnih nalog.
         </p>
@@ -241,7 +246,7 @@ export default function BuildTest({ pool, onClose }: { pool: Task[]; onClose: ()
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '16px' }}>
               <button onClick={() => void build()} disabled={!valid || pool.length === 0}
                 style={{ ...btn(true), padding: '8px 16px', opacity: valid && pool.length ? 1 : 0.45, cursor: valid && pool.length ? 'pointer' : 'not-allowed' }}>
-                🧪 Generiraj test{plan.generated ? ` (generiram ${plan.generated})` : ''}
+                🧪 Generiraj kviz{plan.generated ? ` (generiram ${plan.generated})` : ''}
               </button>
               <button onClick={() => setSeedKey(String(Math.random()))} style={btn()} title="Drug naključni izbor nalog po istih nastavitvah">🎲 Drug izbor</button>
               <span style={{ flex: 1 }} />
@@ -262,12 +267,14 @@ export default function BuildTest({ pool, onClose }: { pool: Task[]; onClose: ()
 
         {phase === 'done' && (
           <div style={{ marginTop: '16px' }}>
+            <div style={{ ...tinyLabel, margin: '0 0 4px' }}>Naslov kviza</div>
+            <input value={quizTitle} onChange={e => setQuizTitle(e.target.value)} style={{ ...input, width: '100%', marginBottom: '12px' }} />
             <p style={{ fontSize: '13px', color: 'var(--ink)', margin: '0 0 4px' }}>
-              <b>Test: {got.length} {got.length === 1 ? 'naloga' : 'nalog'}</b>
+              <b>Kviz: {got.length} {got.length === 1 ? 'naloga' : 'nalog'}</b>
               {pts > 0 && ` · ${String(pts).replace('.', ',')} točk`}{mins > 0 && ` · ${mins} min`}
             </p>
             <p style={{ fontSize: '12px', color: 'var(--muted)', margin: '0 0 10px', lineHeight: 1.5 }}>
-              Pregled: z odkljukanjem nalogo izločiš iz testa. {nGen > 0 && `${nGen} generiranih še ni v bazi — shranijo se šele, ko test potrdiš (kot osnutki pod izvirno nalogo).`}
+              Pregled: z odkljukanjem nalogo izločiš iz kviza. {nGen > 0 && `${nGen} generiranih še ni v bazi — shranijo se šele, ko kviz ustvariš (kot osnutki pod izvirno nalogo). Kviz se pojavi v seznamu Kvizi, kjer ga zaženeš ali natisneš.`}
             </p>
             {gaps.length > 0 && (
               <div style={{ background: '#fdf6e3', borderRadius: 'var(--r-sm)', padding: '8px 10px', fontSize: '12px', color: '#8a5a00', marginBottom: '10px', lineHeight: 1.5 }}>
@@ -314,9 +321,9 @@ export default function BuildTest({ pool, onClose }: { pool: Task[]; onClose: ()
             </div>
             {error && <p style={{ color: '#c0392b', fontSize: '12px' }}>{error}</p>}
             <div style={{ display: 'flex', gap: '8px', marginTop: '16px', alignItems: 'center' }}>
-              <button onClick={() => void confirmTest()} disabled={saving || got.length === 0}
-                style={{ ...btn(true), padding: '8px 16px', opacity: saving || !got.length ? 0.5 : 1 }}>
-                {saving ? 'Shranjujem …' : `✓ Potrdi test (${got.length})`}
+              <button onClick={() => void confirmQuiz()} disabled={saving || got.length === 0 || !quizTitle.trim()}
+                style={{ ...btn(true), padding: '8px 16px', opacity: saving || !got.length || !quizTitle.trim() ? 0.5 : 1 }}>
+                {saving ? 'Shranjujem …' : `✓ Ustvari kviz (${got.length})`}
               </button>
               <button onClick={() => setPhase('setup')} disabled={saving} style={btn()}>← Nastavitve</button>
               <span style={{ flex: 1 }} />

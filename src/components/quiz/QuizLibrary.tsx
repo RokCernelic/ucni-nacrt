@@ -196,7 +196,7 @@ export default function QuizLibrary() {
                       <Link href={`/kvizi/${q.id}`} draggable={false} style={{ flex: '1 1 200px', minWidth: 0, textDecoration: 'none' }}>
                         <div style={{ fontFamily: 'var(--font-sans)', fontSize: '15px', fontWeight: 600, color: 'var(--ink)' }}>{q.title || 'Brez naslova'}</div>
                         <div style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--muted)', marginTop: '2px' }}>
-                          {questionsLabel(q.questions.length)} · {pointsLabel(maxPoints)}
+                          {questionsLabel(q.questions.length)} · {pointsLabel(maxPoints)} · ustvarjen {new Date(q.createdAt).toLocaleDateString('sl-SI', { day: 'numeric', month: 'numeric', year: 'numeric' })}
                           {' · '}
                           {incomplete > 0
                             ? <span style={{ color: '#b7791f' }}>⚠ nedokončano: {incomplete}</span>
@@ -210,8 +210,8 @@ export default function QuizLibrary() {
                           <option value="">📁 Vsi kvizi (koren)</option>
                           {allFolders.map(({ f, depth }) => <option key={f.id} value={f.id}>{'  '.repeat(depth)}📁 {f.name}</option>)}
                         </select>
-                        <button style={{ ...btn(true), padding: '7px 11px' }} disabled={incomplete > 0} title={incomplete > 0 ? 'Najprej dokončaj vsa vprašanja' : 'Zaženi sejo z razredom'}
-                          onClick={() => setStarting(q.id)}>▶ Zaženi</button>
+                        <button style={{ ...btn(true), padding: '7px 11px' }} disabled={incomplete > 0} title={incomplete > 0 ? 'Najprej dokončaj vsa vprašanja' : 'Zaženi kot projekcijo z razredom ali natisni'}
+                          onClick={() => setStarting(q.id)}>▶ Zaženi / natisni</button>
                         <Link href={`/kvizi/${q.id}`} style={{ ...btn(), padding: '7px 10px', textDecoration: 'none' }}>Uredi</Link>
                         <Link href={`/kvizi/statistika?k=${encodeURIComponent(q.id)}`} style={{ ...btn(), padding: '7px 10px', textDecoration: 'none' }} title="Rezultati tega kviza po učencih in nalogah">Rezultati</Link>
                         <button style={{ ...btn(), padding: '7px 10px' }} onClick={() => guard(() => lib.duplicateQuiz(q.id))}>Podvoji</button>

@@ -104,7 +104,7 @@ export default function TaskEditor({ initial, fixedTopic, onSave, onCancel }: {
       <Field label="Oblika odgovora">
         <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
           {ANSWER_KINDS.map(a => (
-            <Chip key={a.id} active={t.answer_kind === a.id} onClick={() => setKind(a.id)} title={a.quiz ? 'Uporabno v kvizu (samodejno ocenjevanje)' : 'Le za učne liste in pisne teste'}>
+            <Chip key={a.id} active={t.answer_kind === a.id} onClick={() => setKind(a.id)} title={a.quiz ? 'Uporabno v kvizu (samodejno ocenjevanje)' : 'Le za učne liste in tiskane kvize'}>
               {a.name}{a.quiz ? ' ·kviz' : ''}
             </Chip>
           ))}

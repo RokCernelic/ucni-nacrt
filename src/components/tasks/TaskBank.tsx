@@ -122,6 +122,12 @@ export default function TaskBank() {
     ...g, topics: g.topics.map(t => ({ ...t, title: t.title || (g.chapterKey ? 'Brez podpoglavja' : '') })),
   })), [ordered]);
 
+  // privzeti naslov generiranega kviza: izbrana poglavja (ali podpoglavja), sicer »Nov kviz«
+  const defaultQuizTitle = (() => {
+    const labels = [...chapters].map(k => chapterInfo(k)?.label).filter((l): l is string => !!l);
+    return labels.length ? labels.slice(0, 2).join(', ') + (labels.length > 2 ? ' …' : '') : 'Nov kviz';
+  })();
+
   const selectedInView = ordered.filter(t => selected.has(t.id));
   const allSelected = filtered.length > 0 && selectedInView.length === filtered.length;
   const anyFilter = q || currs.size || grades.size || chapters.size || topicSel.size || diff.size || bloom.size || kinds.size || aks.size || source || status || onlyMin || noTopic || unlinked;
@@ -216,14 +222,14 @@ export default function TaskBank() {
             </div>
 
             {error && <p style={{ color: '#c0392b', fontSize: '13px' }}>{error}</p>}
-            {building && <BuildTest pool={filtered} onClose={() => setBuilding(false)} />}
+            {building && <BuildTest pool={filtered} defaultTitle={defaultQuizTitle} onClose={() => setBuilding(false)} />}
             {loaded && (
               <>
                 <TaskList tasks={[]} extraAction={
 <button onClick={() => setBuilding(true)} disabled={!filtered.length}
-                title="Iz nalog v trenutnem filtru sestavi test: število nalog, delež po taksonomiji in obliki odgovora, iz baze ali generirano (AI)"
+                title="Iz nalog v trenutnem filtru sestavi kviz: število nalog, delež po taksonomiji in obliki odgovora, iz baze ali generirano (AI)"
                 style={{ ...btn(true), padding: '7px 14px', opacity: filtered.length ? 1 : 0.45, cursor: filtered.length ? 'pointer' : 'not-allowed' }}>
-                🧪 Generiraj test
+                🧪 Generiraj kviz
               </button>
 } emptyText={anyFilter && !ordered.length ? 'Ni nalog, ki ustrezajo filtrom.' : !tasks.length ? 'Baza je še prazna. Dodaj prvo nalogo.' : undefined} />
                 {(() => {
