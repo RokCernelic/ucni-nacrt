@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { useTasks } from '@/hooks/useTasks';
 import { useTaskSelection } from '@/hooks/useTaskSelection';
-import { BLOOM, DIFFICULTY, KINDS, ANSWER_GROUPS, answerGroupOf, SOURCES, type Task, type BloomLevel, type Difficulty, type TaskKind, type AnswerKind } from '@/lib/tasks/types';
+import { BLOOM, DIFFICULTY, ANSWER_GROUPS, answerGroupOf, SOURCES, type Task, type BloomLevel, type Difficulty, type AnswerKind } from '@/lib/tasks/types';
 import { allCurricula, topicsOf, topicInfo, chaptersOf, chapterInfo, chapterKeysOf, hasMinimalStandard } from '@/lib/tasks/topics';
 import TaskList from './TaskList';
 import { plural } from '@/lib/quiz/format';
@@ -48,7 +48,6 @@ export default function TaskBank({ picker }: { picker?: BankPicker } = {}) {
   const [topicSel, setTopicSel] = useState<Set<string>>(new Set());
   const [diff, setDiff] = useState<Set<Difficulty>>(new Set());
   const [bloom, setBloom] = useState<Set<BloomLevel>>(new Set());
-  const [kinds, setKinds] = useState<Set<TaskKind>>(new Set());
   const [aks, setAks] = useState<Set<AnswerKind>>(new Set());
   const [source, setSource] = useState('');
   const [status, setStatus] = useState<'' | 'verified' | 'draft'>('');
@@ -83,8 +82,7 @@ export default function TaskBank({ picker }: { picker?: BankPicker } = {}) {
       if (topicSel.size && !t.topics.some(k => topicSel.has(k))) return false;
       if (diff.size && !(t.difficulty && diff.has(t.difficulty))) return false;
       if (bloom.size && !(t.bloom && bloom.has(t.bloom))) return false;
-      if (kinds.size && !t.kinds.some(k => kinds.has(k))) return false;
-      if (aks.size && !aks.has(answerGroupOf(t.answer_kind))) return false;
+            if (aks.size && !aks.has(answerGroupOf(t.answer_kind))) return false;
       if (source && t.source !== source) return false;
       if (status && t.status !== status) return false;
       if (onlyMin && !hasMinimalStandard(t.standards, t.topics)) return false;
@@ -95,7 +93,7 @@ export default function TaskBank({ picker }: { picker?: BankPicker } = {}) {
       if (img === 'missing' && !missingImage(t)) return false;
       return true;
     });
-  }, [tasks, q, currs, grades, chapters, topicSel, diff, bloom, kinds, aks, source, status, onlyMin, noTopic, unlinked, img]);
+  }, [tasks, q, currs, grades, chapters, topicSel, diff, bloom, aks, source, status, onlyMin, noTopic, unlinked, img]);
 
   // dvojniki (enako besedilo) — npr. po dvakratnem uvozu iste datoteke; obdrži najstarejšo
   const duplicates = useMemo(() => {
@@ -147,8 +145,8 @@ export default function TaskBank({ picker }: { picker?: BankPicker } = {}) {
 
   const selectedInView = ordered.filter(t => selected.has(t.id));
   const allSelected = filtered.length > 0 && selectedInView.length === filtered.length;
-  const anyFilter = q || currs.size || grades.size || chapters.size || topicSel.size || diff.size || bloom.size || kinds.size || aks.size || source || status || onlyMin || noTopic || unlinked || img;
-  const reset = () => { setQ(''); setCurrs(new Set()); setGrades(new Set()); setChapters(new Set()); setTopicSel(new Set()); setDiff(new Set()); setBloom(new Set()); setKinds(new Set()); setAks(new Set()); setSource(''); setStatus(''); setOnlyMin(false); setNoTopic(false); setUnlinked(false); setImg(''); };
+  const anyFilter = q || currs.size || grades.size || chapters.size || topicSel.size || diff.size || bloom.size || aks.size || source || status || onlyMin || noTopic || unlinked || img;
+  const reset = () => { setQ(''); setCurrs(new Set()); setGrades(new Set()); setChapters(new Set()); setTopicSel(new Set()); setDiff(new Set()); setBloom(new Set()); setAks(new Set()); setSource(''); setStatus(''); setOnlyMin(false); setNoTopic(false); setUnlinked(false); setImg(''); };
 
   if (loading) return null;
 
@@ -206,7 +204,6 @@ export default function TaskBank({ picker }: { picker?: BankPicker } = {}) {
               )}
               <Row label="Težavnost">{DIFFICULTY.map(d => <Chip key={d.level} active={diff.has(d.level)} color={d.color} onClick={() => setDiff(toggleIn(diff, d.level))}>{d.name}</Chip>)}</Row>
               <Row label="Bloom">{BLOOM.map(b => <Chip key={b.level} active={bloom.has(b.level)} color={b.color} title={b.hint} onClick={() => setBloom(toggleIn(bloom, b.level))}>{b.level} · {b.name}</Chip>)}</Row>
-              <Row label="Tip naloge">{KINDS.map(k => <Chip key={k.id} active={kinds.has(k.id)} onClick={() => setKinds(toggleIn(kinds, k.id))}>{k.name}</Chip>)}</Row>
               <Row label="Oblika odgovora">{ANSWER_GROUPS.map(a => <Chip key={a.id} active={aks.has(a.id)} title={a.hint} onClick={() => setAks(toggleIn(aks, a.id))}>{a.name}</Chip>)}</Row>
               <Row label="Slika">
                 <Chip active={img === 'with'} onClick={() => setImg(img === 'with' ? '' : 'with')} title="Naloge, ki imajo v besedilu sliko">s sliko</Chip>
