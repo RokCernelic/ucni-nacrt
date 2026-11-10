@@ -11,7 +11,9 @@ import type { Task } from '@/lib/tasks/types';
 
 /** Gumb + okno za uvoz nalog iz .json (izvoz iz baze nalog): obnovi vse metapodatke in povezave med nalogami. */
 export default function ImportJsonTasks() {
-  const { tasks, importMany, reload } = useTasks();
+  const { tasks, importMany, reload, save, removeMany } = useTasks();
+  const [update, setUpdate] = useState(true);
+  const [doDelete, setDoDelete] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<{ name: string; text: string } | null>(null);
   const [skipDup, setSkipDup] = useState(true);
@@ -25,8 +27,15 @@ export default function ImportJsonTasks() {
 
   /** Dvojnik: enak id ali enako besedilo kot naloga, ki je že v bazi (vrne id obstoječe naloge). */
   const dupOf = (srcId: string, body: string): string | null => (byId.has(srcId) ? srcId : byText.get(plainKey(body)) ?? null);
-  const dups = parsed ? parsed.items.filter(it => dupOf(it.srcId, it.draft.body)) : [];
-  const toImport = parsed ? parsed.items.filter(it => !(skipDup && dupOf(it.srcId, it.draft.body))) : [];
+  // naloge z enakim id kot v bazi: posodobitev (popravljena datoteka) ali brisanje (»_izbrisi«); ostale: nove
+  const toDelete = parsed ? parsed.items.filter(it => it.remove && byId.has(it.srcId)) : [];
+  const toUpdate = parsed ? parsed.items.filter(it => !it.remove && byId.has(it.srcId)) : [];
+  const fresh = parsed ? parsed.items.filter(it => !it.remove && !byId.has(it.srcId)) : [];
+  const dups = fresh.filter(it => dupOf(it.srcId, it.draft.body));
+  const toImport = fresh.filter(it => !(skipDup && dupOf(it.srcId, it.draft.body)));
+  const updates = update ? toUpdate : [];
+  const deletes = doDelete ? toDelete : [];
+  const total = toImport.length + updates.length + deletes.length;
 
   const pick = async (f: File | undefined) => {
     if (!f) return;
@@ -35,10 +44,20 @@ export default function ImportJsonTasks() {
   };
 
   const run = async () => {
-    if (!parsed || !toImport.length) return;
+    if (!parsed || !total) return;
+    if (deletes.length && !confirm(`Trajno izbrišem ${deletes.length} nalog, ki so v datoteki označene za brisanje?`)) return;
     setBusy(0); setError(null);
     try {
-      const inserted = await importMany(toImport.map(it => it.draft), n => setBusy(n));
+      let n = 0;
+      // posodobitve obstoječih (enak id): vse vrednosti iz datoteke; povezava na izvirnik, če ta obstaja
+      const fileIds = new Set(parsed.items.filter(it => !it.remove).map(it => it.srcId));
+      for (const it of updates) {
+        const parent = it.srcParent && (byId.has(it.srcParent) || fileIds.has(it.srcParent)) ? it.srcParent : null;
+        await save({ ...it.draft, id: it.srcId, parent_id: parent });
+        setBusy(++n);
+      }
+      if (deletes.length) { await removeMany(deletes.map(it => it.srcId)); n += deletes.length; setBusy(n); }
+      const inserted = toImport.length ? await importMany(toImport.map(it => it.draft), k => setBusy(n + k)) : [];
       // povezave: izvirnik → novo id (ali id že obstoječe naloge, če je bil preskočen kot dvojnik)
       const idMap = new Map<string, string>();
       parsed.items.forEach(it => { const d = dupOf(it.srcId, it.draft.body); if (d && skipDup) idMap.set(it.srcId, d); });
@@ -48,7 +67,8 @@ export default function ImportJsonTasks() {
         return parent && inserted[i] ? [{ id: inserted[i].id, parent_id: parent }] : [];
       });
       if (links.length) { await relinkTasks(links); reload(); }
-      setDone(`Uvoženih ${inserted.length} nalog iz ${file!.name}${links.length ? `, ${links.length} povezav pod izvirnimi nalogami` : ''}.`);
+      const parts = [inserted.length && `${inserted.length} novih`, updates.length && `${updates.length} posodobljenih`, deletes.length && `${deletes.length} izbrisanih`].filter(Boolean);
+      setDone(`${file!.name}: ${parts.join(', ')}${links.length ? `, ${links.length} povezav pod izvirnimi nalogami` : ''}.`);
       setFile(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -73,6 +93,19 @@ export default function ImportJsonTasks() {
             <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '13px', color: 'var(--body)' }}>
               <div>
                 Najdenih <b>{parsed.items.length}</b> nalog
+                {toUpdate.length > 0 && (
+                  <label style={{ display: 'flex', gap: '5px', alignItems: 'center', cursor: 'pointer', marginTop: '6px' }}>
+                    <input type="checkbox" checked={update} onChange={e => setUpdate(e.target.checked)} />
+                    posodobi <b>{toUpdate.length}</b> obstoječih nalog (enak id) z vsebino iz datoteke
+                  </label>
+                )}
+                {toDelete.length > 0 && (
+                  <label style={{ display: 'flex', gap: '5px', alignItems: 'center', cursor: 'pointer', marginTop: '4px', color: '#c0392b' }}>
+                    <input type="checkbox" checked={doDelete} onChange={e => setDoDelete(e.target.checked)} />
+                    izbriši <b>{toDelete.length}</b> nalog, ki so v datoteki označene za brisanje
+                  </label>
+                )}
+                {fresh.length > 0 && toUpdate.length + toDelete.length > 0 && <div style={{ marginTop: '4px' }}>novih nalog: <b>{fresh.length}</b></div>}
                 {dups.length > 0 && (
                   <label style={{ marginLeft: '10px', display: 'inline-flex', gap: '5px', alignItems: 'center', cursor: 'pointer' }}>
                     <input type="checkbox" checked={skipDup} onChange={e => setSkipDup(e.target.checked)} />
@@ -90,9 +123,17 @@ export default function ImportJsonTasks() {
                   </ul>
                 </details>
               )}
+              {toDelete.length > 0 && doDelete && (
+                <details style={{ fontSize: '12px' }}>
+                  <summary style={{ cursor: 'pointer', color: '#c0392b' }}>Naloge za brisanje ({toDelete.length})</summary>
+                  <ul style={{ margin: '6px 0 0', paddingLeft: '18px', color: 'var(--muted)', listStyle: 'disc' }}>
+                    {toDelete.map(it => <li key={it.srcId}>{(byId.get(it.srcId)?.body ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120)}</li>)}
+                  </ul>
+                </details>
+              )}
               {toImport.length > 0 && (
                 <div>
-                  <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: '6px' }}>Predogled</div>
+                  <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: '6px' }}>Predogled novih</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '320px', overflowY: 'auto' }}>
                     {toImport.slice(0, 5).map((it, i) => (
                       <div key={i} style={{ border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -106,9 +147,9 @@ export default function ImportJsonTasks() {
               )}
               {error && <p style={{ color: '#c0392b', margin: 0 }}>{error}</p>}
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center', borderTop: '1px solid var(--hairline)', paddingTop: '12px' }}>
-                <button onClick={() => void run()} disabled={!toImport.length || busy !== null}
-                  style={{ ...btn(true), opacity: !toImport.length || busy !== null ? 0.5 : 1 }}>
-                  {busy !== null ? `Uvažam … ${busy}/${toImport.length}` : `Uvozi ${toImport.length} nalog`}
+                <button onClick={() => void run()} disabled={!total || busy !== null}
+                  style={{ ...btn(true), opacity: !total || busy !== null ? 0.5 : 1 }}>
+                  {busy !== null ? `Uvažam … ${busy}/${total}` : [toImport.length && `Uvozi ${toImport.length} novih`, updates.length && `posodobi ${updates.length}`, deletes.length && `izbriši ${deletes.length}`].filter(Boolean).join(' · ') || 'Uvozi'}
                 </button>
                 <button onClick={close} disabled={busy !== null} style={btn()}>Prekliči</button>
               </div>

@@ -32,7 +32,8 @@ export function downloadTasksJson(tasks: Task[]) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export interface JsonItem { draft: TaskDraft; srcId: string; srcParent: string | null }
+/** `remove`: naloga je v datoteki označena za brisanje (»_izbrisi«: true) — ob uvozu se obstoječa naloga z enakim id izbriše. */
+export interface JsonItem { draft: TaskDraft; srcId: string; srcParent: string | null; remove?: boolean }
 export interface JsonParse { items: JsonItem[]; errors: string[]; warnings: string[] }
 
 const KINDS = new Set<string>(['mc', 'multi', 'tf', 'numeric', 'short', 'open']);
@@ -68,6 +69,7 @@ export function parseTasksJson(text: string): JsonParse {
     res.items.push({
       srcId: str(t.id) ?? `#${i}`,
       srcParent: str(t.parent_id),
+      remove: t._izbrisi === true || t._delete === true,
       draft: emptyTask({
         body: clean(body) ?? '', answer: clean(str(t.answer)), solution: clean(str(t.solution)),
         answer_kind: kind, options, correct: str(t.correct), tolerance: numOrNull(t.tolerance), unit: str(t.unit),
