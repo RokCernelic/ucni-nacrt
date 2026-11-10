@@ -48,12 +48,16 @@ function flatFolders(folders: QuizFolder[], parentId: string | null = null, dept
     .flatMap(f => [{ f, depth }, ...flatFolders(folders, f.id, depth + 1)]);
 }
 
-function AutoTextarea({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+/** Večvrstično polje; z `onImage` lahko vanj prilepiš (npr. posnetek zaslona) ali povlečeš sliko — postane slika vprašanja. */
+function AutoTextarea({ value, onChange, placeholder, onImage }: { value: string; onChange: (v: string) => void; placeholder?: string; onImage?: (f: File) => void }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   useEffect(() => { const el = ref.current; if (el) { el.style.height = 'auto'; el.style.height = `${el.scrollHeight}px`; } }, [value]);
+  const imageOf = (files: FileList | null | undefined) => Array.from(files ?? []).find(f => f.type.startsWith('image/'));
   return (
     <textarea ref={ref} value={value} rows={2} placeholder={placeholder}
       onChange={e => onChange(e.target.value)}
+      onPaste={onImage ? e => { const img = imageOf(e.clipboardData.files); if (img) { e.preventDefault(); onImage(img); } } : undefined}
+      onDrop={onImage ? e => { const img = imageOf(e.dataTransfer.files); if (img) { e.preventDefault(); onImage(img); } } : undefined}
       style={{ ...input, width: '100%', resize: 'none', lineHeight: 1.5, overflow: 'hidden', fontSize: '15px' }} />
   );
 }
@@ -98,7 +102,8 @@ function QuestionCard({ q, index, total, onChange, onMove, onDuplicate, onDelete
       </div>
 
       {/* besedilo + slika */}
-      <AutoTextarea value={q.prompt} onChange={v => onChange({ ...q, prompt: v })} placeholder="Besedilo vprašanja …" />
+      <AutoTextarea value={q.prompt} onChange={v => onChange({ ...q, prompt: v })} placeholder="Besedilo vprašanja … (sliko, npr. posnetek zaslona, lahko prilepiš kar sem)"
+        onImage={f => void pickImage(f)} />
       <div style={{ marginTop: '8px', display: 'flex', alignItems: 'flex-start', gap: '10px', flexWrap: 'wrap' }}>
         {q.image ? (
           <>

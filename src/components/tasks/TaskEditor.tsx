@@ -120,7 +120,7 @@ export default function TaskEditor({ initial, fixedTopic, onSave, onCancel }: {
 
       <Field label={isChoice(t.answer_kind) ? 'Vprašanje (možnosti A–D so spodaj)' : 'Besedilo naloge'}>
         <RichField value={t.body} onChange={v => up({ body: v })} minHeight={isChoice(t.answer_kind) ? 40 : 70} allowImage onSubmit={() => void save()}
-          placeholder="Besedilo naloge … (prilepi lahko iz Worda — enačbe, ulomki, x², √ ostanejo; slika = skica)" />
+          placeholder="Besedilo naloge … (prilepi lahko iz Worda — enačbe, ulomki, x², √ ostanejo; sliko ali posnetek zaslona prilepiš kar sem)" />
       </Field>
 
       {isChoice(t.answer_kind) && (
