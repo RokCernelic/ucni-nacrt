@@ -20,6 +20,10 @@ import { orderTasks, groupTasks, isNested } from '@/lib/tasks/order';
 import { Chip, tinyLabel, input, btn } from './ui';
 
 const plain = (html: string | null) => (html ?? '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').toLowerCase();
+const hasImage = (t: Task) => /<img\b/i.test(t.body);
+/** Naloga omenja sliko (ali ima oznako »manjka slika«), slike pa nima. */
+const missingImage = (t: Task) => !hasImage(t) && (t.tags.some(x => x.toLowerCase() === 'manjka slika')
+  || /\[\s*slika|na sliki|kaže slika|kot kaže slika|glej sliko|prikazano na sliki|s slike|na skici|kaže skica/i.test(plain(t.body)));
 const toggleIn = <T,>(set: Set<T>, v: T) => { const n = new Set(set); if (n.has(v)) n.delete(v); else n.add(v); return n; };
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
@@ -53,6 +57,7 @@ export default function TaskBank({ picker }: { picker?: BankPicker } = {}) {
   const [onlyMin, setOnlyMin] = useState(false);
   const [noTopic, setNoTopic] = useState(false);
   const [unlinked, setUnlinked] = useState(false);
+  const [img, setImg] = useState<'' | 'with' | 'without' | 'missing'>('');
 
   // ponudba filtrov učnega načrta: vsak naslednji nivo le v okviru izbranega
   const allChapters = useMemo(() => allCurricula().flatMap(c => chaptersOf(c.id)), []);
@@ -85,9 +90,12 @@ export default function TaskBank({ picker }: { picker?: BankPicker } = {}) {
       if (onlyMin && !hasMinimalStandard(t.standards, t.topics)) return false;
       if (noTopic && t.topics.length) return false;
       if (unlinked && (t.topics.length || t.chapters.length)) return false;
+      if (img === 'with' && !hasImage(t)) return false;
+      if (img === 'without' && hasImage(t)) return false;
+      if (img === 'missing' && !missingImage(t)) return false;
       return true;
     });
-  }, [tasks, q, currs, grades, chapters, topicSel, diff, bloom, kinds, aks, source, status, onlyMin, noTopic, unlinked]);
+  }, [tasks, q, currs, grades, chapters, topicSel, diff, bloom, kinds, aks, source, status, onlyMin, noTopic, unlinked, img]);
 
   // dvojniki (enako besedilo) — npr. po dvakratnem uvozu iste datoteke; obdrži najstarejšo
   const duplicates = useMemo(() => {
@@ -136,8 +144,8 @@ export default function TaskBank({ picker }: { picker?: BankPicker } = {}) {
 
   const selectedInView = ordered.filter(t => selected.has(t.id));
   const allSelected = filtered.length > 0 && selectedInView.length === filtered.length;
-  const anyFilter = q || currs.size || grades.size || chapters.size || topicSel.size || diff.size || bloom.size || kinds.size || aks.size || source || status || onlyMin || noTopic || unlinked;
-  const reset = () => { setQ(''); setCurrs(new Set()); setGrades(new Set()); setChapters(new Set()); setTopicSel(new Set()); setDiff(new Set()); setBloom(new Set()); setKinds(new Set()); setAks(new Set()); setSource(''); setStatus(''); setOnlyMin(false); setNoTopic(false); setUnlinked(false); };
+  const anyFilter = q || currs.size || grades.size || chapters.size || topicSel.size || diff.size || bloom.size || kinds.size || aks.size || source || status || onlyMin || noTopic || unlinked || img;
+  const reset = () => { setQ(''); setCurrs(new Set()); setGrades(new Set()); setChapters(new Set()); setTopicSel(new Set()); setDiff(new Set()); setBloom(new Set()); setKinds(new Set()); setAks(new Set()); setSource(''); setStatus(''); setOnlyMin(false); setNoTopic(false); setUnlinked(false); setImg(''); };
 
   if (loading) return null;
 
@@ -197,6 +205,12 @@ export default function TaskBank({ picker }: { picker?: BankPicker } = {}) {
               <Row label="Bloom">{BLOOM.map(b => <Chip key={b.level} active={bloom.has(b.level)} color={b.color} title={b.hint} onClick={() => setBloom(toggleIn(bloom, b.level))}>{b.level} · {b.name}</Chip>)}</Row>
               <Row label="Tip naloge">{KINDS.map(k => <Chip key={k.id} active={kinds.has(k.id)} onClick={() => setKinds(toggleIn(kinds, k.id))}>{k.name}</Chip>)}</Row>
               <Row label="Oblika odgovora">{ANSWER_GROUPS.map(a => <Chip key={a.id} active={aks.has(a.id)} title={a.hint} onClick={() => setAks(toggleIn(aks, a.id))}>{a.name}</Chip>)}</Row>
+              <Row label="Slika">
+                <Chip active={img === 'with'} onClick={() => setImg(img === 'with' ? '' : 'with')} title="Naloge, ki imajo v besedilu sliko">s sliko</Chip>
+                <Chip active={img === 'without'} onClick={() => setImg(img === 'without' ? '' : 'without')} title="Naloge brez slike">brez slike</Chip>
+                <Chip active={img === 'missing'} color="#c0392b" onClick={() => setImg(img === 'missing' ? '' : 'missing')}
+                  title="Naloga omenja sliko (»na sliki«, »kot kaže slika«, [slika: …] ali oznaka »manjka slika«), slike pa nima">manjka slika ({tasks.filter(missingImage).length})</Chip>
+              </Row>
               <Row label="Ostalo">
                 <select value={source} onChange={e => setSource(e.target.value)} style={{ ...input, padding: '3px 6px', fontSize: '12px' }}>
                   <option value="">vsi viri</option>
