@@ -106,7 +106,7 @@ export default function TaskEditor({ initial, fixedTopic, onSave, onCancel }: {
           {ANSWER_GROUPS.map(a => (
             <Chip key={a.id} active={answerGroupOf(t.answer_kind) === a.id} title={a.hint}
               onClick={() => { if (answerGroupOf(t.answer_kind) !== a.id) setKind(a.id); }}>
-              {a.name}{a.quiz ? ' ·kviz' : ''}
+              {a.name}
             </Chip>
           ))}
         </div>

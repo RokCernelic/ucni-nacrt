@@ -230,7 +230,7 @@ export default function BuildTest({ pool, defaultTitle, onClose }: { pool: Task[
 
             {sectionLabel('Delež po obliki odgovora')}
             {ANSWER_GROUPS.map(k => (
-              <SliderRow key={k.id} label={`${k.name}${k.quiz ? ' · kviz' : ''}`} info={`v filtru: ${availKind[k.id] ?? 0}`} warn={(kindW[k.id] ?? 0) > 0 && !availKind[k.id]}
+              <SliderRow key={k.id} label={k.name} info={`v filtru: ${availKind[k.id] ?? 0}`} warn={(kindW[k.id] ?? 0) > 0 && !availKind[k.id]}
                 value={kindW[k.id] ?? 0} onChange={v => setKindW(rebalance(kindW as Record<AnswerKind, number>, k.id, v, lockedK))}
                 locked={lockedK.has(k.id)} canLock={ANSWER_GROUPS.length - lockedK.size > 2 && !lockedK.has(k.id)} onToggleLock={() => toggleLock(lockedK, setLockedK, k.id)} />
             ))}

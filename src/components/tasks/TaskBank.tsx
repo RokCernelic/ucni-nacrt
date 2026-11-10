@@ -196,7 +196,7 @@ export default function TaskBank({ picker }: { picker?: BankPicker } = {}) {
               <Row label="Težavnost">{DIFFICULTY.map(d => <Chip key={d.level} active={diff.has(d.level)} color={d.color} onClick={() => setDiff(toggleIn(diff, d.level))}>{d.name}</Chip>)}</Row>
               <Row label="Bloom">{BLOOM.map(b => <Chip key={b.level} active={bloom.has(b.level)} color={b.color} title={b.hint} onClick={() => setBloom(toggleIn(bloom, b.level))}>{b.level} · {b.name}</Chip>)}</Row>
               <Row label="Tip naloge">{KINDS.map(k => <Chip key={k.id} active={kinds.has(k.id)} onClick={() => setKinds(toggleIn(kinds, k.id))}>{k.name}</Chip>)}</Row>
-              <Row label="Oblika odgovora">{ANSWER_GROUPS.map(a => <Chip key={a.id} active={aks.has(a.id)} title={a.hint} onClick={() => setAks(toggleIn(aks, a.id))}>{a.name}{a.quiz ? ' ·kviz' : ''}</Chip>)}</Row>
+              <Row label="Oblika odgovora">{ANSWER_GROUPS.map(a => <Chip key={a.id} active={aks.has(a.id)} title={a.hint} onClick={() => setAks(toggleIn(aks, a.id))}>{a.name}</Chip>)}</Row>
               <Row label="Ostalo">
                 <select value={source} onChange={e => setSource(e.target.value)} style={{ ...input, padding: '3px 6px', fontSize: '12px' }}>
                   <option value="">vsi viri</option>
