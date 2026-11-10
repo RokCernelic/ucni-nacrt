@@ -8,7 +8,7 @@ import {
   loadSession, updateSession, resolveDevice, joinChannel, isLive, participated, TEACHER_NAME,
   type QuizSession, type SessionStudent, type SessionAnswer,
 } from '@/lib/quiz/sessionApi';
-import { isCorrect, answerStatus, scoreAnswers, parseNumber } from '@/lib/quiz/scoring';
+import { isCorrect, answerStatus, scoreAnswers, parseNumber, numericValue } from '@/lib/quiz/scoring';
 import { formatNumber, pointsLabel, studentsLabel } from '@/lib/quiz/format';
 import { sessionResultsCsv, downloadCsv, safeFilename } from '@/lib/quiz/csv';
 import type { Question } from '@/lib/quiz/types';
@@ -109,7 +109,7 @@ function QuestionStats({ q, index, answers, totalStudents }: { q: Question; inde
 
   const counts = new Map<string, number>();
   for (const a of relevant) {
-    const key = q.kind === 'numeric' ? formatNumber(parseNumber(a.value) ?? NaN).replace('NaN', a.value) : a.value;
+    const key = q.kind === 'numeric' ? formatNumber(numericValue(q, a.value) ?? NaN).replace('NaN', a.value) : a.value;
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
 
@@ -392,7 +392,7 @@ export default function LiveSession({ sessionId }: { sessionId: string }) {
   const counts = useMemo(() => {
     const m = new Map<string, number>();
     for (const a of currentAnswers) {
-      const n = q?.kind === 'numeric' ? parseNumber(a.value) : null;
+      const n = q?.kind === 'numeric' ? numericValue(q, a.value) : null;
       const key = n !== null ? formatNumber(n) : a.value;
       m.set(key, (m.get(key) ?? 0) + 1);
     }

@@ -34,6 +34,8 @@ export interface NumericQuestion extends QuestionBase {
   correct: string;
   /** dovoljeno ± odstopanje (0 = točno) */
   tolerance: number;
+  /** pričakovana enota (učenec jo lahko zapiše ali ne; z drugo predpono se pretvori) */
+  unit?: string;
 }
 
 /** Odprto vprašanje (račun, zapis odgovora): se ne točkuje samodejno — učitelj pregleda ročno. */

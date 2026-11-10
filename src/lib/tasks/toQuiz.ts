@@ -62,8 +62,8 @@ export function tasksToQuestions(tasks: Task[]): { questions: Question[]; skippe
     if (quizReady(t) && t.answer_kind !== 'numeric') {
       choice.push({ ...base, kind: 'mc', prompt, options: t.options!.map(o => ({ id: o.id, text: o.text })), correct: t.correct });
     } else if (quizReady(t)) {
-      if (t.unit) prompt += `\n(odgovor v ${t.unit})`;
-      rest.push({ ...base, kind: 'numeric', prompt, correct: t.correct!.trim(), tolerance: t.tolerance ?? 0 });
+      if (t.unit && !prompt.includes(`(odgovor v ${t.unit})`)) prompt += `\n(odgovor v ${t.unit})`;
+      rest.push({ ...base, kind: 'numeric', prompt, correct: t.correct!.trim(), tolerance: t.tolerance ?? 0, ...(t.unit ? { unit: t.unit } : {}) });
     } else {
       // odprte, kratek odgovor, več možnosti, naloge brez pravilnega odgovora
       if (t.options?.length) prompt += '\n' + t.options.map((o, i) => `${'ABCDEFGHIJKL'[i]}) ${o.text}`).join('\n');

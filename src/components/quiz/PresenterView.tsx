@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { loadSession, joinChannel, isLive, type QuizSession, type SessionStudent, type SessionAnswer } from '@/lib/quiz/sessionApi';
-import { parseNumber } from '@/lib/quiz/scoring';
+import { numericValue } from '@/lib/quiz/scoring';
 import { formatNumber } from '@/lib/quiz/format';
 import { JoinPanel, QuestionView } from './LiveSession';
 
@@ -19,7 +19,7 @@ export function PresenterBody({ session, students, answers, isFs, onToggleFs }: 
   const counts = useMemo(() => {
     const m = new Map<string, number>();
     for (const a of currentAnswers) {
-      const n = q?.kind === 'numeric' ? parseNumber(a.value) : null;
+      const n = q?.kind === 'numeric' ? numericValue(q, a.value) : null;
       const key = n !== null ? formatNumber(n) : a.value;
       m.set(key, (m.get(key) ?? 0) + 1);
     }

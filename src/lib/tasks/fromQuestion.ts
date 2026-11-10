@@ -27,7 +27,7 @@ export function questionToDraft(q: Question, opts: { base?: Task; parentId?: str
       answer: base?.answer ?? null, solution: base?.solution ?? null });
   }
   if (q.kind === 'numeric') {
-    return emptyTask({ ...common, answer_kind: 'numeric', correct: q.correct, tolerance: q.tolerance || null, unit: null, // enota je že v besedilu vprašanja
+    return emptyTask({ ...common, answer_kind: 'numeric', correct: q.correct, tolerance: q.tolerance || null, unit: q.unit ?? null,
       answer: base?.answer ?? null, solution: base?.solution ?? null });
   }
   return emptyTask({ ...common, answer_kind: base && (base.answer_kind === 'short' || base.answer_kind === 'open') ? base.answer_kind : 'open',

@@ -215,8 +215,8 @@ function QuestionBody({ code, q, selected, locked, shuffleSeed, onPick, onNumeri
       ) : (
         <div style={{ marginTop: '22px' }}>
           {q.kind === 'open' && <p style={{ fontSize: '15px', color: 'var(--muted)', margin: '0 0 8px' }}>Kratek odgovor (do 40 znakov). Postopek zapiši na list.</p>}
-          <input value={num} disabled={locked} inputMode={q.kind === 'open' ? 'text' : 'decimal'} placeholder="Tvoj odgovor"
-            onChange={e => setNum(q.kind === 'open' ? e.target.value.slice(0, 40) : e.target.value.replace(/[^0-9,.\-\s]/g, '').slice(0, 20))}
+          <input value={num} disabled={locked} inputMode="text" placeholder={q.kind === 'open' ? 'Tvoj odgovor' : 'Tvoj odgovor (z enoto ali brez)'}
+            onChange={e => setNum(e.target.value.slice(0, q.kind === 'open' ? 40 : 24))}
             onKeyDown={e => { if (e.key === 'Enter') onNumeric(num); }}
             style={{ width: '100%', boxSizing: 'border-box', fontSize: '34px', fontWeight: 600, padding: '14px 18px', borderRadius: '14px', border: '3px solid var(--hairline)', outline: 'none', textAlign: 'center' }} />
           {!locked && (

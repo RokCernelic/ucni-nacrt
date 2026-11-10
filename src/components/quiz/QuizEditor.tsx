@@ -7,7 +7,7 @@ import {
   useQuizLibrary, folderPath, cloneQuestion, QuizStorageFullError,
   newMcQuestion, newTrueFalseQuestion, newNumericQuestion, newOpenQuestion,
 } from '@/hooks/useQuizLibrary';
-import { questionProblems, parseNumber } from '@/lib/quiz/scoring';
+import { questionProblems, parseNumber, NUMERIC_REL_TOLERANCE } from '@/lib/quiz/scoring';
 import { downscaleImage } from '@/lib/quiz/image';
 import { questionsLabel, pointsLabel, formatNumber } from '@/lib/quiz/format';
 import { parseQuizText, readTextFile, type TextImportResult } from '@/lib/quiz/textImport';
@@ -173,13 +173,18 @@ function QuestionCard({ q, index, total, onChange, onMove, onDuplicate, onDelete
               onChange={e => setNum({ tolerance: Math.max(0, Number(e.target.value) || 0) })}
               style={{ ...input, width: '120px' }} />
           </label>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <span style={label}>Enota</span>
+            <input value={q.unit ?? ''} placeholder="npr. J"
+              onChange={e => setNum({ unit: e.target.value.trim() || undefined })}
+              style={{ ...input, width: '90px' }} />
+          </label>
           <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--muted)', margin: 0, lineHeight: 1.5, flex: '1 1 220px' }}>
             {(() => {
               const v = parseNumber(q.correct);
-              if (v === null) return 'Učenec vpiše število; vejica in pika sta enakovredni.';
-              return q.tolerance > 0
-                ? `Pravilno od ${formatNumber(v - q.tolerance)} do ${formatNumber(v + q.tolerance)} (vejica ali pika).`
-                : `Pravilno le točno ${formatNumber(v)} (vejica ali pika).`;
+              if (v === null) return 'Učenec vpiše število, z enoto ali brez; vejica in pika sta enakovredni.';
+              const range = Math.max(q.tolerance, Math.abs(v) * NUMERIC_REL_TOLERANCE);
+              return `Pravilno približno od ${formatNumber(v - range)} do ${formatNumber(v + range)}${q.unit ? ` ${q.unit}` : ''} (±${q.tolerance > Math.abs(v) * NUMERIC_REL_TOLERANCE ? 'toleranca' : '5 %'}; priznano tudi napačno zaokroževanje). Enota je lahko zapisana ali ne, s presledkom ali brez${q.unit ? `; z drugo predpono (npr. k${q.unit}) se pretvori` : ''}.`;
             })()}
           </p>
         </div>
