@@ -5,8 +5,8 @@ import RichField from '@/components/RichField';
 import { isRichEmpty, sanitizeRichHtml } from '@/lib/richText';
 import { parseNumber } from '@/lib/quiz/scoring';
 import {
-  BLOOM, DIFFICULTY, KINDS, ANSWER_GROUPS, answerGroupOf, SOURCES, emptyTask, isChoice, correctIds, LETTERS,
-  type TaskDraft, type AnswerKind, type TaskKind,
+  BLOOM, DIFFICULTY, ANSWER_GROUPS, answerGroupOf, SOURCES, emptyTask, isChoice, correctIds, LETTERS,
+  type TaskDraft, type AnswerKind,
 } from '@/lib/tasks/types';
 import { splitChoices, stripDuplicateChoices } from '@/lib/tasks/choices';
 import { topicsOf, topicInfo, topicLabel, chapterInfo, allCurricula } from '@/lib/tasks/topics';
@@ -70,7 +70,6 @@ export default function TaskEditor({ initial, fixedTopic, onSave, onCancel }: {
     }
     else up({ answer_kind: k, options: null, correct: k === 'numeric' ? (t.answer_kind === 'numeric' ? t.correct : '') : null });
   };
-  const toggleKindTag = (k: TaskKind) => up({ kinds: t.kinds.includes(k) ? t.kinds.filter(x => x !== k) : [...t.kinds, k] });
 
   // Predmet → poglavje (po razredih) → podpoglavje, vse iz učnega načrta
   const chapterOptions = useMemo(() => {
@@ -186,11 +185,6 @@ export default function TaskEditor({ initial, fixedTopic, onSave, onCancel }: {
         <Field label={`Bloom${t.bloom ? ` — ${BLOOM[t.bloom - 1].name}` : ''}`}>
           <div style={{ display: 'flex', gap: '4px' }}>
             {BLOOM.map(b => <Chip key={b.level} square active={t.bloom === b.level} color={b.color} title={`${b.name} — ${b.hint}`} onClick={() => up({ bloom: t.bloom === b.level ? null : b.level })}>{b.level}</Chip>)}
-          </div>
-        </Field>
-        <Field label="Tip naloge">
-          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-            {KINDS.map(k => <Chip key={k.id} active={t.kinds.includes(k.id)} onClick={() => toggleKindTag(k.id)}>{k.name}</Chip>)}
           </div>
         </Field>
       </div>

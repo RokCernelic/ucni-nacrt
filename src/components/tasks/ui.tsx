@@ -1,7 +1,7 @@
 'use client';
 
 import { sanitizeRichHtml } from '@/lib/richText';
-import { BLOOM, DIFFICULTY, KINDS, ANSWER_KINDS, isChoice, correctIds, type Task } from '@/lib/tasks/types';
+import { BLOOM, DIFFICULTY, ANSWER_KINDS, isChoice, correctIds, type Task } from '@/lib/tasks/types';
 import { topicLabel, chapterInfo } from '@/lib/tasks/topics';
 
 export const btn = (primary = false): React.CSSProperties => ({
@@ -50,7 +50,6 @@ export function TaskBadges({ task, showTopics = true, hideTopic, hideChapter }: 
       {task.status === 'draft' && <span style={badge('#fdf6e3', '#8a5a00')} title="Osnutek — še ni pregledana">osnutek</span>}
       {d && <span style={badge(d.color)} title="Težavnost">{d.name}</span>}
       {b && <span style={badge(b.color)} title={`${b.name} — ${b.hint}`}>{b.level} · {b.name}</span>}
-      {task.kinds.map(k => <span key={k} style={badge('var(--surface)', 'var(--body)')}>{KINDS.find(x => x.id === k)?.name ?? k}</span>)}
       {ak && <span style={badge('transparent', 'var(--muted)')} title={ak.quiz ? 'Uporabno v kvizu (samodejno ocenjevanje)' : 'Le za učne liste'}>{ak.name}</span>}
       {showTopics && task.chapters.filter(c => c !== hideChapter).map(c => { const ci = chapterInfo(c); return <span key={c} style={badge('transparent', 'var(--forest)')} title="Poglavje učnega načrta (brez podpoglavja)">↳ {ci ? `${ci.grade ? `${ci.grade}. r · ` : ''}${ci.label}` : c}</span>; })}
       {showTopics && task.topics.filter(t => t !== hideTopic).map(t => <span key={t} style={badge('transparent', 'var(--forest)')} title="Podpoglavje učnega načrta">↳ {topicLabel(t)}</span>)}
