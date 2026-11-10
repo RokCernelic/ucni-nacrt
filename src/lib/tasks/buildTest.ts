@@ -1,4 +1,4 @@
-import { BLOOM, type AnswerKind, type BloomLevel, type Task } from './types';
+import { BLOOM, answerGroupOf, type AnswerKind, type BloomLevel, type Task } from './types';
 import { makeRng } from '@/hooks/useSeating';
 
 /** Taksonomski razredi, po katerih učitelj določi delež nalog (3 ali 6 stopenj). */
@@ -88,7 +88,7 @@ export function planTest(pool: Task[], spec: TestSpec, seed: string): Plan {
   for (const t of sorted) {
     const c = classOfBloom(spec.classes, t.bloom);
     if (!c) continue;
-    const key = `${c.id}|${t.answer_kind}`;
+    const key = `${c.id}|${answerGroupOf(t.answer_kind)}`;
     if (!cand.has(key)) cand.set(key, []);
     cand.get(key)!.push(t);
   }
@@ -143,7 +143,7 @@ export function planTest(pool: Task[], spec: TestSpec, seed: string): Plan {
   for (const s of unfilled) {
     const near = rest.findIndex(t => classOfBloom(spec.classes, t.bloom)?.id === s.classId) >= 0
       ? rest.findIndex(t => classOfBloom(spec.classes, t.bloom)?.id === s.classId)
-      : rest.findIndex(t => t.answer_kind === s.kind) >= 0 ? rest.findIndex(t => t.answer_kind === s.kind) : (rest.length ? 0 : -1);
+      : rest.findIndex(t => answerGroupOf(t.answer_kind) === s.kind) >= 0 ? rest.findIndex(t => answerGroupOf(t.answer_kind) === s.kind) : (rest.length ? 0 : -1);
     if (near >= 0) { s.task = rest.splice(near, 1)[0]; s.mismatch = true; s.why = undefined; used.add(s.task.id); }
   }
 
@@ -153,7 +153,7 @@ export function planTest(pool: Task[], spec: TestSpec, seed: string): Plan {
   const inTest = new Set(slots.filter(s => s.task).map(s => s.task!.id));
   for (const s of genSlots()) {
     if (s.seed) { seedUse.set(s.seed.id, (seedUse.get(s.seed.id) ?? 0) + 1); continue; }
-    const pref = (t: Task) => (classOfBloom(spec.classes, t.bloom)?.id === s.classId ? 0 : 2) + (t.answer_kind === s.kind ? 0 : 1) + (inTest.has(t.id) ? 4 : 0) + (seedUse.get(t.id) ?? 0) * 3;
+    const pref = (t: Task) => (classOfBloom(spec.classes, t.bloom)?.id === s.classId ? 0 : 2) + (answerGroupOf(t.answer_kind) === s.kind ? 0 : 1) + (inTest.has(t.id) ? 4 : 0) + (seedUse.get(t.id) ?? 0) * 3;
     const ordered = shuffled(pool, rng).sort((a, b) => pref(a) - pref(b));
     if (!ordered.length) { noSeed++; continue; }
     s.seed = ordered[0];
@@ -175,10 +175,10 @@ export function genRequestFor(slot: Slot, classes: BloomClass[]): { mods: string
   const seed = slot.seed!;
   const mods: string[] = [];
   const extra: string[] = [];
-  if (seed.answer_kind !== slot.kind) {
+  if (answerGroupOf(seed.answer_kind) !== slot.kind) {
     const m: Partial<Record<AnswerKind, string>> = { mc: 'abcd', multi: 'multi', tf: 'tf', numeric: 'stevilo', open: 'odprta' };
     if (m[slot.kind]) mods.push(m[slot.kind]!);
-    else if (slot.kind === 'short') extra.push('Spremeni v nalogo s KRATKIM odgovorom (answer_kind short): učenec odgovori z besedo, številom ali kratko povedjo.');
+    else if (slot.kind === 'short') extra.push('Spremeni v nalogo s KRATKIM odgovorom: če je odgovor eno število, uporabi answer_kind numeric (z enoto in toleranco), sicer short (beseda ali kratka poved).');
   }
   const cls = classes.find(c => c.id === slot.classId);
   if (cls && !(seed.bloom != null && cls.levels.includes(seed.bloom))) {

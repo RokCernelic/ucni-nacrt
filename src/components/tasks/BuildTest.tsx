@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useQuizLibrary } from '@/hooks/useQuizLibrary';
 import { tasksToQuestions } from '@/lib/tasks/toQuiz';
 import { orderTasks } from '@/lib/tasks/order';
-import { ANSWER_KINDS, LETTERS, isChoice, correctIds, type AnswerKind, type Task, type TaskDraft } from '@/lib/tasks/types';
+import { ANSWER_GROUPS, answerGroupOf, LETTERS, isChoice, correctIds, type AnswerKind, type Task, type TaskDraft } from '@/lib/tasks/types';
 import { BLOOM_3, BLOOM_6, apportion, classOfBloom, planTest, genRequestFor, type Slot } from '@/lib/tasks/buildTest';
 import { btn, tinyLabel, input, Chip, Rich, TaskAnswer } from './ui';
 
@@ -33,7 +33,7 @@ function SliderRow({ label, info, warn, value, onChange, locked, canLock, onTogg
   );
 }
 
-const kindName = (k: AnswerKind) => ANSWER_KINDS.find(a => a.id === k)?.name ?? k;
+const kindName = (k: AnswerKind) => ANSWER_GROUPS.find(a => a.id === answerGroupOf(k))?.name ?? k;
 const plain = (html: string) => html.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
 
 /**
@@ -73,9 +73,9 @@ export default function BuildTest({ pool, defaultTitle, onClose }: { pool: Task[
   // privzeta razporeditev oblik odgovora = kakršna je v filtru (zaokroženo na 5 %)
   const [kindW, setKindW] = useState<Partial<Record<AnswerKind, number>>>(() => {
     const cnt: Partial<Record<AnswerKind, number>> = {};
-    for (const t of pool) cnt[t.answer_kind] = (cnt[t.answer_kind] ?? 0) + 1;
+    for (const t of pool) { const g = answerGroupOf(t.answer_kind); cnt[g] = (cnt[g] ?? 0) + 1; }
     const any = pool.length > 0;
-    return apportion(100, Object.fromEntries(ANSWER_KINDS.map(k => [k.id, any ? cnt[k.id] ?? 0 : 1]))) as Partial<Record<AnswerKind, number>>;
+    return apportion(100, Object.fromEntries(ANSWER_GROUPS.map(k => [k.id, any ? cnt[k.id] ?? 0 : 1]))) as Partial<Record<AnswerKind, number>>;
   });
   const [lockedB, setLockedB] = useState<Set<string>>(new Set());
   const [lockedK, setLockedK] = useState<Set<string>>(new Set());
@@ -111,13 +111,13 @@ export default function BuildTest({ pool, defaultTitle, onClose }: { pool: Task[
   }, [pool, classes]);
   const availKind = useMemo(() => {
     const m: Partial<Record<AnswerKind, number>> = {};
-    for (const t of pool) m[t.answer_kind] = (m[t.answer_kind] ?? 0) + 1;
+    for (const t of pool) { const g = answerGroupOf(t.answer_kind); m[g] = (m[g] ?? 0) + 1; }
     return m;
   }, [pool]);
   const noBloom = pool.filter(t => !t.bloom).length;
 
   const bloomSum = classes.reduce((s, c) => s + (bloomW[c.id] ?? 0), 0);
-  const kindSum = ANSWER_KINDS.reduce((s, k) => s + (kindW[k.id] ?? 0), 0);
+  const kindSum = ANSWER_GROUPS.reduce((s, k) => s + (kindW[k.id] ?? 0), 0);
   const valid = total >= 1 && total <= MAX_TOTAL && bloomSum > 0 && kindSum > 0 && plan.slots.length === total;
   const needAi = plan.generated + plan.noSeed > 0;
 
@@ -229,10 +229,10 @@ export default function BuildTest({ pool, defaultTitle, onClose }: { pool: Task[
             {noBloom > 0 && <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '2px' }}>{noBloom} nalog v filtru nima Bloomove stopnje in se ne uporabi.</div>}
 
             {sectionLabel('Delež po obliki odgovora')}
-            {ANSWER_KINDS.map(k => (
+            {ANSWER_GROUPS.map(k => (
               <SliderRow key={k.id} label={`${k.name}${k.quiz ? ' · kviz' : ''}`} info={`v filtru: ${availKind[k.id] ?? 0}`} warn={(kindW[k.id] ?? 0) > 0 && !availKind[k.id]}
                 value={kindW[k.id] ?? 0} onChange={v => setKindW(rebalance(kindW as Record<AnswerKind, number>, k.id, v, lockedK))}
-                locked={lockedK.has(k.id)} canLock={ANSWER_KINDS.length - lockedK.size > 2 && !lockedK.has(k.id)} onToggleLock={() => toggleLock(lockedK, setLockedK, k.id)} />
+                locked={lockedK.has(k.id)} canLock={ANSWER_GROUPS.length - lockedK.size > 2 && !lockedK.has(k.id)} onToggleLock={() => toggleLock(lockedK, setLockedK, k.id)} />
             ))}
 
             {sectionLabel('Iz baze ali generirano')}
@@ -256,7 +256,7 @@ export default function BuildTest({ pool, defaultTitle, onClose }: { pool: Task[
               <span style={{ color: 'var(--muted)' }}>
                 {classes.map(c => `${c.id.replace(/^[lb]/, '')}: ${plan.slots.filter(s => s.classId === c.id).length}`).join(' · ')}
                 {' · '}
-                {ANSWER_KINDS.filter(k => plan.slots.some(s => s.kind === k.id)).map(k => `${k.name}: ${plan.slots.filter(s => s.kind === k.id).length}`).join(' · ')}
+                {ANSWER_GROUPS.filter(k => plan.slots.some(s => s.kind === k.id)).map(k => `${k.name}: ${plan.slots.filter(s => s.kind === k.id).length}`).join(' · ')}
               </span>
               {needAi && <><br /><span style={{ color: 'var(--muted)' }}>Generiranje uporablja AI (plačljiv klic API na nalogo) in traja nekaj sekund na nalogo.</span></>}
             </div>

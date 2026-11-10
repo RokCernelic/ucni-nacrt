@@ -81,7 +81,7 @@ function QuestionCard({ q, index, total, onChange, onMove, onDuplicate, onDelete
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px', flexWrap: 'wrap' }}>
         <span style={{ fontFamily: 'var(--font-serif)', fontSize: '22px', color: 'var(--forest)', lineHeight: 1, minWidth: '26px' }}>{index + 1}</span>
         <span style={{ ...label, background: 'var(--cream, #f3efe6)', padding: '3px 8px', borderRadius: '4px' }}>
-          {q.kind === 'numeric' ? 'Številsko' : q.kind === 'open' ? 'Odprto (ročni pregled)' : 'Izbirno'}
+          {q.kind === 'numeric' ? 'Kratek odgovor (število)' : q.kind === 'open' ? 'Odprto (ročni pregled)' : 'ABCD'}
         </span>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--muted)', marginLeft: '6px' }}>
           točke
@@ -231,7 +231,7 @@ function QuestionView({ q, index, total, task, onEdit, onMove, onDuplicate, onDe
           )}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
             {task ? <TaskBadges task={task} /> : (
-              <span style={badgeStyle('transparent', 'var(--muted)')}>{q.kind === 'numeric' ? 'številsko · kviz' : q.kind === 'open' ? 'odprto (ročni pregled)' : 'izbirno · kviz'}</span>
+              <span style={badgeStyle('transparent', 'var(--muted)')}>{q.kind === 'numeric' ? 'kratek odgovor (število) · kviz' : q.kind === 'open' ? 'odprto (ročni pregled)' : 'ABCD · kviz'}</span>
             )}
             <span style={badgeStyle('var(--surface)', 'var(--body)')}>{pointsLabel(q.points)}</span>
             {problems.length > 0 && <span style={{ fontSize: '11px', color: '#b7791f' }}>⚠ {problems.join(' · ')}</span>}
@@ -464,9 +464,9 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
 
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '16px', padding: '14px', border: '1px dashed var(--hairline)', borderRadius: 'var(--r-md)', alignItems: 'center' }}>
           <span style={{ ...label, marginRight: '4px' }}>Dodaj vprašanje</span>
-          <button style={btn(true)} onClick={() => addQuestion(newMcQuestion())}>+ Izbirno</button>
+          <button style={btn(true)} onClick={() => addQuestion(newMcQuestion())}>+ ABCD</button>
           <button style={btn()} onClick={() => addQuestion(newTrueFalseQuestion())}>+ Drži / ne drži</button>
-          <button style={btn()} onClick={() => addQuestion(newNumericQuestion())}>+ Številsko</button>
+          <button style={btn()} onClick={() => addQuestion(newNumericQuestion())}>+ Kratek odgovor (število)</button>
           <button style={btn()} onClick={() => addQuestion(newOpenQuestion())}>+ Odprto</button>
           <button style={{ ...btn(), borderColor: 'var(--forest)', fontWeight: 600 }} onClick={() => { flush(); setPicking(true); }}
             title="Odpre bazo nalog: obkljukaš eno ali več nalog in jih dodaš v kviz">+ Iz baze nalog</button>

@@ -5,7 +5,7 @@ import RichField from '@/components/RichField';
 import { isRichEmpty, sanitizeRichHtml } from '@/lib/richText';
 import { parseNumber } from '@/lib/quiz/scoring';
 import {
-  BLOOM, DIFFICULTY, KINDS, ANSWER_KINDS, SOURCES, emptyTask, isChoice, correctIds, LETTERS,
+  BLOOM, DIFFICULTY, KINDS, ANSWER_GROUPS, answerGroupOf, SOURCES, emptyTask, isChoice, correctIds, LETTERS,
   type TaskDraft, type AnswerKind, type TaskKind,
 } from '@/lib/tasks/types';
 import { splitChoices, stripDuplicateChoices } from '@/lib/tasks/choices';
@@ -103,12 +103,19 @@ export default function TaskEditor({ initial, fixedTopic, onSave, onCancel }: {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontFamily: 'var(--font-sans)' }}>
       <Field label="Oblika odgovora">
         <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-          {ANSWER_KINDS.map(a => (
-            <Chip key={a.id} active={t.answer_kind === a.id} onClick={() => setKind(a.id)} title={a.quiz ? 'Uporabno v kvizu (samodejno ocenjevanje)' : 'Le za učne liste in tiskane kvize'}>
+          {ANSWER_GROUPS.map(a => (
+            <Chip key={a.id} active={answerGroupOf(t.answer_kind) === a.id} title={a.hint}
+              onClick={() => { if (answerGroupOf(t.answer_kind) !== a.id) setKind(a.id); }}>
               {a.name}{a.quiz ? ' ·kviz' : ''}
             </Chip>
           ))}
         </div>
+        {answerGroupOf(t.answer_kind) === 'short' && (
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--body)', marginTop: '6px', cursor: 'pointer' }}>
+            <input type="checkbox" checked={t.answer_kind === 'numeric'} onChange={e => setKind(e.target.checked ? 'numeric' : 'short')} />
+            odgovor je število (vrednost, toleranca, enota — v kvizu se točkuje samodejno)
+          </label>
+        )}
       </Field>
 
       <Field label={isChoice(t.answer_kind) ? 'Vprašanje (možnosti A–D so spodaj)' : 'Besedilo naloge'}>
