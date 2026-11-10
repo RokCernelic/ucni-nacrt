@@ -144,7 +144,15 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
                     ))}
                   </div>
                 ))}
-                {kindMode === 'similar' && <input value={extra} onChange={e => setExtra(e.target.value)} maxLength={600} placeholder="Dodatno navodilo (neobvezno), npr. »naj gre za dvigalo na gradbišču«" style={{ ...input, width: '100%', boxSizing: 'border-box' }} />}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <span style={tinyLabel}>Pojasnila in opombe (neobvezno)</span>
+                  <textarea value={extra} onChange={e => setExtra(e.target.value)} maxLength={1500} rows={3}
+                    placeholder={complete
+                      ? 'npr. »pravilni odgovor je 450 J«, »rešitev naj bo po korakih z obrazcem«, »spada v 6.3 Delo z orodji«, »težavnost srednja«'
+                      : variant ? 'npr. »rezultat naj bo celo število«, »uporabi maso v gramih«'
+                      : 'npr. »naj gre za dvigalo na gradbišču«, »brez pretvarjanja enot«, »za učence z učnimi težavami«'}
+                    style={{ ...input, width: '100%', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'var(--font-sans)', lineHeight: 1.5 }} />
+                </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button onClick={() => void generate(t)} disabled={genBusy !== null} style={{ ...btn(true), padding: '5px 14px', opacity: genBusy !== null ? 0.6 : 1 }}>
                     {genBusy === t.id ? '… generiram' : complete ? 'Dopolni' : 'Generiraj'}

@@ -99,16 +99,15 @@ export async function POST(request: Request) {
   let src: Partial<TaskDraft>;
   let mode: 'similar' | 'variant' | 'complete' = 'similar';
   let changes: string[] = [];
+  /** dodatna pojasnila in opombe učitelja (vsi načini: podobna, zamenjaj številke, dopolni) */
+  let notes = '';
   try {
     const req = await request.json() as { task?: Partial<TaskDraft>; mode?: string; mods?: unknown; extra?: unknown };
     src = req.task ?? {};
+    notes = typeof req.extra === 'string' ? req.extra.trim().slice(0, 1500) : '';
     if (req.mode === 'variant') mode = 'variant';
     else if (req.mode === 'complete') mode = 'complete';
-    else {
-      changes = (Array.isArray(req.mods) ? req.mods : []).map(m => genInstruction(String(m))).filter((x): x is string => !!x);
-      const extra = typeof req.extra === 'string' ? req.extra.trim().slice(0, 600) : '';
-      if (extra) changes.push(`Dodatno navodilo učitelja: ${extra}`);
-    }
+    else changes = (Array.isArray(req.mods) ? req.mods : []).map(m => genInstruction(String(m))).filter((x): x is string => !!x);
   } catch { return Response.json({ error: 'Neveljavna zahteva.' }, { status: 400 }); }
   if (!src.body || typeof src.body !== 'string') return Response.json({ error: 'Naloga nima besedila.' }, { status: 400 });
 
@@ -137,6 +136,7 @@ export async function POST(request: Request) {
       messages: [{
         role: 'user',
         content: `SEZNAM PODPOGLAVIJ IN STANDARDOV:\n${catalog}\n\nORIGINALNA NALOGA (JSON):\n${JSON.stringify(original, null, 2)}` +
+          (notes ? `\n\nPOJASNILA IN OPOMBE UČITELJA (upoštevaj jih${mode === 'complete' ? ' pri dopolnjevanju; besedila naloge po vsebini ne spreminjaj, razen če učitelj to izrecno zahteva' : ''}; imajo prednost pred splošnimi navodili):\n${notes}` : '') +
           (changes.length ? `\n\nZAHTEVANE SPREMEMBE (uveljavi jih; vse ostalo naj ostane podobno originalu — tema, standardi; težavnost, Bloomovo stopnjo, vrsto, obliko odgovora, točke in minute pa uskladi z novo nalogo):\n${changes.map(c => `- ${c}`).join('\n')}` : ''),
       }],
     });
