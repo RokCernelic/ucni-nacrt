@@ -180,6 +180,7 @@ body {
   .pqz-n { display: flex; align-items: center; justify-content: flex-end; font-weight: 700; font-size: 8.5pt; }
   .pqz-bub { box-sizing: border-box; border: .35mm solid #000; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 6pt; color: #bbb; }
   .pqz-qr { image-rendering: pixelated; }
+  .pqz-mark, .pqz-qr, .pqz-bub { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .pqz-list { margin: 0 0 2mm; }
   .pqz-cols2 { column-count: 2; column-gap: 8mm; }
   .pqz-item { margin-bottom: 7mm; break-inside: avoid; }

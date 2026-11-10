@@ -35,7 +35,7 @@ export function FrameView({ sheet: sh }: { sheet: Sheet }) {
           ))}
         </div>
       ))}
-      {g.qr && sh.qr && <img className="pqz-qr" src={sh.qr} alt="" style={{ left: mm(g.qr.x), top: mm(g.qr.y), width: mm(g.qr.size), height: mm(g.qr.size) }} />}
+      {g.qr && sh.qr && <img className="pqz-qr" src={sh.qr} alt="" loading="eager" decoding="sync" style={{ left: mm(g.qr.x), top: mm(g.qr.y), width: mm(g.qr.size), height: mm(g.qr.size) }} />}
     </div>
   );
 }

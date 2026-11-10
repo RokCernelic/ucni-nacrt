@@ -17,6 +17,16 @@ import { sortByLastName } from '@/lib/names';
 
 export type { Sheet };
 
+/** Počaka, da so vse slike v natisu (QR kode, slike vprašanj) naložene in dekodirane; največ nekaj sekund. */
+async function imagesReady(timeoutMs = 5000) {
+  const imgs = Array.from(document.querySelectorAll('.print-questions img')) as HTMLImageElement[];
+  const one = (img: HTMLImageElement): Promise<unknown> => (img.complete && img.naturalWidth > 0
+    ? (img.decode ? img.decode().catch(() => undefined) : Promise.resolve())
+    : new Promise<void>(res => { img.onload = () => res(); img.onerror = () => res(); }));
+  await Promise.race([Promise.all(imgs.map(one)), new Promise(res => setTimeout(res, timeoutMs))]);
+  await new Promise(res => requestAnimationFrame(() => requestAnimationFrame(res)));
+}
+
 /**
  * Možnosti in gumb za tisk kviza: enak list za vse (črta za ime) ali svoj test za vsakega učenca (ime, QR, skener);
  * premešanje vprašanj in/ali odgovorov. Uporabljata ga okno »Zaženi kviz« (način Natisnjeno) in samostojno okno za tisk.
@@ -137,6 +147,8 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
       flushSync(() => { setPrintPlan(exact); setSolItems(withSolutions && hasSolutions ? printItems : null); setSheets(list); });
       root.classList.add('printing-questions');
       window.addEventListener('afterprint', done);
+      // QR kode so slike (data URL): počakaj, da so naložene in dekodirane, sicer jih brskalnik natisne prazne
+      await imagesReady();
       window.print();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
