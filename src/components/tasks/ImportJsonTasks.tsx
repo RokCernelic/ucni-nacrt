@@ -2,8 +2,7 @@
 
 import { useRef, useState, useMemo } from 'react';
 import { useTasks } from '@/hooks/useTasks';
-import { readTextFile } from '@/lib/quiz/textImport';
-import { parseTasksJson } from '@/lib/tasks/exportJson';
+import { parseTasksJson, readTasksFile } from '@/lib/tasks/exportJson';
 import { plainKey } from '@/lib/tasks/import';
 import { relinkTasks } from '@/lib/tasks/api';
 import { Rich, TaskBadges, btn } from './ui';
@@ -40,7 +39,8 @@ export default function ImportJsonTasks() {
   const pick = async (f: File | undefined) => {
     if (!f) return;
     setDone(null); setError(null);
-    setFile({ name: f.name, text: await readTextFile(f) });
+    try { setFile({ name: f.name, text: await readTasksFile(f) }); }
+    catch (e) { setError(e instanceof Error ? e.message : String(e)); }
   };
 
   const run = async () => {
@@ -79,15 +79,16 @@ export default function ImportJsonTasks() {
 
   return (
     <>
-      <button onClick={() => fileRef.current?.click()} title="Uvozi naloge iz izvožene datoteke (.json): obnovi besedilo z enačbami, rešitve, metapodatke in povezave" style={btn()}>⬆ Uvozi JSON</button>
-      <input ref={fileRef} type="file" accept=".json,application/json" hidden onChange={e => { void pick(e.target.files?.[0]); e.target.value = ''; }} />
+      <button onClick={() => fileRef.current?.click()} title="Uvozi naloge iz izvoza (.zip s slikami ali .json): obnovi besedilo z enačbami, slike, rešitve, metapodatke in povezave" style={btn()}>⬆ Uvozi ZIP</button>
+      <input ref={fileRef} type="file" accept=".zip,.json,application/zip,application/json" hidden onChange={e => { void pick(e.target.files?.[0]); e.target.value = ''; }} />
       {done && <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--green-ok)' }}>✓ {done}</span>}
+      {error && !file && <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: '#c0392b' }}>{error}</span>}
 
       {file && parsed && (
         <div onClick={close} style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(10,20,12,0.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '60px 16px', overflowY: 'auto' }}>
           <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: '720px', background: 'var(--canvas)', borderRadius: 'var(--r-md)', boxShadow: '0 10px 40px rgba(0,0,0,0.25)', overflow: 'hidden', fontFamily: 'var(--font-sans)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', background: 'var(--forest)' }}>
-              <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '19px', fontWeight: 400, color: '#fff' }}>Uvoz nalog (JSON) — {file.name}</h3>
+              <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '19px', fontWeight: 400, color: '#fff' }}>Uvoz nalog — {file.name}</h3>
               <button onClick={close} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.7)', fontSize: '22px', cursor: 'pointer' }}>×</button>
             </div>
             <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '13px', color: 'var(--body)' }}>

@@ -1,4 +1,6 @@
 import { sanitizeRichHtml } from '@/lib/richText';
+import { makeZip, type ZipFile } from './zip';
+import { readZip } from './unzip';
 import { emptyTask, type Task, type TaskDraft, type AnswerKind, type TaskKind, type BloomLevel, type Difficulty } from './types';
 
 /** Izvoz in uvoz nalog v JSON: ohrani VSE (besedilo z enačbami MathML, rešitve, možnosti, metapodatke, povezave med nalogami). */
@@ -19,6 +21,70 @@ export function tasksToJson(tasks: Task[]): string {
     tasks: tasks.map(({ updated_at: _u, ...t }) => t), // eslint-disable-line @typescript-eslint/no-unused-vars
   };
   return JSON.stringify(data, null, 2);
+}
+
+const MIME_EXT: Record<string, string> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp' };
+const EXT_MIME: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp' };
+const stamp = () => { const d = new Date(); const p = (n: number) => String(n).padStart(2, '0'); return `${d.getFullYear()} ${p(d.getMonth() + 1)} ${p(d.getDate())}`; };
+
+/**
+ * Izvoz v .zip: »naloge.json« + mapa »slike/« s slikami nalog (besedilo, odgovor, rešitev). V JSON so slike
+ * zapisane z relativno potjo (slike/slika-001.png), zato je JSON majhen in berljiv. Slike, ki jih ni bilo mogoče
+ * prenesti, ostanejo kot spletna povezava. Vrne število nalog, slik in neprenesenih slik.
+ */
+export async function buildTasksZip(tasks: Task[]): Promise<{ zip: Uint8Array<ArrayBuffer>; images: number; missing: number }> {
+  const srcs = new Set<string>();
+  for (const t of tasks) for (const f of [t.body, t.answer, t.solution]) for (const m of (f ?? '').matchAll(/<img[^>]+src="([^"]+)"/gi)) srcs.add(m[1]);
+  const files: ZipFile[] = [];
+  const rename = new Map<string, string>();
+  let i = 0, missing = 0;
+  for (const src of srcs) {
+    try {
+      const blob = await (await fetch(src)).blob();
+      const ext = MIME_EXT[blob.type] ?? (src.match(/\.(png|jpe?g|gif|webp)(\?|$)/i)?.[1].toLowerCase().replace('jpeg', 'jpg') ?? 'png');
+      const name = `slike/slika-${String(++i).padStart(3, '0')}.${ext}`;
+      files.push({ name, data: new Uint8Array(await blob.arrayBuffer()) });
+      rename.set(src, name);
+    } catch { missing++; }
+  }
+  const swap = (h: string | null) => (h ? h.replace(/(<img[^>]+src=")([^"]+)(")/gi, (all, a, src, b) => (rename.has(src) ? a + rename.get(src) + b : all)) : h);
+  const local = tasks.map(t => ({ ...t, body: swap(t.body) ?? '', answer: swap(t.answer), solution: swap(t.solution) }));
+  files.unshift({ name: 'naloge.json', data: new TextEncoder().encode(tasksToJson(local)) });
+  return { zip: makeZip(files), images: files.length - 1, missing };
+}
+
+export async function downloadTasksZip(tasks: Task[]): Promise<{ count: number; images: number; missing: number }> {
+  const { zip, images, missing } = await buildTasksZip(tasks);
+  const url = URL.createObjectURL(new Blob([zip], { type: 'application/zip' }));
+  const a = document.createElement('a');
+  a.href = url; a.download = `${stamp()} Naloge (${tasks.length}).zip`; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return { count: tasks.length, images, missing };
+}
+
+/**
+ * Prebere izvoz iz .zip (ali navaden .json): vrne besedilo JSON, v katerem so relativne poti slik (slike/…)
+ * zamenjane z vdelanimi slikami — ob uvozu se te naložijo v shrambo.
+ */
+export async function readTasksFile(file: File): Promise<string> {
+  const buf = await file.arrayBuffer();
+  const isZip = /\.zip$/i.test(file.name) || new DataView(buf).getUint32(0, true) === 0x04034b50;
+  if (!isZip) return new TextDecoder().decode(buf);
+  const entries = await readZip(buf);
+  const json = entries.find(e => /(^|\/)naloge\.json$/i.test(e.name)) ?? entries.find(e => /\.json$/i.test(e.name));
+  if (!json) throw new Error('V ZIP ni datoteke .json z nalogami.');
+  const dir = json.name.includes('/') ? json.name.slice(0, json.name.lastIndexOf('/') + 1) : '';
+  let text = new TextDecoder().decode(json.data);
+  for (const e of entries) {
+    const ext = e.name.split('.').pop()?.toLowerCase() ?? '';
+    if (!EXT_MIME[ext] || !e.name.startsWith(dir)) continue;
+    const rel = e.name.slice(dir.length);
+    let bin = '';
+    for (let k = 0; k < e.data.length; k += 0x8000) bin += String.fromCharCode(...e.data.subarray(k, k + 0x8000));
+    // v JSON je pot v atributu src="…" (narekovaj je ubežen kot \") — zamenjamo jo z vdelano sliko
+    text = text.split(`"${rel}`).join(`"data:${EXT_MIME[ext]};base64,${btoa(bin)}`);
+  }
+  return text;
 }
 
 /** Prenese naloge kot .json (ime: »YYYY MM DD Naloge (N).json«). */

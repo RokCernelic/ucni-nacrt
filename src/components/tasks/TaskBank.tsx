@@ -9,10 +9,8 @@ import { BLOOM, DIFFICULTY, KINDS, ANSWER_GROUPS, answerGroupOf, SOURCES, type T
 import { allCurricula, topicsOf, topicInfo, chaptersOf, chapterInfo, chapterKeysOf, hasMinimalStandard } from '@/lib/tasks/topics';
 import TaskList from './TaskList';
 import { plural } from '@/lib/quiz/format';
-import ImportTasks from './ImportTasks';
 import BuildTest from './BuildTest';
-import { downloadTasksTxt } from '@/lib/tasks/exportTxt';
-import { downloadTasksJson } from '@/lib/tasks/exportJson';
+import { downloadTasksZip } from '@/lib/tasks/exportJson';
 import ImportJsonTasks from './ImportJsonTasks';
 import { plainKey } from '@/lib/tasks/import';
 import { offerUndo } from '@/lib/undoStore';
@@ -110,6 +108,8 @@ export default function TaskBank({ picker }: { picker?: BankPicker } = {}) {
     return extra;
   }, [tasks]);
   const [building, setBuilding] = useState(false);
+  const [zipBusy, setZipBusy] = useState(false);
+  const [zipNote, setZipNote] = useState<string | null>(null);
   const [dedupBusy, setDedupBusy] = useState(false);
   const dedup = async () => {
     if (!confirm(`Odstranim ${duplicates.length} podvojenih nalog (enako besedilo)? Od vsake ostane najstarejša.`)) return;
@@ -245,29 +245,20 @@ export default function TaskBank({ picker }: { picker?: BankPicker } = {}) {
                 <input type="checkbox" checked={allSelected} disabled={!filtered.length} onChange={e => setMany(filtered.map(t => t.id), e.target.checked)} />
                 izberi vse{anyFilter ? ' (v filtru)' : ''}
               </label>
-              {!picker && <ImportTasks />}
-              {!picker && (() => {
-                const chosen = orderTasks(tasks.filter(t => selected.has(t.id)));
-                return (
-                  <button onClick={() => downloadTasksTxt(chosen)} disabled={!chosen.length}
-                    title={chosen.length ? 'Izvozi vse obkljukane naloge v besedilno datoteko (.txt), ki jo lahko znova uvoziš' : 'Najprej obkljukaj naloge, ki jih želiš izvoziti'}
-                    style={{ ...btn(), opacity: chosen.length ? 1 : 0.45, cursor: chosen.length ? 'pointer' : 'not-allowed' }}>
-                    ⬇ Izvozi .txt{chosen.length ? ` (${chosen.length})` : ''}
-                  </button>
-                );
-              })()}
               {!picker && <ImportJsonTasks />}
               {!picker && (() => {
                 const chosen = orderTasks(tasks.filter(t => selected.has(t.id)));
                 const list = chosen.length ? chosen : orderTasks(tasks);
                 return (
-                  <button onClick={() => downloadTasksJson(list)} disabled={!list.length}
-                    title={chosen.length ? 'Izvozi obkljukane naloge v JSON: ohrani enačbe, rešitve, vse metapodatke in povezave (za varnostno kopijo in prenos)' : 'Nič ni obkljukano: izvozi VSE naloge v bazi v JSON (varnostna kopija)'}
-                    style={{ ...btn(), opacity: list.length ? 1 : 0.45 }}>
-                    ⬇ Izvozi JSON ({chosen.length ? list.length : `vse ${list.length}`})
+                  <button onClick={() => { setZipBusy(true); setZipNote(null); void downloadTasksZip(list).then(r => setZipNote(r.missing ? `${r.missing} slik ni bilo mogoče prenesti — ostale so kot povezava.` : null)).finally(() => setZipBusy(false)); }}
+                    disabled={!list.length || zipBusy}
+                    title={chosen.length ? 'Izvozi obkljukane naloge v ZIP: naloge.json (enačbe, rešitve, metapodatki, povezave) + mapa slike/' : 'Nič ni obkljukano: izvozi VSE naloge v bazi v ZIP (varnostna kopija s slikami)'}
+                    style={{ ...btn(), opacity: list.length && !zipBusy ? 1 : 0.45 }}>
+                    {zipBusy ? 'Pripravljam ZIP …' : `⬇ Izvozi ZIP (${chosen.length ? list.length : `vse ${list.length}`})`}
                   </button>
                 );
               })()}
+              {zipNote && <span style={{ fontSize: '12px', color: '#b7791f' }}>{zipNote}</span>}
               {!picker && duplicates.length > 0 && (
                 <button onClick={() => void dedup()} disabled={dedupBusy}
                   style={{ ...btn(), color: '#b7791f', borderColor: '#ecd9a8', opacity: dedupBusy ? 0.5 : 1 }}>
