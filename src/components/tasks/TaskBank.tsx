@@ -25,7 +25,7 @@ const toggleIn = <T,>(set: Set<T>, v: T) => { const n = new Set(set); if (n.has(
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-      <span style={{ ...tinyLabel, minWidth: '78px' }}>{label}</span>
+      <span style={{ ...tinyLabel, minWidth: '118px' }}>{label}</span>
       {children}
     </div>
   );
@@ -195,8 +195,8 @@ export default function TaskBank({ picker }: { picker?: BankPicker } = {}) {
               )}
               <Row label="Težavnost">{DIFFICULTY.map(d => <Chip key={d.level} active={diff.has(d.level)} color={d.color} onClick={() => setDiff(toggleIn(diff, d.level))}>{d.name}</Chip>)}</Row>
               <Row label="Bloom">{BLOOM.map(b => <Chip key={b.level} active={bloom.has(b.level)} color={b.color} title={b.hint} onClick={() => setBloom(toggleIn(bloom, b.level))}>{b.level} · {b.name}</Chip>)}</Row>
-              <Row label="Vrsta">{KINDS.map(k => <Chip key={k.id} active={kinds.has(k.id)} onClick={() => setKinds(toggleIn(kinds, k.id))}>{k.name}</Chip>)}</Row>
-              <Row label="Odgovor">{ANSWER_KINDS.map(a => <Chip key={a.id} active={aks.has(a.id)} onClick={() => setAks(toggleIn(aks, a.id))}>{a.name}{a.quiz ? ' ·kviz' : ''}</Chip>)}</Row>
+              <Row label="Tip naloge">{KINDS.map(k => <Chip key={k.id} active={kinds.has(k.id)} onClick={() => setKinds(toggleIn(kinds, k.id))}>{k.name}</Chip>)}</Row>
+              <Row label="Oblika odgovora">{ANSWER_KINDS.map(a => <Chip key={a.id} active={aks.has(a.id)} onClick={() => setAks(toggleIn(aks, a.id))}>{a.name}{a.quiz ? ' ·kviz' : ''}</Chip>)}</Row>
               <Row label="Ostalo">
                 <select value={source} onChange={e => setSource(e.target.value)} style={{ ...input, padding: '3px 6px', fontSize: '12px' }}>
                   <option value="">vsi viri</option>

@@ -181,7 +181,7 @@ export default function TaskEditor({ initial, fixedTopic, onSave, onCancel }: {
             {BLOOM.map(b => <Chip key={b.level} square active={t.bloom === b.level} color={b.color} title={`${b.name} — ${b.hint}`} onClick={() => up({ bloom: t.bloom === b.level ? null : b.level })}>{b.level}</Chip>)}
           </div>
         </Field>
-        <Field label="Vrsta naloge">
+        <Field label="Tip naloge">
           <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
             {KINDS.map(k => <Chip key={k.id} active={t.kinds.includes(k.id)} onClick={() => toggleKindTag(k.id)}>{k.name}</Chip>)}
           </div>
