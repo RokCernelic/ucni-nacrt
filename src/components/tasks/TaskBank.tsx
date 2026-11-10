@@ -12,6 +12,8 @@ import { plural } from '@/lib/quiz/format';
 import ImportTasks from './ImportTasks';
 import BuildTest from './BuildTest';
 import { downloadTasksTxt } from '@/lib/tasks/exportTxt';
+import { downloadTasksJson } from '@/lib/tasks/exportJson';
+import ImportJsonTasks from './ImportJsonTasks';
 import { plainKey } from '@/lib/tasks/import';
 import { offerUndo } from '@/lib/undoStore';
 import { orderTasks, groupTasks, isNested } from '@/lib/tasks/order';
@@ -229,6 +231,18 @@ export default function TaskBank({ picker }: { picker?: BankPicker } = {}) {
                     title={chosen.length ? 'Izvozi vse obkljukane naloge v besedilno datoteko (.txt), ki jo lahko znova uvoziš' : 'Najprej obkljukaj naloge, ki jih želiš izvoziti'}
                     style={{ ...btn(), opacity: chosen.length ? 1 : 0.45, cursor: chosen.length ? 'pointer' : 'not-allowed' }}>
                     ⬇ Izvozi .txt{chosen.length ? ` (${chosen.length})` : ''}
+                  </button>
+                );
+              })()}
+              {!picker && <ImportJsonTasks />}
+              {!picker && (() => {
+                const chosen = orderTasks(tasks.filter(t => selected.has(t.id)));
+                const list = chosen.length ? chosen : orderTasks(tasks);
+                return (
+                  <button onClick={() => downloadTasksJson(list)} disabled={!list.length}
+                    title={chosen.length ? 'Izvozi obkljukane naloge v JSON: ohrani enačbe, rešitve, vse metapodatke in povezave (za varnostno kopijo in prenos)' : 'Nič ni obkljukano: izvozi VSE naloge v bazi v JSON (varnostna kopija)'}
+                    style={{ ...btn(), opacity: list.length ? 1 : 0.45 }}>
+                    ⬇ Izvozi JSON ({chosen.length ? list.length : `vse ${list.length}`})
                   </button>
                 );
               })()}
