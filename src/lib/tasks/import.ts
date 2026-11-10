@@ -4,7 +4,7 @@
  */
 import { sanitizeRichHtml } from '@/lib/richText';
 import { parseNumber } from '@/lib/quiz/scoring';
-import { topicsOf, chaptersOf } from './topics';
+import { topicsOf, chaptersOf, topicInfo } from './topics';
 import { emptyTask, type TaskDraft, type TaskKind, type BloomLevel, type Difficulty, type TaskOption } from './types';
 
 export interface ImportResult {
@@ -249,7 +249,7 @@ export function parseTex(text: string, curriculum: string): ImportResult {
 const META_KEYS: Record<string, string> = {
   tema: 'topic', un: 'topic', podpoglavje: 'topic', bloom: 'bloom', tezavnost: 'difficulty', tip: 'kind', vrsta: 'kind',
   kljucniki: 'tags', teme: 'tags', oznake: 'tags', resitev: 'answer', odgovor: 'answer', postopek: 'solution', namig: 'solution',
-  tocke: 'points', cas: 'minutes', vir: 'source', stanje: 'status',
+  tocke: 'points', cas: 'minutes', vir: 'source', stanje: 'status', standardi: 'standards', standard: 'standards',
 };
 const SUBTASK_RE = /^([a-zčšž])\)\s+(.*)$/;
 const OPTION_RE = /^(\*)?\s*([A-F])[).]\s+(.*)$/;
@@ -335,6 +335,7 @@ export function parseTxt(text: string, defaultCurriculum: string): ImportResult 
       curriculum: topic || chapter ? curriculum : null,
       topics: topic ? [topic] : [],
       chapters: chapter ? [chapter] : [],
+      standards: topic && meta.standards ? list(meta.standards).filter(id => topicInfo(topic)?.standards.some(s => s.id === id)) : [],
       tags: meta.tags ? list(meta.tags) : [],
       points: meta.points && parseNumber(meta.points) ? parseNumber(meta.points)! : 1,
       minutes: meta.minutes && parseNumber(meta.minutes) ? Math.round(parseNumber(meta.minutes)!) : null,

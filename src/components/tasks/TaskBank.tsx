@@ -11,6 +11,7 @@ import TaskList from './TaskList';
 import { plural } from '@/lib/quiz/format';
 import ImportTasks from './ImportTasks';
 import BuildTest from './BuildTest';
+import { downloadTasksTxt } from '@/lib/tasks/exportTxt';
 import { plainKey } from '@/lib/tasks/import';
 import { offerUndo } from '@/lib/undoStore';
 import { orderTasks, groupTasks, isNested } from '@/lib/tasks/order';
@@ -221,6 +222,16 @@ export default function TaskBank({ picker }: { picker?: BankPicker } = {}) {
                 izberi vse{anyFilter ? ' (v filtru)' : ''}
               </label>
               {!picker && <ImportTasks />}
+              {!picker && (() => {
+                const chosen = orderTasks(tasks.filter(t => selected.has(t.id)));
+                return (
+                  <button onClick={() => downloadTasksTxt(chosen)} disabled={!chosen.length}
+                    title={chosen.length ? 'Izvozi vse obkljukane naloge v besedilno datoteko (.txt), ki jo lahko znova uvoziš' : 'Najprej obkljukaj naloge, ki jih želiš izvoziti'}
+                    style={{ ...btn(), opacity: chosen.length ? 1 : 0.45, cursor: chosen.length ? 'pointer' : 'not-allowed' }}>
+                    ⬇ Izvozi .txt{chosen.length ? ` (${chosen.length})` : ''}
+                  </button>
+                );
+              })()}
               {!picker && duplicates.length > 0 && (
                 <button onClick={() => void dedup()} disabled={dedupBusy}
                   style={{ ...btn(), color: '#b7791f', borderColor: '#ecd9a8', opacity: dedupBusy ? 0.5 : 1 }}>

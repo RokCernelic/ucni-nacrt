@@ -18,6 +18,7 @@ Predmet: fizika
 #      Bloom: 3             (1 pomnjenje … 6 ustvarjanje)
 #      Težavnost: 2         (1 lahka, 2 srednja, 3 zahtevna)
 #      Tip: računska        (računska, besedilna, grafična, skica, eksperimentalna, povezovanje)
+#      Standardi: s1, s3    (id-ji standardov izbranega podpoglavja)
 #      Ključniki: delo, sila
 #      Rešitev: 900 J
 #      Postopek: A = F · s = 450 N · 2 m
