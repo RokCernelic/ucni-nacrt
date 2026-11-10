@@ -11,7 +11,7 @@ import TaskEditor from './TaskEditor';
 import { Rich, TaskBadges, TaskAnswer, Chip, btn, tinyLabel, input } from './ui';
 
 /** Seznam nalog (vsaka v svojem okvirju): kljukica za izbor, Uredi, Izbriši, + Nova naloga. */
-export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyText, showAdd = true, startIndex = 0, hideTopic, hideChapter, extraAction, leading }: {
+export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyText, showAdd = true, startIndex = 0, hideTopic, hideChapter, extraAction, leading, flat, showDate }: {
   tasks: Task[];
   /** nova naloga je že povezana s tem podpoglavjem */
   fixedTopic?: string;
@@ -28,6 +28,10 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
   extraAction?: React.ReactNode;
   /** elementi pred »+ Nova naloga« v isti vrstici (npr. število nalog, izbor, uvoz) */
   leading?: React.ReactNode;
+  /** brez gnezdenja generiranih nalog pod izvirne (npr. razvrščeno po datumu) */
+  flat?: boolean;
+  /** pri vsaki nalogi pokaži datum dodajanja */
+  showDate?: boolean;
 }) {
   const { save, remove, restore } = useTasks();
   const { selected, toggle } = useTaskSelection();
@@ -77,11 +81,11 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
       {tasks.length === 0 && !adding && emptyText && <p style={{ fontSize: '12px', color: 'var(--muted)', fontStyle: 'italic', margin: 0 }}>{emptyText}</p>}
 
       {(() => {
-        const list = nestUnderParents(tasks);
+        const list = flat ? tasks : nestUnderParents(tasks);
         const ids = new Set(list.map(t => t.id));
         let num = startIndex;
         return list.map(t => {
-        const nested = isNested(t, ids);
+        const nested = !flat && isNested(t, ids);
         if (!nested) num++;
         const on = selected.has(t.id);
         return (
@@ -112,6 +116,12 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
                     <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Rešitev: <TaskAnswer task={t} noChoice /></div>
                   )}
                   <TaskBadges task={t} showTopics={showTopics} hideTopic={hideTopic} hideChapter={hideChapter} />
+                  {showDate && (
+                    <span style={{ fontSize: '11px', color: 'var(--muted)' }}>
+                      dodano {new Date(t.created_at).toLocaleString('sl-SI', { day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      {t.updated_at && t.updated_at.slice(0, 16) !== t.created_at.slice(0, 16) && ` · spremenjeno ${new Date(t.updated_at).toLocaleString('sl-SI', { day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`}
+                    </span>
+                  )}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flexShrink: 0 }}>
                   <button onClick={() => { setEditingId(t.id); setAdding(false); }} style={{ ...btn(), padding: '3px 9px', fontSize: '11px' }}>✎ Uredi</button>

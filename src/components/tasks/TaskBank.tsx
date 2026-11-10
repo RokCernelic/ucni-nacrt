@@ -58,6 +58,8 @@ export default function TaskBank({ picker }: { picker?: BankPicker } = {}) {
   const [noTopic, setNoTopic] = useState(false);
   const [unlinked, setUnlinked] = useState(false);
   const [img, setImg] = useState<'' | 'with' | 'without' | 'missing'>('');
+  /** razvrstitev: po učnem načrtu (poglavja) ali po datumu (najnovejše najprej) */
+  const [sort, setSort] = useState<'plan' | 'created' | 'updated'>('plan');
 
   // ponudba filtrov učnega načrta: vsak naslednji nivo le v okviru izbranega
   const allChapters = useMemo(() => allCurricula().flatMap(c => chaptersOf(c.id)), []);
@@ -131,7 +133,8 @@ export default function TaskBank({ picker }: { picker?: BankPicker } = {}) {
   };
 
   // vrstni red kot v učnem načrtu; naloge samo s poglavjem so na začetku poglavja
-  const ordered = useMemo(() => orderTasks(filtered), [filtered]);
+  const ordered = useMemo(() => (sort === 'plan' ? orderTasks(filtered)
+    : [...filtered].sort((a, b) => (sort === 'created' ? b.created_at.localeCompare(a.created_at) : (b.updated_at ?? b.created_at).localeCompare(a.updated_at ?? a.created_at)))), [filtered, sort]);
   const groups = useMemo(() => groupTasks(ordered).map(g => ({
     ...g, topics: g.topics.map(t => ({ ...t, title: t.title || (g.chapterKey ? 'Brez podpoglavja' : '') })),
   })), [ordered]);
@@ -211,6 +214,11 @@ export default function TaskBank({ picker }: { picker?: BankPicker } = {}) {
                 <Chip active={img === 'missing'} color="#c0392b" onClick={() => setImg(img === 'missing' ? '' : 'missing')}
                   title="Naloga omenja sliko (»na sliki«, »kot kaže slika«, [slika: …] ali oznaka »manjka slika«), slike pa nima">manjka slika ({tasks.filter(missingImage).length})</Chip>
               </Row>
+              <Row label="Razvrsti">
+                <Chip active={sort === 'plan'} onClick={() => setSort('plan')} title="Po poglavjih in podpoglavjih učnega načrta">po učnem načrtu</Chip>
+                <Chip active={sort === 'created'} onClick={() => setSort('created')} title="Najnovejše dodane naloge na vrhu">nazadnje dodane</Chip>
+                <Chip active={sort === 'updated'} onClick={() => setSort('updated')} title="Nazadnje urejene naloge na vrhu">nazadnje spremenjene</Chip>
+              </Row>
               <Row label="Ostalo">
                 <select value={source} onChange={e => setSource(e.target.value)} style={{ ...input, padding: '3px 6px', fontSize: '12px' }}>
                   <option value="">vsi viri</option>
@@ -278,7 +286,14 @@ export default function TaskBank({ picker }: { picker?: BankPicker } = {}) {
                 style={{ ...btn(true), padding: '7px 14px', opacity: filtered.length ? 1 : 0.45, cursor: filtered.length ? 'pointer' : 'not-allowed' }}>
                 🧪 Generiraj kviz
               </button>)} emptyText={anyFilter && !ordered.length ? 'Ni nalog, ki ustrezajo filtrom.' : !tasks.length ? 'Baza je še prazna. Dodaj prvo nalogo.' : undefined} />
-                {(() => {
+                {sort !== 'plan' ? (
+                  <section style={{ marginTop: '26px' }}>
+                    <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '24px', fontWeight: 400, color: 'var(--ink)', margin: '0 0 10px', borderBottom: '1px solid var(--hairline)', paddingBottom: '6px' }}>
+                      {sort === 'created' ? 'Nazadnje dodane' : 'Nazadnje spremenjene'} <span style={{ fontSize: '15px', color: 'var(--muted)' }}>· {ordered.length}</span>
+                    </h2>
+                    <TaskList tasks={ordered} showAdd={false} flat showDate />
+                  </section>
+                ) : (() => {
                   let n = 0;
                   return groups.map(g => (
                     <section key={g.chapter} style={{ marginTop: '26px' }}>
