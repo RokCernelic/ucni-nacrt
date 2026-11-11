@@ -6,7 +6,7 @@ import QRCode from 'qrcode';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuizLibrary } from '@/hooks/useQuizLibrary';
 import {
-  loadSession, updateSession, resolveDevice, joinChannel, isLive, participated, TEACHER_NAME,
+  loadSession, updateSession, deleteSession, resolveDevice, joinChannel, isLive, participated, TEACHER_NAME,
   type QuizSession, type SessionStudent, type SessionAnswer,
 } from '@/lib/quiz/sessionApi';
 import { isCorrect, answerStatus, scoreAnswers, parseNumber, numericValue } from '@/lib/quiz/scoring';
@@ -181,6 +181,15 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
   /** pri združenih rezultatih več sej: seja, v kateri je učenec rešil kviz (od nje zavisijo njegove črke); sicer velja `session` */
   sessionsByStudent?: Map<string, QuizSession>;
 }) {
+  const [deleting, setDeleting] = useState(false);
+  /** Trajno izbriše to izvedbo (z vsemi odgovori) — vedno s potrditvijo. */
+  const removeResult = async () => {
+    const n = students.filter(participated).length;
+    if (!confirm(`Trajno izbrišem rezultat »${quizTitle}« (${session.class_name}, ${new Date(session.created_at).toLocaleString('sl-SI', { day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })})?\n\nIzbrisani bodo odgovori ${n} ${n === 1 ? 'učenca' : 'učencev'}. Tega ni mogoče razveljaviti.`)) return;
+    setDeleting(true);
+    try { await deleteSession(session.id); window.location.assign(back?.href ?? '/kvizi/statistika'); } // polno nalaganje: seznam rezultatov brez izbrisane izvedbe
+    catch (e) { alert(`Brisanje ni uspelo: ${e instanceof Error ? e.message : String(e)}`); setDeleting(false); }
+  };
   // trenutno ime kviza (preimenovanje se pozna tudi v rezultatih), sicer ime ob izvedbi
   const lib = useQuizLibrary();
   const quizTitle = lib.quizzes.find(q => q.id === session.quiz_id)?.title || session.quiz_title;
@@ -256,9 +265,16 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
             {subtitle ?? `${session.class_name} · seja končana`} · {studentsLabel(joinedCount)} sodelovalo od {students.length} · povprečje <b style={{ color: gradeColor(avgPct) }}>{avgPct} %</b>
           </p>
         </div>
-        <button onClick={exportCsv} style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600, color: '#fff', background: 'var(--forest)', border: 'none', borderRadius: 'var(--r-sm)', padding: '9px 16px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-          ⬇ Izvozi CSV
-        </button>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <button onClick={exportCsv} style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600, color: '#fff', background: 'var(--forest)', border: 'none', borderRadius: 'var(--r-sm)', padding: '9px 16px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+            ⬇ Izvozi CSV
+          </button>
+          <button onClick={() => void removeResult()} disabled={deleting}
+            title="Trajno izbriše ta rezultat (to izvedbo kviza z vsemi odgovori učencev)"
+            style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 500, color: '#c0392b', background: 'transparent', border: '1px solid #e0b4ae', borderRadius: 'var(--r-sm)', padding: '9px 16px', cursor: 'pointer', whiteSpace: 'nowrap', opacity: deleting ? 0.5 : 1 }}>
+            {deleting ? 'Brišem …' : '🗑 Izbriši rezultat'}
+          </button>
+        </div>
       </div>
 
       {note && <p style={{ fontSize: '12px', color: '#b7791f', margin: '12px 0 0' }}>{note}</p>}

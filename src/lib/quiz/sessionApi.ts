@@ -239,6 +239,12 @@ export async function deleteEmptySessionsOfQuiz(quizId: string): Promise<number>
   return empty.length;
 }
 
+/** Trajno izbriše eno izvedbo (sejo) z vsemi učenci in odgovori (rezultat izgine iz Rezultatov). */
+export async function deleteSession(id: string): Promise<void> {
+  const { error } = await getSupabaseBrowserClient().from('quiz_sessions').delete().eq('id', id);
+  if (error) throw new Error(error.message);
+}
+
 export interface ActiveSession {
   session: QuizSession;
   /** povezani učenci (natisnjen kviz: učenci z vsaj enim skeniranim listom) */
