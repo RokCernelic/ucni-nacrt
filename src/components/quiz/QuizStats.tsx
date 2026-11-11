@@ -22,6 +22,7 @@ export default function QuizStats() {
   const search = useSearchParams();
   const selected = search.get('k');
   const sessionId = search.get('s');
+  const [showEmpty, setShowEmpty] = useState(false);
   const [openQuizzes, setOpenQuizzes] = useState<Set<string>>(() => {
     try { return new Set(JSON.parse(localStorage.getItem('rezultati-odprti') ?? '[]')); } catch { return new Set(); }
   });
@@ -72,14 +73,18 @@ export default function QuizStats() {
   // izvedbe istega kviza so ugnezdene pod kviz (razpri / skrij); kviz z najnovejšo izvedbo na vrhu
   const groups = useMemo(() => {
     const m = new Map<string, typeof rows>();
-    for (const r of rows) if (!selected || r.key === selected) m.set(r.key, [...(m.get(r.key) ?? []), r]);
+    for (const r of rows) {
+      if (selected && r.key !== selected) continue;
+      if (!showEmpty && !r.people && !r.open) continue; // izvedbe brez rezultatov (npr. poskusni tisk) skrite
+      m.set(r.key, [...(m.get(r.key) ?? []), r]);
+    }
     return [...m.entries()].map(([key, rs]) => {
       const people = rs.reduce((t, r) => t + r.people, 0);
       const sum = rs.reduce((t, r) => t + (r.avg ?? 0) * r.people, 0);
       return { key, rows: rs, title: rs[0].s.quiz_title, people, avg: people ? ceilPct(sum / people) : null,
         classes: [...new Set(rs.map(r => r.s.class_name))], live: rs.some(r => r.live), open: rs.some(r => r.open), deleted: rs[0].deleted };
     });
-  }, [rows, selected]);
+  }, [rows, selected, showEmpty]);
 
   if (loading) return null;
   if (!user) return <div style={{ maxWidth: '900px', margin: '0 auto', padding: '32px' }}><p style={{ color: 'var(--muted)' }}>Za rezultate se <Link href="/login" style={{ color: 'var(--forest)' }}>prijavite</Link>.</p></div>;
@@ -119,6 +124,15 @@ export default function QuizStats() {
         </div>
       </div>
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px 32px 64px', fontFamily: 'var(--font-sans)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        {(() => {
+          const empty = rows.filter(r => (!selected || r.key === selected) && !r.people && !r.open).length;
+          return empty > 0 && (
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--muted)', cursor: 'pointer', marginBottom: '4px' }}>
+              <input type="checkbox" checked={showEmpty} onChange={e => setShowEmpty(e.target.checked)} />
+              pokaži tudi izvedbe brez rezultatov ({empty}) — npr. poskusni tiski, ki niso bili skenirani
+            </label>
+          );
+        })()}
         {groups.length === 0 && <p style={{ color: 'var(--muted)', fontSize: '14px' }}>{selected ? 'Ta kviz še ni bil rešen.' : 'Noben kviz še ni bil rešen.'}</p>}
         {groups.map(g => {
           const isOpen = !!selected || openQuizzes.has(g.key);

@@ -158,16 +158,38 @@ export async function loadQuizHistory(quizId: string) {
   const ids = sessions.map(s => s.id);
   if (ids.length === 0) return { sessions: [] as QuizSession[], studentsBySession: new Map<string, SessionStudent[]>(), answersBySession: new Map<string, SessionAnswer[]>() };
 
-  const [st, a] = await Promise.all([
-    sb.from('quiz_session_students').select('*').in('session_id', ids),
-    sb.from('quiz_answers').select('*').in('session_id', ids),
+  const [stRows, aRows] = await Promise.all([
+    fetchAllBySession<SessionStudent>('quiz_session_students', ids),
+    fetchAllBySession<SessionAnswer>('quiz_answers', ids),
   ]);
   const studentsBySession = new Map<string, SessionStudent[]>();
-  for (const s of ((st.data ?? []) as SessionStudent[]).filter(x => !isTeacherRow(x))) studentsBySession.set(s.session_id, [...(studentsBySession.get(s.session_id) ?? []), s]);
+  for (const s of stRows.filter(x => !isTeacherRow(x))) studentsBySession.set(s.session_id, [...(studentsBySession.get(s.session_id) ?? []), s]);
   const answersBySession = new Map<string, SessionAnswer[]>();
-  for (const a2 of ((a.data ?? []) as SessionAnswer[]).filter(x => !isTeacherRow(x))) answersBySession.set(a2.session_id, [...(answersBySession.get(a2.session_id) ?? []), a2]);
+  for (const a2 of aRows.filter(x => !isTeacherRow(x))) answersBySession.set(a2.session_id, [...(answersBySession.get(a2.session_id) ?? []), a2]);
   for (const [k, v] of studentsBySession) studentsBySession.set(k, sortByLastName(v));
   return { sessions, studentsBySession, answersBySession };
+}
+
+/**
+ * Vse vrstice tabele za dane seje. Baza vrne največ 1000 vrstic na poizvedbo, zato beremo po straneh
+ * (in seje v manjših skupinah, da URL ne postane predolg) — sicer bi se pri več sejah odgovori in učenci odrezali.
+ */
+async function fetchAllBySession<T>(table: 'quiz_session_students' | 'quiz_answers', ids: string[]): Promise<T[]> {
+  const sb = getSupabaseBrowserClient();
+  const out: T[] = [];
+  const PAGE = 1000;
+  for (let i = 0; i < ids.length; i += 50) {
+    const chunk = ids.slice(i, i + 50);
+    for (let from = 0; ; from += PAGE) {
+      let q = sb.from(table).select('*').in('session_id', chunk).order('session_id').order('student_id');
+      if (table === 'quiz_answers') q = q.order('question_id'); // enolični vrstni red za strani
+      const { data, error } = await q.range(from, from + PAGE - 1);
+      if (error) throw new Error(error.message);
+      out.push(...((data ?? []) as T[]));
+      if (!data || data.length < PAGE) break;
+    }
+  }
+  return out;
 }
 
 /** Ali je učenec sodeloval: povezal napravo (kviz v živo) ali oddal odgovore (natisnjen kviz, skener). */
@@ -182,17 +204,12 @@ export async function loadAllHistory() {
   const ids = sessions.map(s => s.id);
   const studentsBySession = new Map<string, SessionStudent[]>();
   const answersBySession = new Map<string, SessionAnswer[]>();
-  for (let i = 0; i < ids.length; i += 100) {
-    const chunk = ids.slice(i, i + 100);
-    const [st, a] = await Promise.all([
-      sb.from('quiz_session_students').select('*').in('session_id', chunk),
-      sb.from('quiz_answers').select('*').in('session_id', chunk),
-    ]);
-    if (st.error) throw new Error(st.error.message);
-    if (a.error) throw new Error(a.error.message);
-    for (const x of ((st.data ?? []) as SessionStudent[]).filter(x => !isTeacherRow(x))) studentsBySession.set(x.session_id, [...(studentsBySession.get(x.session_id) ?? []), x]);
-    for (const x of ((a.data ?? []) as SessionAnswer[]).filter(x => !isTeacherRow(x))) answersBySession.set(x.session_id, [...(answersBySession.get(x.session_id) ?? []), x]);
-  }
+  const [stRows, aRows] = await Promise.all([
+    fetchAllBySession<SessionStudent>('quiz_session_students', ids),
+    fetchAllBySession<SessionAnswer>('quiz_answers', ids),
+  ]);
+  for (const x of stRows.filter(x => !isTeacherRow(x))) studentsBySession.set(x.session_id, [...(studentsBySession.get(x.session_id) ?? []), x]);
+  for (const x of aRows.filter(x => !isTeacherRow(x))) answersBySession.set(x.session_id, [...(answersBySession.get(x.session_id) ?? []), x]);
   for (const [k, v] of studentsBySession) studentsBySession.set(k, sortByLastName(v));
   return { sessions, studentsBySession, answersBySession };
 }
