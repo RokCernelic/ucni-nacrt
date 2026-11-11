@@ -196,7 +196,7 @@ export default function Nav() {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '8px' }}>
             <Link href="/kvizi" style={pill(!path.startsWith('/kvizi/naloge') && !path.startsWith('/kvizi/statistika'))}>Kvizi</Link>
             <Link href="/kvizi/naloge" style={pill(path.startsWith('/kvizi/naloge'))}>Baza nalog</Link>
-            <Link href="/kvizi/statistika" style={pill(path.startsWith('/kvizi/statistika'))}>Statistika</Link>
+            <Link href="/kvizi/statistika" style={pill(path.startsWith('/kvizi/statistika'))}>Rezultati</Link>
           </div>
         )}
         {onStudents && !loading && user && <Suspense fallback={null}><StudentRows path={path} /></Suspense>}

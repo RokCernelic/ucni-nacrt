@@ -13,15 +13,16 @@ import { gradeColor } from '@/lib/quiz/format';
 
 type Data = Awaited<ReturnType<typeof loadAllHistory>>;
 const keyOf = (s: QuizSession) => s.quiz_id ?? `naslov:${s.quiz_title}`;
-const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('sl-SI', { day: 'numeric', month: 'short', year: 'numeric' });
+const fmtDateTime = (iso: string) => new Date(iso).toLocaleString('sl-SI', { day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 const pctColor = gradeColor;
 
-/** Kvizi → Statistika: vse odigrane seje po kvizih (ostanejo tudi, ko kviz izbrišeš). */
+/** Kvizi → Rezultati: vsaka izvedba kviza (seja) posebej; ?k=kviz filtrira, ?s=seja odpre podrobne rezultate. */
 export default function QuizStats() {
   const { user, loading } = useAuth();
   const lib = useQuizLibrary();
   const search = useSearchParams();
   const selected = search.get('k');
+  const sessionId = search.get('s');
   const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,65 +40,45 @@ export default function QuizStats() {
     return () => { ch.close(); if (timer) clearTimeout(timer); clearInterval(poll); document.removeEventListener('visibilitychange', onFocus); };
   }, [user]);
 
-  const groups = useMemo(() => {
+  // vsaka izvedba (seja) je svoj vnos: končane, nezaključene in tekoče
+  const rows = useMemo(() => {
     if (!data) return [];
-    const m = new Map<string, QuizSession[]>();
-    // vse seje: končane, nezaključene in tekoče (tekoče se sproti osvežujejo)
-    for (const s of data.sessions) m.set(keyOf(s), [...(m.get(keyOf(s)) ?? []), s]);
-    return [...m.entries()].map(([key, sessions]) => {
-      let sum = 0, n = 0, people = 0;
-      for (const s of sessions) {
-        const ans = data.answersBySession.get(s.id) ?? [];
-        const by = new Map<string, Record<string, string>>();
-        for (const a of ans) by.set(a.student_id, { ...(by.get(a.student_id) ?? {}), [a.question_id]: a.value });
-        for (const st of (data.studentsBySession.get(s.id) ?? []).filter(participated)) {
-          sum += scoreAnswers(s.quiz, by.get(st.student_id) ?? {}).percent; n++; people++;
-        }
-      }
+    return [...data.sessions].sort((a, b) => b.created_at.localeCompare(a.created_at)).map(s => {
+      const ans = data.answersBySession.get(s.id) ?? [];
+      const by = new Map<string, Record<string, string>>();
+      for (const a of ans) by.set(a.student_id, { ...(by.get(a.student_id) ?? {}), [a.question_id]: a.value });
+      const students = data.studentsBySession.get(s.id) ?? [];
+      const part = students.filter(participated);
+      const sum = part.reduce((t, st) => t + scoreAnswers(s.quiz, by.get(st.student_id) ?? {}).percent, 0);
       return {
-        key, title: sessions[0].quiz_title, sessions, people,
-        avg: n ? ceilPct(sum / n) : null,
-        classes: [...new Set(sessions.map(s => s.class_name))],
-        last: sessions[0].created_at,
-        open: sessions.some(x => x.status === 'open'),
-        live: sessions.some(isLive),
-        deleted: !!sessions[0].quiz_id && lib.loaded && !lib.quizzes.some(q => q.id === sessions[0].quiz_id),
+        s, key: keyOf(s), people: part.length, total: students.length,
+        avg: part.length ? ceilPct(sum / part.length) : null,
+        live: isLive(s), open: s.status === 'open',
+        deleted: !!s.quiz_id && lib.loaded && !lib.quizzes.some(q => q.id === s.quiz_id),
       };
-    }).sort((a, b) => b.last.localeCompare(a.last));
+    });
   }, [data, lib.loaded, lib.quizzes]);
 
   if (loading) return null;
-  if (!user) return <div style={{ maxWidth: '900px', margin: '0 auto', padding: '32px' }}><p style={{ color: 'var(--muted)' }}>Za statistiko se <Link href="/login" style={{ color: 'var(--forest)' }}>prijavite</Link>.</p></div>;
+  if (!user) return <div style={{ maxWidth: '900px', margin: '0 auto', padding: '32px' }}><p style={{ color: 'var(--muted)' }}>Za rezultate se <Link href="/login" style={{ color: 'var(--forest)' }}>prijavite</Link>.</p></div>;
   if (error) return <div style={{ maxWidth: '900px', margin: '0 auto', padding: '32px' }}><p style={{ color: '#c0392b', fontFamily: 'var(--font-sans)' }}>{error}</p></div>;
   if (!data) return <div style={{ maxWidth: '900px', margin: '0 auto', padding: '32px', fontFamily: 'var(--font-sans)', color: 'var(--muted)' }}>Nalagam …</div>;
 
-  const group = selected ? groups.find(g => g.key === selected) : null;
-  if (group) {
-    // en kviz = ena stran rezultatov: za vsakega učenca zadnji rezultat (iz najnovejše seje, v kateri je sodeloval)
-    const sessions = [...group.sessions].sort((a, b) => b.created_at.localeCompare(a.created_at));
-    const latest = sessions[0];
-    const seen = new Set<string>();
-    const students: SessionStudent[] = [];
-    const answers: SessionAnswer[] = [];
-    const sessionsByStudent = new Map<string, QuizSession>();
-    for (const s of sessions) {
-      for (const st of data.studentsBySession.get(s.id) ?? []) {
-        if (seen.has(st.student_id) || !participated(st)) continue;
-        seen.add(st.student_id);
-        sessionsByStudent.set(st.student_id, s);
-        students.push(st);
-        answers.push(...(data.answersBySession.get(s.id) ?? []).filter(a => a.student_id === st.student_id));
-      }
-    }
-    // učenci, ki še niso sodelovali, iz najnovejše seje
-    for (const st of data.studentsBySession.get(latest.id) ?? []) if (!seen.has(st.student_id)) students.push(st);
-    const classes = [...new Set(sessions.map(s => s.class_name))].join(', ');
-    const n = sessions.length;
+  const listHref = selected ? `/kvizi/statistika?k=${encodeURIComponent(selected)}` : '/kvizi/statistika';
+  const shown = selected ? rows.filter(r => r.key === selected) : rows;
+
+  // ena izvedba: podrobni rezultati (iz seznama ali z gumba »Rezultati«, če ima kviz samo eno izvedbo)
+  const one = sessionId ? rows.find(r => r.s.id === sessionId) : selected && shown.length === 1 ? shown[0] : null;
+  if (one) {
+    const s = one.s;
+    const students: SessionStudent[] = data.studentsBySession.get(s.id) ?? [];
+    const answers: SessionAnswer[] = data.answersBySession.get(s.id) ?? [];
+    const status = one.live ? 'v teku' : one.open ? 'nezaključeno' : 'končano';
     return (
-      <SessionResults session={latest} students={students} answers={answers} teacher={null} teacherAnswers={[]} sessionsByStudent={sessionsByStudent}
-        back={{ href: '/kvizi/statistika', label: '← Statistika' }}
-        subtitle={`${classes}${n > 1 ? ` · zadnji rezultat vsakega učenca (${n} izvedb)` : ''}`}
-        note={group.deleted ? 'Kviz je izbrisan — rezultati so ohranjeni.' : undefined} />
+      <SessionResults session={s} students={students} answers={answers} teacher={null} teacherAnswers={[]}
+        back={sessionId && shown.length > 1 ? { href: listHref, label: '← Izvedbe tega kviza' } : { href: '/kvizi/statistika', label: '← Rezultati' }}
+        subtitle={`${s.class_name} · ${s.paper ? 'natisnjeno' : 'v živo'} · ${fmtDateTime(s.created_at)} · ${status}`}
+        note={one.deleted ? 'Kviz je izbrisan — rezultati so ohranjeni.' : undefined} />
     );
   }
 
@@ -106,26 +87,31 @@ export default function QuizStats() {
     <div>
       <div style={{ background: 'var(--forest)', padding: '28px 32px 24px' }}>
         <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-          <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(28px,4vw,42px)', fontWeight: 300, color: '#fff', lineHeight: 1, margin: 0 }}>Statistika</h1>
-          <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'rgba(255,255,255,0.6)', margin: '10px 0 0' }}>Vsi rešeni kvizi (v živo in natisnjeni). Rezultati ostanejo, tudi če kviz izbrišeš.</p>
+          {selected && <Link href="/kvizi/statistika" style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'rgba(255,255,255,0.6)', textDecoration: 'none' }}>← Vsi rezultati</Link>}
+          <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(28px,4vw,42px)', fontWeight: 300, color: '#fff', lineHeight: 1, margin: selected ? '8px 0 0' : 0 }}>
+            {selected && shown[0] ? shown[0].s.quiz_title : 'Rezultati'}
+          </h1>
+          <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'rgba(255,255,255,0.6)', margin: '10px 0 0' }}>
+            {selected ? 'Vse izvedbe tega kviza.' : 'Vsaka izvedba kviza (v živo in natisnjena) posebej. Rezultati ostanejo, tudi če kviz izbrišeš.'}
+          </p>
         </div>
       </div>
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px 32px 64px', fontFamily: 'var(--font-sans)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        {groups.length === 0 && <p style={{ color: 'var(--muted)', fontSize: '14px' }}>Noben kviz še ni bil rešen.</p>}
-        {groups.map(g => (
-          <Link key={g.key} href={`/kvizi/statistika?k=${encodeURIComponent(g.key)}`} style={card}>
+        {shown.length === 0 && <p style={{ color: 'var(--muted)', fontSize: '14px' }}>{selected ? 'Ta kviz še ni bil rešen.' : 'Noben kviz še ni bil rešen.'}</p>}
+        {shown.map(r => (
+          <Link key={r.s.id} href={`/kvizi/statistika?${selected ? `k=${encodeURIComponent(selected)}&` : ''}s=${r.s.id}`} style={card}>
             <div style={{ flex: '1 1 240px', minWidth: 0 }}>
               <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--ink)' }}>
-                {g.title}{g.deleted && <span style={{ fontSize: '11px', fontWeight: 500, color: '#b7791f', marginLeft: '8px' }}>izbrisan kviz</span>}
-                {g.live ? <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--green-ok)', marginLeft: '8px' }}>● v teku</span>
-                  : g.open && <span style={{ fontSize: '11px', fontWeight: 600, color: '#b7791f', marginLeft: '8px' }}>nezaključeno</span>}
+                {r.s.quiz_title}{r.deleted && <span style={{ fontSize: '11px', fontWeight: 500, color: '#b7791f', marginLeft: '8px' }}>izbrisan kviz</span>}
+                {r.live ? <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--green-ok)', marginLeft: '8px' }}>● v teku</span>
+                  : r.open && <span style={{ fontSize: '11px', fontWeight: 600, color: '#b7791f', marginLeft: '8px' }}>nezaključeno</span>}
               </div>
               <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '3px' }}>
-                {g.classes.join(', ')} · {g.sessions.length} {g.sessions.length === 1 ? 'seja' : g.sessions.length === 2 ? 'seji' : g.sessions.length < 5 ? 'seje' : 'sej'} · nazadnje {fmtDate(g.last)}
+                {r.s.class_name} · {r.s.paper ? '🖨 natisnjeno' : r.s.mode === 'teacher' ? 'v živo · projekcija' : 'v živo · tablica'} · {fmtDateTime(r.s.created_at)}
               </div>
             </div>
-            <div style={{ fontSize: '13px', color: 'var(--muted)' }}>{g.people} rezultatov</div>
-            <div style={{ fontSize: '20px', fontWeight: 700, color: pctColor(g.avg), minWidth: '64px', textAlign: 'right' }}>{g.avg === null ? '—' : `${g.avg} %`}</div>
+            <div style={{ fontSize: '13px', color: 'var(--muted)' }}>{r.people} / {r.total} učencev</div>
+            <div style={{ fontSize: '20px', fontWeight: 700, color: pctColor(r.avg), minWidth: '64px', textAlign: 'right' }}>{r.avg === null ? '—' : `${r.avg} %`}</div>
           </Link>
         ))}
       </div>
