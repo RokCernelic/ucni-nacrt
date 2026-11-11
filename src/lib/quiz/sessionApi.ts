@@ -215,30 +215,28 @@ export async function loadAllHistory() {
 }
 
 /**
- * Ob brisanju kviza: če nobena njegova seja ne teče in nobena nima podatkov (nihče ni sodeloval, ni odgovorov),
- * izbriše tudi te prazne seje (in s tem prazno statistiko). Če ima kviz aktivno sejo ali kakršne koli rezultate,
- * ne spremeni ničesar (statistika ostane). Vrne število izbrisanih sej.
+ * Ob brisanju kviza: izbriše njegove PRAZNE izvedbe (nihče ni sodeloval, ni odgovorov, seja ne teče) — npr. poskusne
+ * tiske. Izvedbe z rezultati ostanejo (v Rezultatih ostanejo vidne tudi po izbrisu kviza). Vrne število izbrisanih sej.
  */
 export async function deleteEmptySessionsOfQuiz(quizId: string): Promise<number> {
   const sb = getSupabaseBrowserClient();
   const { data, error } = await sb.from('quiz_sessions').select('*').eq('quiz_id', quizId);
   if (error) throw new Error(error.message);
-  const sessions = (data ?? []) as QuizSession[];
+  const sessions = ((data ?? []) as QuizSession[]).filter(s => !isLive(s));
   if (!sessions.length) return 0;
-  if (sessions.some(isLive)) return 0;
   const ids = sessions.map(s => s.id);
-  const [st, an] = await Promise.all([
-    sb.from('quiz_session_students').select('student_id, device_id, submitted_at').in('session_id', ids),
-    sb.from('quiz_answers').select('session_id', { count: 'exact', head: true }).in('session_id', ids),
+  const [students, answers] = await Promise.all([
+    fetchAllBySession<SessionStudent>('quiz_session_students', ids),
+    fetchAllBySession<SessionAnswer>('quiz_answers', ids),
   ]);
-  if (st.error) throw new Error(st.error.message);
-  if (an.error) throw new Error(an.error.message);
-  const anyParticipant = ((st.data ?? []) as { student_id: string; device_id: string | null; submitted_at: string | null }[])
-    .some(x => !isTeacherRow(x) && participated(x));
-  if (anyParticipant || (an.count ?? 0) > 0) return 0;
-  const { error: d } = await sb.from('quiz_sessions').delete().in('id', ids);
+  const withData = new Set<string>();
+  for (const x of students) if (!isTeacherRow(x) && participated(x)) withData.add(x.session_id);
+  for (const a of answers) if (!isTeacherRow(a)) withData.add(a.session_id);
+  const empty = ids.filter(id => !withData.has(id));
+  if (!empty.length) return 0;
+  const { error: d } = await sb.from('quiz_sessions').delete().in('id', empty);
   if (d) throw new Error(d.message);
-  return ids.length;
+  return empty.length;
 }
 
 export interface ActiveSession {

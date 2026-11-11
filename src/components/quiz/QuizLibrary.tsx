@@ -132,7 +132,7 @@ export default function QuizLibrary() {
                         <Link href={`/kvizi/statistika?k=${encodeURIComponent(q.id)}`} style={{ ...btn(), padding: '7px 10px', textDecoration: 'none' }} title="Rezultati izvedb tega kviza">Rezultati</Link>
                         <button style={{ ...btn(), padding: '7px 10px' }} onClick={() => guard(() => lib.duplicateQuiz(q.id))}>Podvoji</button>
                         <button style={{ ...btn(), padding: '7px 10px', color: '#c0392b', borderColor: '#e0b4ae' }}
-                          onClick={() => { if (confirm(`Izbrišem kviz »${q.title}«? Če nima aktivne seje in nobenih rezultatov, se izbrišejo tudi njegovi (prazni) rezultati.`)) { guard(() => lib.deleteQuiz(q.id)); void deleteEmptySessionsOfQuiz(q.id).catch(() => { /* statistika ostane, kviz je izbrisan */ }); } }}>Izbriši</button>
+                          onClick={() => { if (confirm(`Izbrišem kviz »${q.title}«? Izvedbe brez rezultatov se izbrišejo, rezultati izvedb, pri katerih so učenci sodelovali, pa ostanejo v Rezultatih.`)) { guard(() => lib.deleteQuiz(q.id)); void deleteEmptySessionsOfQuiz(q.id).catch(() => { /* statistika ostane, kviz je izbrisan */ }); } }}>Izbriši</button>
                       </div>
                     </div>
                   );
