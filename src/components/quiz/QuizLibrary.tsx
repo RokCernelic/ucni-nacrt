@@ -161,8 +161,6 @@ export default function QuizLibrary() {
             </span>
           )}
           <span onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: '2px' }}>
-            <button title="Nov kviz v tej mapi" style={smallBtn} onClick={() => guard(() => { const id = lib.createQuiz(f.id); router.push(`/kvizi/${id}`); })}>+ kviz</button>
-            <button title="Nova podmapa" style={smallBtn} onClick={() => guard(() => { const id = lib.createFolder('Nova mapa', f.id); toggleFolder(f.id, true); setRenaming(id); })}>+ mapa</button>
             <button title="Preimenuj" style={smallBtn} onClick={() => setRenaming(f.id)}>✎</button>
             <button title="Izbriši mapo (vsebina gre v nadrejeno mapo)" style={smallBtn}
               onClick={() => { if (confirm(`Izbrišem mapo »${f.name}«? Kvizi in podmape se premaknejo eno raven višje.`)) guard(() => lib.deleteFolder(f.id)); }}>×</button>
