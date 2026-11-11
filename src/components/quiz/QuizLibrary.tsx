@@ -1,18 +1,18 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import ActiveSessions from '@/components/quiz/ActiveSessions';
-import { useQuizLibrary, folderPath, QuizStorageFullError } from '@/hooks/useQuizLibrary';
+import { useQuizLibrary, QuizStorageFullError } from '@/hooks/useQuizLibrary';
 import { questionProblems } from '@/lib/quiz/scoring';
 import { deleteEmptySessionsOfQuiz } from '@/lib/quiz/sessionApi';
 import { questionsLabel, pointsLabel, dateTimeLabel } from '@/lib/quiz/format';
 import StartSessionDialog from '@/components/quiz/StartSessionDialog';
-import type { QuizFolder } from '@/lib/quiz/types';
+import type { Quiz, QuizFolder } from '@/lib/quiz/types';
 
-const FOLDER_KEY = 'kvizi-trenutna-mapa'; // sessionStorage (ne sinhronizira v oblak)
+const OPEN_KEY = 'kvizi-odprte-mape'; // localStorage (le ta naprava): katere mape so razprte
 
 const btn = (primary = false): React.CSSProperties => ({
   fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: primary ? 600 : 500,
@@ -45,7 +45,6 @@ export default function QuizLibrary() {
   const router = useRouter();
   const { user, loading } = useAuth();
   const lib = useQuizLibrary();
-  const [current, setCurrent] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState<string | null>(null);
@@ -53,18 +52,16 @@ export default function QuizLibrary() {
   const [dragOverFolder, setDragOverFolder] = useState<string | null>(null); // '' pomeni koren
   const dragQuizId = useRef<string | null>(null);
 
-  useEffect(() => {
-    try { const v = sessionStorage.getItem(FOLDER_KEY); if (v) setCurrent(v); } catch { /* ignore */ }
-  }, []);
-  const open = (id: string | null) => {
-    setCurrent(id);
-    try { if (id) sessionStorage.setItem(FOLDER_KEY, id); else sessionStorage.removeItem(FOLDER_KEY); } catch { /* ignore */ }
-  };
-
-  // če je trenutna mapa izbrisana, pojdi na koren
-  useEffect(() => {
-    if (lib.loaded && current && !lib.folders.some(f => f.id === current)) open(null);
-  }, [lib.loaded, lib.folders, current]);
+  // razprte mape (drevo kot v učnem načrtu): zapomnjeno na tej napravi
+  const [openFolders, setOpenFolders] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem(OPEN_KEY) ?? '[]')); } catch { return new Set(); }
+  });
+  const toggleFolder = (id: string, on?: boolean) => setOpenFolders(prev => {
+    const n = new Set(prev);
+    if (on ?? !n.has(id)) n.add(id); else n.delete(id);
+    try { localStorage.setItem(OPEN_KEY, JSON.stringify([...n])); } catch { /* ignore */ }
+    return n;
+  });
 
   const guard = (fn: () => void) => {
     try { setError(null); fn(); }
@@ -91,11 +88,9 @@ export default function QuizLibrary() {
   };
   if (loading || !lib.loaded) return null;
 
-  const path = folderPath(lib.folders, current);
-  const subfolders = lib.folders.filter(f => f.parentId === current).sort((a, b) => a.name.localeCompare(b.name, 'sl'));
-  const quizzes = lib.quizzes
-    .filter(q => q.folderId === current)
-    .sort((a, b) => (b.lastUsedAt ?? b.updatedAt) - (a.lastUsedAt ?? a.updatedAt));
+  const sortQuizzes = (list: Quiz[]) => [...list].sort((a, b) => (b.lastUsedAt ?? b.updatedAt) - (a.lastUsedAt ?? a.updatedAt));
+  const quizzesIn = (folderId: string | null) => sortQuizzes(lib.quizzes.filter(q => q.folderId === folderId));
+  const foldersIn = (parentId: string | null) => lib.folders.filter(f => f.parentId === parentId).sort((a, b) => a.name.localeCompare(b.name, 'sl'));
   const allFolders = flatFolders(lib.folders);
   const countIn = (folderId: string): number => {
     const direct = lib.quizzes.filter(q => q.folderId === folderId).length;
@@ -104,88 +99,8 @@ export default function QuizLibrary() {
 
   const card: React.CSSProperties = { background: 'var(--canvas)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', padding: '14px 16px' };
 
-  return (
-    <div>
-      <div style={{ background: 'var(--forest)', padding: '32px 32px 28px' }}>
-        <div style={{ maxWidth: '900px', margin: '0 auto', width: '100%' }}>
-          <p style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', margin: '0 0 6px' }}>
-            Knjižnica
-          </p>
-          <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(32px,4vw,48px)', fontWeight: 300, color: '#fff', lineHeight: 1 }}>Kvizi</h1>
-        </div>
-      </div>
-
-      <div style={{ width: '100%', maxWidth: '900px', margin: '0 auto', padding: '28px 32px 64px' }}>
-        {!user ? (
-          <p style={{ fontSize: '14px', color: 'var(--muted)' }}>
-            Za kvize se <Link href="/login" style={{ color: 'var(--forest)', fontWeight: 500 }}>prijavite</Link>.
-          </p>
-        ) : (
-          <>
-            <ActiveSessions />
-
-            {/* pot + orodja */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '18px' }}>
-              <nav style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', fontFamily: 'var(--font-sans)', fontSize: '13px', flex: '1 1 auto' }}>
-                <button onClick={() => open(null)} data-folder-id="" onDragOver={onFolderDragOver} onDragLeave={onFolderDragLeave} onDrop={onFolderDrop}
-                  style={{ ...smallBtn, fontSize: '13px', padding: '2px 6px', borderRadius: 'var(--r-sm)', color: current ? 'var(--forest)' : 'var(--ink)', fontWeight: current ? 500 : 600,
-                    background: dragOverFolder === '' ? 'var(--forest)' : 'transparent', ...(dragOverFolder === '' ? { color: '#fff' } : {}) }}>
-                  Vsi kvizi
-                </button>
-                {path.map((f, i) => (
-                  <span key={f.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ color: 'var(--muted)' }}>/</span>
-                    <button onClick={() => open(f.id)} data-folder-id={f.id} onDragOver={onFolderDragOver} onDragLeave={onFolderDragLeave} onDrop={onFolderDrop}
-                      style={{ ...smallBtn, fontSize: '13px', padding: '2px 6px', borderRadius: 'var(--r-sm)', color: i === path.length - 1 ? 'var(--ink)' : 'var(--forest)', fontWeight: i === path.length - 1 ? 600 : 500,
-                        background: dragOverFolder === f.id ? 'var(--forest)' : 'transparent', ...(dragOverFolder === f.id ? { color: '#fff' } : {}) }}>
-                      {f.name}
-                    </button>
-                  </span>
-                ))}
-              </nav>
-              <button style={btn()} onClick={() => guard(() => { const id = lib.createFolder('Nova mapa', current); setRenaming(id); })}>+ Nova mapa</button>
-              <button style={btn(true)} onClick={() => guard(() => { const id = lib.createQuiz(current); router.push(`/kvizi/${id}`); })}>+ Nov kviz</button>
-              <Link href="/kvizi/skener" style={{ ...btn(), textDecoration: 'none' }} title="Telefon kot skener natisnjenih kvizov (okvir z odgovori)">📷 Skener</Link>
-            </div>
-
-            {error && <p style={{ fontSize: '13px', color: '#c0392b', marginBottom: '12px' }}>{error}</p>}
-
-            {/* podmape */}
-            {subfolders.length > 0 && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px', marginBottom: '22px' }}>
-                {subfolders.map(f => (
-                  <div key={f.id} data-folder-id={f.id} onDragOver={onFolderDragOver} onDragLeave={onFolderDragLeave} onDrop={onFolderDrop}
-                    style={{ ...card, display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px',
-                      ...(dragOverFolder === f.id ? { background: '#e9f2ea', border: '1.5px solid var(--forest)' } : {}) }}>
-                    <span style={{ color: 'var(--forest)', display: 'flex' }}><FolderIcon /></span>
-                    {renaming === f.id ? (
-                      <input autoFocus defaultValue={f.name}
-                        onFocus={e => e.currentTarget.select()}
-                        onBlur={e => { lib.renameFolder(f.id, e.currentTarget.value.trim() || f.name); setRenaming(null); }}
-                        onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') setRenaming(null); }}
-                        style={{ flex: 1, minWidth: 0, fontFamily: 'var(--font-sans)', fontSize: '13px', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', padding: '4px 6px' }} />
-                    ) : (
-                      <button onClick={() => open(f.id)} style={{ flex: 1, minWidth: 0, textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {f.name} <span style={{ fontWeight: 400, color: 'var(--muted)' }}>· {countIn(f.id)}</span>
-                      </button>
-                    )}
-                    <button title="Preimenuj" style={smallBtn} onClick={() => setRenaming(f.id)}>✎</button>
-                    <button title="Izbriši mapo (vsebina gre v nadrejeno mapo)" style={smallBtn}
-                      onClick={() => { if (confirm(`Izbrišem mapo »${f.name}«? Kvizi in podmape se premaknejo eno raven višje.`)) guard(() => lib.deleteFolder(f.id)); }}>×</button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* kvizi */}
-            {quizzes.length === 0 ? (
-              <p style={{ fontSize: '13px', color: 'var(--muted)' }}>
-                {subfolders.length ? 'V tej mapi ni kvizov.' : 'Tu še ni kvizov. Ustvari prvega z gumbom »+ Nov kviz«.'}
-              </p>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {quizzes.map(q => {
-                  const incomplete = q.questions.filter(x => questionProblems(x).length > 0).length;
+  const renderQuiz = (q: Quiz) => {
+    const incomplete = q.questions.filter(x => questionProblems(x).length > 0).length;
                   const maxPoints = q.questions.reduce((s, x) => s + x.points, 0);
                   return (
                     <div key={q.id}
@@ -221,9 +136,94 @@ export default function QuizLibrary() {
                       </div>
                     </div>
                   );
-                })}
-              </div>
-            )}
+  };
+
+  const renderFolder = (f: QuizFolder, depth: number): React.ReactNode => {
+    const isOpen = openFolders.has(f.id);
+    const subs = foldersIn(f.id), qs = quizzesIn(f.id);
+    return (
+      <div key={f.id} style={{ border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', background: depth ? 'transparent' : 'var(--canvas)', overflow: 'hidden' }}>
+        <div data-folder-id={f.id} onDragOver={onFolderDragOver} onDragLeave={onFolderDragLeave} onDrop={onFolderDrop}
+          onClick={() => { if (renaming !== f.id) toggleFolder(f.id); }}
+          style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', cursor: 'pointer', fontFamily: 'var(--font-sans)',
+            background: dragOverFolder === f.id ? '#e9f2ea' : isOpen ? 'rgba(45,106,49,0.06)' : 'transparent' }}>
+          <span style={{ color: 'var(--muted)', fontSize: '13px', width: '12px', display: 'inline-block', transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}>›</span>
+          <span style={{ color: 'var(--forest)', display: 'flex' }}><FolderIcon /></span>
+          {renaming === f.id ? (
+            <input autoFocus defaultValue={f.name} onClick={e => e.stopPropagation()}
+              onFocus={e => e.currentTarget.select()}
+              onBlur={e => { lib.renameFolder(f.id, e.currentTarget.value.trim() || f.name); setRenaming(null); }}
+              onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') setRenaming(null); }}
+              style={{ flex: 1, minWidth: 0, fontFamily: 'var(--font-sans)', fontSize: '14px', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', padding: '4px 6px' }} />
+          ) : (
+            <span style={{ flex: 1, minWidth: 0, fontSize: '15px', fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {f.name} <span style={{ fontWeight: 400, fontSize: '13px', color: 'var(--muted)' }}>· {countIn(f.id)}</span>
+            </span>
+          )}
+          <span onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: '2px' }}>
+            <button title="Nov kviz v tej mapi" style={smallBtn} onClick={() => guard(() => { const id = lib.createQuiz(f.id); router.push(`/kvizi/${id}`); })}>+ kviz</button>
+            <button title="Nova podmapa" style={smallBtn} onClick={() => guard(() => { const id = lib.createFolder('Nova mapa', f.id); toggleFolder(f.id, true); setRenaming(id); })}>+ mapa</button>
+            <button title="Preimenuj" style={smallBtn} onClick={() => setRenaming(f.id)}>✎</button>
+            <button title="Izbriši mapo (vsebina gre v nadrejeno mapo)" style={smallBtn}
+              onClick={() => { if (confirm(`Izbrišem mapo »${f.name}«? Kvizi in podmape se premaknejo eno raven višje.`)) guard(() => lib.deleteFolder(f.id)); }}>×</button>
+          </span>
+        </div>
+        {isOpen && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '8px 12px 12px 28px', borderTop: '1px solid var(--hairline)' }}>
+            {subs.map(sf => renderFolder(sf, depth + 1))}
+            {qs.map(q => renderQuiz(q))}
+            {!subs.length && !qs.length && <p style={{ fontSize: '12px', color: 'var(--muted)', margin: 0, fontFamily: 'var(--font-sans)' }}>Mapa je prazna. Kviz premakneš vanjo s povlekom ali z izbirnikom pri kvizu.</p>}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div>
+      <div style={{ background: 'var(--forest)', padding: '32px 32px 28px' }}>
+        <div style={{ maxWidth: '900px', margin: '0 auto', width: '100%' }}>
+          <p style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', margin: '0 0 6px' }}>
+            Knjižnica
+          </p>
+          <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(32px,4vw,48px)', fontWeight: 300, color: '#fff', lineHeight: 1 }}>Kvizi</h1>
+        </div>
+      </div>
+
+      <div style={{ width: '100%', maxWidth: '900px', margin: '0 auto', padding: '28px 32px 64px' }}>
+        {!user ? (
+          <p style={{ fontSize: '14px', color: 'var(--muted)' }}>
+            Za kvize se <Link href="/login" style={{ color: 'var(--forest)', fontWeight: 500 }}>prijavite</Link>.
+          </p>
+        ) : (
+          <>
+            <ActiveSessions />
+
+            {/* pot + orodja */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '18px' }}>
+              <span style={{ flex: '1 1 auto' }} />
+              <button style={btn()} onClick={() => guard(() => { const id = lib.createFolder('Nova mapa', null); setRenaming(id); })}>+ Nova mapa</button>
+              <button style={btn(true)} onClick={() => guard(() => { const id = lib.createQuiz(null); router.push(`/kvizi/${id}`); })}>+ Nov kviz</button>
+              <Link href="/kvizi/skener" style={{ ...btn(), textDecoration: 'none' }} title="Telefon kot skener natisnjenih kvizov (okvir z odgovori)">📷 Skener</Link>
+            </div>
+
+            {error && <p style={{ fontSize: '13px', color: '#c0392b', marginBottom: '12px' }}>{error}</p>}
+
+            {/* drevo: mape (razpri / skrij) s podmapami in kvizi, nato kvizi brez mape */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {foldersIn(null).map(f => renderFolder(f, 0))}
+              {foldersIn(null).length > 0 && quizzesIn(null).length > 0 && (
+                <div data-folder-id="" onDragOver={onFolderDragOver} onDragLeave={onFolderDragLeave} onDrop={onFolderDrop}
+                  style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: dragOverFolder === '' ? '#fff' : 'var(--muted)',
+                    background: dragOverFolder === '' ? 'var(--forest)' : 'transparent', borderRadius: 'var(--r-sm)', padding: '10px 4px 2px' }}>
+                  Brez mape
+                </div>
+              )}
+              {quizzesIn(null).map(q => renderQuiz(q))}
+              {!lib.quizzes.length && !lib.folders.length && (
+                <p style={{ fontSize: '13px', color: 'var(--muted)' }}>Tu še ni kvizov. Ustvari prvega z gumbom »+ Nov kviz«.</p>
+              )}
+            </div>
           </>
         )}
       </div>

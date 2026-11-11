@@ -22,6 +22,14 @@ export default function QuizStats() {
   const search = useSearchParams();
   const selected = search.get('k');
   const sessionId = search.get('s');
+  const [openQuizzes, setOpenQuizzes] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('rezultati-odprti') ?? '[]')); } catch { return new Set(); }
+  });
+  const toggleQuiz = (k: string) => setOpenQuizzes(prev => {
+    const n = new Set(prev); if (n.has(k)) n.delete(k); else n.add(k);
+    try { localStorage.setItem('rezultati-odprti', JSON.stringify([...n])); } catch { /* ignore */ }
+    return n;
+  });
   const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,6 +69,18 @@ export default function QuizStats() {
     });
   }, [data, lib.loaded, lib.quizzes]);
 
+  // izvedbe istega kviza so ugnezdene pod kviz (razpri / skrij); kviz z najnovejšo izvedbo na vrhu
+  const groups = useMemo(() => {
+    const m = new Map<string, typeof rows>();
+    for (const r of rows) if (!selected || r.key === selected) m.set(r.key, [...(m.get(r.key) ?? []), r]);
+    return [...m.entries()].map(([key, rs]) => {
+      const people = rs.reduce((t, r) => t + r.people, 0);
+      const sum = rs.reduce((t, r) => t + (r.avg ?? 0) * r.people, 0);
+      return { key, rows: rs, title: rs[0].s.quiz_title, people, avg: people ? ceilPct(sum / people) : null,
+        classes: [...new Set(rs.map(r => r.s.class_name))], live: rs.some(r => r.live), open: rs.some(r => r.open), deleted: rs[0].deleted };
+    });
+  }, [rows, selected]);
+
   if (loading) return null;
   if (!user) return <div style={{ maxWidth: '900px', margin: '0 auto', padding: '32px' }}><p style={{ color: 'var(--muted)' }}>Za rezultate se <Link href="/login" style={{ color: 'var(--forest)' }}>prijavite</Link>.</p></div>;
   if (error) return <div style={{ maxWidth: '900px', margin: '0 auto', padding: '32px' }}><p style={{ color: '#c0392b', fontFamily: 'var(--font-sans)' }}>{error}</p></div>;
@@ -99,27 +119,55 @@ export default function QuizStats() {
         </div>
       </div>
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px 32px 64px', fontFamily: 'var(--font-sans)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        {shown.length === 0 && <p style={{ color: 'var(--muted)', fontSize: '14px' }}>{selected ? 'Ta kviz še ni bil rešen.' : 'Noben kviz še ni bil rešen.'}</p>}
-        {shown.map(r => (
-          <Link key={r.s.id} href={`/kvizi/statistika?${selected ? `k=${encodeURIComponent(selected)}&` : ''}s=${r.s.id}`} style={card}>
-            <div style={{ flex: '1 1 240px', minWidth: 0 }}>
-              <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--ink)' }}>
-                {r.s.quiz_title}{r.deleted && <span style={{ fontSize: '11px', fontWeight: 500, color: '#b7791f', marginLeft: '8px' }}>izbrisan kviz</span>}
-                {r.live ? <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--green-ok)', marginLeft: '8px' }}>● v teku</span>
-                  : r.open && <span style={{ fontSize: '11px', fontWeight: 600, color: '#b7791f', marginLeft: '8px' }}>nezaključeno</span>}
+        {groups.length === 0 && <p style={{ color: 'var(--muted)', fontSize: '14px' }}>{selected ? 'Ta kviz še ni bil rešen.' : 'Noben kviz še ni bil rešen.'}</p>}
+        {groups.map(g => {
+          const isOpen = !!selected || openQuizzes.has(g.key);
+          return (
+            <div key={g.key} style={{ border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', background: 'var(--canvas)', overflow: 'hidden' }}>
+              <div onClick={() => !selected && toggleQuiz(g.key)}
+                style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', padding: '12px 16px', cursor: selected ? 'default' : 'pointer', background: isOpen ? 'rgba(45,106,49,0.06)' : 'transparent' }}>
+                <span style={{ color: 'var(--muted)', fontSize: '14px', width: '12px', display: 'inline-block', transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}>›</span>
+                <div style={{ flex: '1 1 240px', minWidth: 0 }}>
+                  <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--ink)' }}>
+                    {g.title}{g.deleted && <span style={{ fontSize: '11px', fontWeight: 500, color: '#b7791f', marginLeft: '8px' }}>izbrisan kviz</span>}
+                    {g.live ? <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--green-ok)', marginLeft: '8px' }}>● v teku</span>
+                      : g.open && <span style={{ fontSize: '11px', fontWeight: 600, color: '#b7791f', marginLeft: '8px' }}>nezaključeno</span>}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '2px' }}>
+                    {g.rows.length} {g.rows.length === 1 ? 'izvedba' : g.rows.length === 2 ? 'izvedbi' : g.rows.length < 5 ? 'izvedbe' : 'izvedb'} · {g.classes.join(', ')} · nazadnje {dateTimeLabel(g.rows[0].s.created_at)}
+                  </div>
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--muted)' }}>{g.people} rezultatov</div>
+                <div style={{ fontSize: '20px', fontWeight: 700, color: pctColor(g.avg), minWidth: '64px', textAlign: 'right' }}>{g.avg === null ? '—' : `${g.avg} %`}</div>
               </div>
-              <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '3px' }}>
-                {r.s.class_name} · {r.s.paper ? '🖨 natisnjeno' : r.s.mode === 'teacher' ? 'v živo · projekcija' : 'v živo · tablica'} · izvedba {dateTimeLabel(r.s.created_at)}
-                {r.s.ended_at && ` · končana ${dateTimeLabel(r.s.ended_at)}`}
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '1px' }}>
-                {questionsLabel(r.nQ)} · {pointsLabel(r.maxPts)} (samodejno točkovano){r.quizCreated && ` · kviz ustvarjen ${dateTimeLabel(r.quizCreated)}`}
-              </div>
+              {isOpen && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '8px 12px 12px 34px', borderTop: '1px solid var(--hairline)' }}>
+                  {g.rows.map(r => (
+              <Link key={r.s.id} href={`/kvizi/statistika?${selected ? `k=${encodeURIComponent(selected)}&` : ''}s=${r.s.id}`} style={card}>
+                <div style={{ flex: '1 1 240px', minWidth: 0 }}>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--ink)' }}>
+                    {r.s.class_name} · {dateTimeLabel(r.s.created_at)}
+                    {r.live ? <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--green-ok)', marginLeft: '8px' }}>● v teku</span>
+                      : r.open && <span style={{ fontSize: '11px', fontWeight: 600, color: '#b7791f', marginLeft: '8px' }}>nezaključeno</span>}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '3px' }}>
+                    {r.s.paper ? '🖨 natisnjeno' : r.s.mode === 'teacher' ? 'v živo · projekcija' : 'v živo · tablica'}
+                    {r.s.ended_at && ` · končana ${dateTimeLabel(r.s.ended_at)}`}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '1px' }}>
+                    {questionsLabel(r.nQ)} · {pointsLabel(r.maxPts)} (samodejno točkovano){r.quizCreated && ` · kviz ustvarjen ${dateTimeLabel(r.quizCreated)}`}
+                  </div>
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--muted)' }}>{r.people} / {r.total} učencev</div>
+                <div style={{ fontSize: '20px', fontWeight: 700, color: pctColor(r.avg), minWidth: '64px', textAlign: 'right' }}>{r.avg === null ? '—' : `${r.avg} %`}</div>
+              </Link>
+            
+                  ))}
+                </div>
+              )}
             </div>
-            <div style={{ fontSize: '13px', color: 'var(--muted)' }}>{r.people} / {r.total} učencev</div>
-            <div style={{ fontSize: '20px', fontWeight: 700, color: pctColor(r.avg), minWidth: '64px', textAlign: 'right' }}>{r.avg === null ? '—' : `${r.avg} %`}</div>
-          </Link>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
