@@ -40,3 +40,9 @@ export function gradeColor(p: number | null | undefined): string {
 export function gradeOf(p: number): number {
   return p >= 90 ? 5 : p >= 78 ? 4 : p >= 64 ? 3 : p >= 45 ? 2 : 1;
 }
+
+/** Datum in ura za metapodatke: »11. 11. 2026 ob 07:20«. */
+export const dateTimeLabel = (t: string | number) => {
+  const d = new Date(t);
+  return `${d.toLocaleDateString('sl-SI', { day: 'numeric', month: 'numeric', year: 'numeric' })} ob ${d.toLocaleTimeString('sl-SI', { hour: '2-digit', minute: '2-digit' })}`;
+};

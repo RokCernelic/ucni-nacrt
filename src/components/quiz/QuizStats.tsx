@@ -8,12 +8,11 @@ import { useQuizLibrary } from '@/hooks/useQuizLibrary';
 import { loadAllHistory, joinStatsChannel, isLive, participated, type QuizSession, type SessionStudent, type SessionAnswer } from '@/lib/quiz/sessionApi';
 import { scoreAnswers } from '@/lib/quiz/scoring';
 import { SessionResults } from './LiveSession';
-import { ceilPct } from '@/lib/quiz/format';
+import { ceilPct, questionsLabel, pointsLabel, dateTimeLabel } from '@/lib/quiz/format';
 import { gradeColor } from '@/lib/quiz/format';
 
 type Data = Awaited<ReturnType<typeof loadAllHistory>>;
 const keyOf = (s: QuizSession) => s.quiz_id ?? `naslov:${s.quiz_title}`;
-const fmtDateTime = (iso: string) => new Date(iso).toLocaleString('sl-SI', { day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 const pctColor = gradeColor;
 
 /** Kvizi → Rezultati: vsaka izvedba kviza (seja) posebej; ?k=kviz filtrira, ?s=seja odpre podrobne rezultate. */
@@ -55,6 +54,9 @@ export default function QuizStats() {
         avg: part.length ? ceilPct(sum / part.length) : null,
         live: isLive(s), open: s.status === 'open',
         deleted: !!s.quiz_id && lib.loaded && !lib.quizzes.some(q => q.id === s.quiz_id),
+        nQ: s.paper ? ((s.paper as { items?: unknown[] }).items?.length ?? s.quiz.questions.length) : s.quiz.questions.length,
+        maxPts: s.quiz.questions.filter(q => q.kind !== 'open').reduce((t, q) => t + q.points, 0),
+        quizCreated: lib.quizzes.find(q => q.id === s.quiz_id)?.createdAt ?? null,
       };
     });
   }, [data, lib.loaded, lib.quizzes]);
@@ -77,7 +79,7 @@ export default function QuizStats() {
     return (
       <SessionResults session={s} students={students} answers={answers} teacher={null} teacherAnswers={[]}
         back={sessionId && shown.length > 1 ? { href: listHref, label: '← Izvedbe tega kviza' } : { href: '/kvizi/statistika', label: '← Rezultati' }}
-        subtitle={`${s.class_name} · ${s.paper ? 'natisnjeno' : 'v živo'} · ${fmtDateTime(s.created_at)} · ${status}`}
+        subtitle={`${s.class_name} · ${s.paper ? 'natisnjeno' : 'v živo'} · izvedba ${dateTimeLabel(s.created_at)} · ${status} · ${questionsLabel(one.nQ)} · ${pointsLabel(one.maxPts)}${one.quizCreated ? ` · kviz ustvarjen ${dateTimeLabel(one.quizCreated)}` : ''}`}
         note={one.deleted ? 'Kviz je izbrisan — rezultati so ohranjeni.' : undefined} />
     );
   }
@@ -107,7 +109,11 @@ export default function QuizStats() {
                   : r.open && <span style={{ fontSize: '11px', fontWeight: 600, color: '#b7791f', marginLeft: '8px' }}>nezaključeno</span>}
               </div>
               <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '3px' }}>
-                {r.s.class_name} · {r.s.paper ? '🖨 natisnjeno' : r.s.mode === 'teacher' ? 'v živo · projekcija' : 'v živo · tablica'} · {fmtDateTime(r.s.created_at)}
+                {r.s.class_name} · {r.s.paper ? '🖨 natisnjeno' : r.s.mode === 'teacher' ? 'v živo · projekcija' : 'v živo · tablica'} · izvedba {dateTimeLabel(r.s.created_at)}
+                {r.s.ended_at && ` · končana ${dateTimeLabel(r.s.ended_at)}`}
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '1px' }}>
+                {questionsLabel(r.nQ)} · {pointsLabel(r.maxPts)} (samodejno točkovano){r.quizCreated && ` · kviz ustvarjen ${dateTimeLabel(r.quizCreated)}`}
               </div>
             </div>
             <div style={{ fontSize: '13px', color: 'var(--muted)' }}>{r.people} / {r.total} učencev</div>

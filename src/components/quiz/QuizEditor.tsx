@@ -9,7 +9,7 @@ import {
 } from '@/hooks/useQuizLibrary';
 import { questionProblems, parseNumber, NUMERIC_REL_TOLERANCE } from '@/lib/quiz/scoring';
 import { downscaleImage } from '@/lib/quiz/image';
-import { questionsLabel, pointsLabel, formatNumber } from '@/lib/quiz/format';
+import { questionsLabel, pointsLabel, formatNumber, dateTimeLabel } from '@/lib/quiz/format';
 import { parseQuizText, readTextFile, type TextImportResult } from '@/lib/quiz/textImport';
 import type { Quiz, Question, McQuestion, NumericQuestion, QuizFolder } from '@/lib/quiz/types';
 import StartSessionDialog from '@/components/quiz/StartSessionDialog';
@@ -427,7 +427,7 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
             onChange={e => update({ ...draft, title: e.target.value })}
             style={{ display: 'block', width: '100%', marginTop: '10px', background: 'transparent', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.25)', outline: 'none', color: '#fff', fontFamily: 'var(--font-serif)', fontSize: 'clamp(28px,4vw,42px)', fontWeight: 300, padding: '2px 0 6px' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', marginTop: '12px', fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'rgba(255,255,255,0.65)' }}>
-            <span>{questionsLabel(draft.questions.length)} · {pointsLabel(maxPoints)}</span>
+            <span>{questionsLabel(draft.questions.length)} · {pointsLabel(maxPoints)} · ustvarjen {dateTimeLabel(draft.createdAt)}</span>
             {incomplete > 0 ? <span style={{ color: '#f6d48a' }}>⚠ nedokončano: {incomplete}</span> : <span style={{ color: '#bfe3c0' }}>✓ pripravljen</span>}
             <span style={{ flex: 1 }} />
             <select value={draft.folderId ?? ''} onChange={e => update({ ...draft, folderId: e.target.value || null })}

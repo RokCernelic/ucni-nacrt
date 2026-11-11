@@ -8,7 +8,7 @@ import ActiveSessions from '@/components/quiz/ActiveSessions';
 import { useQuizLibrary, folderPath, QuizStorageFullError } from '@/hooks/useQuizLibrary';
 import { questionProblems } from '@/lib/quiz/scoring';
 import { deleteEmptySessionsOfQuiz } from '@/lib/quiz/sessionApi';
-import { questionsLabel, pointsLabel } from '@/lib/quiz/format';
+import { questionsLabel, pointsLabel, dateTimeLabel } from '@/lib/quiz/format';
 import StartSessionDialog from '@/components/quiz/StartSessionDialog';
 import type { QuizFolder } from '@/lib/quiz/types';
 
@@ -197,7 +197,7 @@ export default function QuizLibrary() {
                       <Link href={`/kvizi/${q.id}`} draggable={false} style={{ flex: '1 1 200px', minWidth: 0, textDecoration: 'none' }}>
                         <div style={{ fontFamily: 'var(--font-sans)', fontSize: '15px', fontWeight: 600, color: 'var(--ink)' }}>{q.title || 'Brez naslova'}</div>
                         <div style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--muted)', marginTop: '2px' }}>
-                          {questionsLabel(q.questions.length)} · {pointsLabel(maxPoints)} · ustvarjen {new Date(q.createdAt).toLocaleDateString('sl-SI', { day: 'numeric', month: 'numeric', year: 'numeric' })}
+                          {questionsLabel(q.questions.length)} · {pointsLabel(maxPoints)} · ustvarjen {dateTimeLabel(q.createdAt)}{q.updatedAt - q.createdAt > 60000 && ` · spremenjen ${dateTimeLabel(q.updatedAt)}`}
                           {' · '}
                           {incomplete > 0
                             ? <span style={{ color: '#b7791f' }}>⚠ nedokončano: {incomplete}</span>
