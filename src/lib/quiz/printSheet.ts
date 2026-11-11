@@ -117,10 +117,19 @@ export function layoutSheet<T extends LayoutItem>(items: T[], seed: string | nul
 }
 
 /** Vsebina QR kode: verzija | seja (natisnjen kviz) | učenec. Brez osebnih podatkov. */
-export const sheetToken = (sessionId: string, studentId: string) => `UN1|${sessionId}|${studentId}`;
+/**
+ * Vsebina QR kode: spletni naslov /r/<seja>/<učenec>. Učenec jo odpre s kamero telefona in vidi svoj rezultat
+ * (ko učitelj kviz zaključi); skener v aplikaciji iz nje prebere sejo in učenca. Zapisano z velikimi črkami,
+ * da je QR koda v alfanumeričnem načinu (manj gosta); id-ji se pri branju pretvorijo nazaj v male črke.
+ */
+export const sheetToken = (sessionId: string, studentId: string, origin = typeof window !== 'undefined' ? window.location.origin : 'https://ucni-nacrt.vercel.app') =>
+  `${origin}/R/${sessionId}/${studentId}`.toUpperCase();
 export function parseToken(s: string): { sessionId: string; studentId: string } | null {
-  const m = /^UN1\|([0-9a-f-]{36})\|(.+)$/i.exec(s.trim());
-  return m ? { sessionId: m[1], studentId: m[2] } : null;
+  const t = s.trim();
+  const m = /^UN1\|([0-9a-f-]{36})\|(.+)$/i.exec(t); // starejši listi
+  if (m) return { sessionId: m[1].toLowerCase(), studentId: m[2] };
+  const u = /\/R\/([0-9A-F-]{36})\/([^/?#\s]+)\/?$/i.exec(t);
+  return u ? { sessionId: u[1].toLowerCase(), studentId: decodeURIComponent(u[2]).toLowerCase() } : null;
 }
 /** Kaj se premeša na listu: vprašanja in/ali vrstni red odgovorov (starejše seje: `shuffle` = oboje). */
 export const shuffleOpts = (p: { shuffle: boolean; shuffleQuestions?: boolean; shuffleOptions?: boolean }) => ({

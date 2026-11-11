@@ -125,7 +125,7 @@ export default function Nav() {
   });
 
   // učenčev iPad (/k, /k/KODA) — brez menija aplikacije
-  if (path === '/k' || path.startsWith('/k/')) return null;
+  if (path === '/k' || path.startsWith('/k/') || path.startsWith('/r/')) return null; // tudi stran z rezultatom za učenca (QR koda)
 
   const onSeating = path.startsWith('/sedezni-red');
   const onQuizzes = path.startsWith('/kvizi');
