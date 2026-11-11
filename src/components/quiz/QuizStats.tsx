@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuizLibrary } from '@/hooks/useQuizLibrary';
-import { loadAllHistory, joinStatsChannel, isLive, isPaperSession, participated, type QuizSession, type SessionStudent, type SessionAnswer } from '@/lib/quiz/sessionApi';
+import { loadAllHistory, joinStatsChannel, isLive, participated, type QuizSession, type SessionStudent, type SessionAnswer } from '@/lib/quiz/sessionApi';
 import { scoreAnswers } from '@/lib/quiz/scoring';
 import { SessionResults } from './LiveSession';
 import { ceilPct } from '@/lib/quiz/format';
@@ -34,13 +34,16 @@ export default function QuizStats() {
     const ch = joinStatsChannel(user.id, () => { if (timer) clearTimeout(timer); timer = setTimeout(() => void load(), 600); });
     const onFocus = () => { if (document.visibilityState === 'visible') void load(); };
     document.addEventListener('visibilitychange', onFocus);
-    return () => { ch.close(); if (timer) clearTimeout(timer); document.removeEventListener('visibilitychange', onFocus); };
+    // tekoči kvizi na tablicah ne pošiljajo pingov: osveži vsakih 20 s, ko je stran vidna
+    const poll = setInterval(() => { if (document.visibilityState === 'visible') void load(); }, 20000);
+    return () => { ch.close(); if (timer) clearTimeout(timer); clearInterval(poll); document.removeEventListener('visibilitychange', onFocus); };
   }, [user]);
 
   const groups = useMemo(() => {
     if (!data) return [];
     const m = new Map<string, QuizSession[]>();
-    for (const s of data.sessions.filter(x => !isLive(x) || isPaperSession(x))) m.set(keyOf(s), [...(m.get(keyOf(s)) ?? []), s]);
+    // vse seje: končane, nezaključene in tekoče (tekoče se sproti osvežujejo)
+    for (const s of data.sessions) m.set(keyOf(s), [...(m.get(keyOf(s)) ?? []), s]);
     return [...m.entries()].map(([key, sessions]) => {
       let sum = 0, n = 0, people = 0;
       for (const s of sessions) {
@@ -56,6 +59,8 @@ export default function QuizStats() {
         avg: n ? ceilPct(sum / n) : null,
         classes: [...new Set(sessions.map(s => s.class_name))],
         last: sessions[0].created_at,
+        open: sessions.some(x => x.status === 'open'),
+        live: sessions.some(isLive),
         deleted: !!sessions[0].quiz_id && lib.loaded && !lib.quizzes.some(q => q.id === sessions[0].quiz_id),
       };
     }).sort((a, b) => b.last.localeCompare(a.last));
@@ -112,6 +117,8 @@ export default function QuizStats() {
             <div style={{ flex: '1 1 240px', minWidth: 0 }}>
               <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--ink)' }}>
                 {g.title}{g.deleted && <span style={{ fontSize: '11px', fontWeight: 500, color: '#b7791f', marginLeft: '8px' }}>izbrisan kviz</span>}
+                {g.live ? <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--green-ok)', marginLeft: '8px' }}>● v teku</span>
+                  : g.open && <span style={{ fontSize: '11px', fontWeight: 600, color: '#b7791f', marginLeft: '8px' }}>nezaključeno</span>}
               </div>
               <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '3px' }}>
                 {g.classes.join(', ')} · {g.sessions.length} {g.sessions.length === 1 ? 'seja' : g.sessions.length === 2 ? 'seji' : g.sessions.length < 5 ? 'seje' : 'sej'} · nazadnje {fmtDate(g.last)}
