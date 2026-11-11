@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import QRCode from 'qrcode';
 import { useAuth } from '@/hooks/useAuth';
+import { useQuizLibrary } from '@/hooks/useQuizLibrary';
 import {
   loadSession, updateSession, resolveDevice, joinChannel, isLive, participated, TEACHER_NAME,
   type QuizSession, type SessionStudent, type SessionAnswer,
@@ -180,6 +181,9 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
   /** pri združenih rezultatih več sej: seja, v kateri je učenec rešil kviz (od nje zavisijo njegove črke); sicer velja `session` */
   sessionsByStudent?: Map<string, QuizSession>;
 }) {
+  // trenutno ime kviza (preimenovanje se pozna tudi v rezultatih), sicer ime ob izvedbi
+  const lib = useQuizLibrary();
+  const quizTitle = lib.quizzes.find(q => q.id === session.quiz_id)?.title || session.quiz_title;
   const [sortBy, setSortBy] = useState<'name' | 'points'>('name');
   const questions = session.quiz.questions;
   const joinedCount = students.filter(participated).length;
@@ -234,7 +238,7 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
   const exportCsv = () => {
     const csv = sessionResultsCsv(session.quiz, students.map(s => ({ name: s.name, participated: participated(s), answers: answersByStudent.get(s.student_id) ?? {} })));
     const date = new Date(session.ended_at ?? session.created_at).toISOString().slice(0, 10);
-    downloadCsv(`${safeFilename(session.quiz_title, session.class_name, date)}.csv`, csv);
+    downloadCsv(`${safeFilename(quizTitle, session.class_name, date)}.csv`, csv);
   };
 
   const sortBtn = (active: boolean): React.CSSProperties => ({
@@ -247,7 +251,7 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
       <Link href={back?.href ?? '/kvizi'} style={{ fontSize: '13px', color: 'var(--forest)', textDecoration: 'none' }}>{back?.label ?? '← Kvizi'}</Link>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap', marginTop: '10px' }}>
         <div>
-          <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '36px', fontWeight: 300, margin: '0 0 4px', color: 'var(--ink)' }}>{session.quiz_title}</h1>
+          <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '36px', fontWeight: 300, margin: '0 0 4px', color: 'var(--ink)' }}>{quizTitle}</h1>
           <p style={{ color: 'var(--muted)', margin: 0 }}>
             {subtitle ?? `${session.class_name} · seja končana`} · {studentsLabel(joinedCount)} sodelovalo od {students.length} · povprečje <b style={{ color: gradeColor(avgPct) }}>{avgPct} %</b>
           </p>

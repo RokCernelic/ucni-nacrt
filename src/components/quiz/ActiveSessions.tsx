@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { loadActiveSessions, updateSession, type ActiveSession } from '@/lib/quiz/sessionApi';
 import { studentsLabel } from '@/lib/quiz/format';
+import { useQuizLibrary } from '@/hooks/useQuizLibrary';
 
 const fmtTime = (iso: string) => {
   const d = new Date(iso);
@@ -14,6 +15,9 @@ const fmtTime = (iso: string) => {
 
 /** Kvizi → seje, ki trenutno tečejo (vse, ne glede na kviz). */
 export default function ActiveSessions() {
+  const lib = useQuizLibrary();
+  /** trenutno ime kviza (po preimenovanju), sicer ime ob začetku seje */
+  const titleOf = (a: ActiveSession) => lib.quizzes.find(q => q.id === a.session.quiz_id)?.title || a.session.quiz_title;
   const [items, setItems] = useState<ActiveSession[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,7 +33,7 @@ export default function ActiveSessions() {
   }, [refresh]);
 
   const end = async (a: ActiveSession) => {
-    if (!confirm(`Končam sejo »${a.session.quiz_title}« (${a.session.class_name})? ${a.session.paper ? 'Skeniranje listov ne bo več mogoče.' : 'Učenci ne bodo mogli več odgovarjati.'}`)) return;
+    if (!confirm(`Končam sejo »${titleOf(a)}« (${a.session.class_name})? ${a.session.paper ? 'Skeniranje listov ne bo več mogoče.' : 'Učenci ne bodo mogli več odgovarjati.'}`)) return;
     try {
       await updateSession(a.session.id, { status: 'ended', ended_at: new Date().toISOString() });
       refresh();
@@ -55,7 +59,7 @@ export default function ActiveSessions() {
               <div style={{ flex: '1 1 220px', minWidth: 0 }}>
                 <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--ink)' }}>
                   <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--green-ok)', marginRight: '8px' }}>{a.session.paper ? '🖨 NATISNJENO' : '● V TEKU'}</span>
-                  {a.session.quiz_title}
+                  {titleOf(a)}
                 </div>
                 <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '2px' }}>
                   {a.session.class_name} · {a.session.paper ? 'natisnjeno' : a.session.mode === 'teacher' ? 'vodi učitelj' : 'vsak sam'} · {fmtTime(a.session.created_at)}

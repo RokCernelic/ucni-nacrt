@@ -58,8 +58,10 @@ export default function QuizStats() {
       const students = data.studentsBySession.get(s.id) ?? [];
       const part = students.filter(participated);
       const sum = part.reduce((t, st) => t + scoreAnswers(s.quiz, by.get(st.student_id) ?? {}).percent, 0);
+      // ime kviza: trenutno ime v knjižnici (preimenovanje se pozna tudi v rezultatih), sicer ime ob izvedbi
+      const title = lib.quizzes.find(q => q.id === s.quiz_id)?.title || s.quiz_title;
       return {
-        s, key: keyOf(s), people: part.length, total: students.length,
+        s: title === s.quiz_title ? s : { ...s, quiz_title: title }, key: keyOf(s), people: part.length, total: students.length,
         avg: part.length ? ceilPct(sum / part.length) : null,
         live: isLive(s), open: s.status === 'open',
         deleted: !!s.quiz_id && lib.loaded && !lib.quizzes.some(q => q.id === s.quiz_id),
