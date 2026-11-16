@@ -6,7 +6,7 @@ import QRCode from 'qrcode';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuizLibrary } from '@/hooks/useQuizLibrary';
 import {
-  loadSession, updateSession, deleteSession, resetStudentResult, resolveDevice, joinChannel, isLive, participated, TEACHER_NAME,
+  loadSession, updateSession, deleteSession, resetStudentResult, syncSessionScoring, resolveDevice, joinChannel, isLive, participated, TEACHER_NAME,
   type QuizSession, type SessionStudent, type SessionAnswer,
 } from '@/lib/quiz/sessionApi';
 import { isCorrect, answerStatus, scoreAnswers, parseNumber, numericValue } from '@/lib/quiz/scoring';
@@ -199,6 +199,32 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
   // trenutno ime kviza (preimenovanje se pozna tudi v rezultatih), sicer ime ob izvedbi
   const lib = useQuizLibrary();
   const quizTitle = lib.quizzes.find(q => q.id === session.quiz_id)?.title || session.quiz_title;
+  // točkovanje izvedbe se razlikuje od kviza v knjižnici (npr. spremenjene točke) → ponudi posodobitev
+  const libQuiz = lib.quizzes.find(q => q.id === session.quiz_id);
+  const scoringDiff = useMemo(() => {
+    if (!libQuiz) return null;
+    const byId = new Map(libQuiz.questions.map(q => [q.id, q]));
+    let oldMax = 0, newMax = 0, diff = false, matched = 0;
+    for (const sq of session.quiz.questions) {
+      if (sq.kind === 'open') continue;
+      oldMax += sq.points;
+      const q = byId.get(sq.id);
+      if (!q) { newMax += sq.points; continue; }
+      matched++;
+      newMax += q.points;
+      if (q.points !== sq.points) diff = true;
+      if (sq.kind === 'mc' && q.kind === 'mc' && q.correct && q.correct !== sq.correct && sq.options.some(o => o.id === q.correct)) diff = true;
+      if (sq.kind === 'numeric' && q.kind === 'numeric' && (q.correct !== sq.correct || q.tolerance !== sq.tolerance)) diff = true;
+    }
+    return { diff, oldMax, newMax, matched };
+  }, [libQuiz, session.quiz.questions]);
+  const [syncing, setSyncing] = useState(false);
+  const syncScoring = async () => {
+    if (!libQuiz) return;
+    setSyncing(true);
+    try { await syncSessionScoring(libQuiz.id, libQuiz.questions); window.location.reload(); }
+    catch (e) { alert(`Točkovanja ni bilo mogoče posodobiti: ${e instanceof Error ? e.message : String(e)}`); setSyncing(false); }
+  };
   const [sortBy, setSortBy] = useState<'name' | 'points'>('name');
   const questions = session.quiz.questions;
   const joinedCount = students.filter(participated).length;
@@ -316,6 +342,15 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
       </div>
 
       {note && <p style={{ fontSize: '12px', color: '#b7791f', margin: '12px 0 0' }}>{note}</p>}
+      {scoringDiff?.diff && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginTop: '14px', padding: '10px 14px', background: '#fdf6e3', border: '1px solid #ecd9a8', borderRadius: 'var(--r-md)', fontSize: '13px', color: '#8a5a00' }}>
+          <span style={{ flex: 1 }}>Točkovanje v kvizu je bilo spremenjeno ({formatNumber(scoringDiff.oldMax)} → {formatNumber(scoringDiff.newMax)} točk), ta izvedba pa ima še staro.</span>
+          <button onClick={() => void syncScoring()} disabled={syncing}
+            style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600, color: '#fff', background: 'var(--forest)', border: 'none', borderRadius: 'var(--r-sm)', padding: '7px 14px', cursor: 'pointer' }}>
+            {syncing ? 'Posodabljam …' : '↻ Posodobi točkovanje'}
+          </button>
+        </div>
+      )}
 
       {/* združena tabela: učenec · točke in % · ✓/✗ po vprašanjih (primerna za projekcijo) */}
       <div style={{ marginTop: '28px' }}>
