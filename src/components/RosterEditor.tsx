@@ -88,12 +88,15 @@ export default function RosterEditor({ classId, className }: { classId: string; 
     }).map(x => x.st);
   })();
   const W = { gender: 44, pin: 52, seat: 96, quiz: 72 };
-  const TH: React.CSSProperties = { position: 'sticky', top: 0, background: '#eef1ec', borderBottom: '2px solid #b9c4ba', borderRight: '1px solid #d6ddd6', padding: '7px 8px',
-    fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#5f6b63', whiteSpace: 'nowrap', textAlign: 'center', userSelect: 'none' };
-  const TD: React.CSSProperties = { borderBottom: '1px solid', borderRight: '1px solid', padding: '5px 8px', verticalAlign: 'middle' };
+  // oblika kot tabela »Učenec × vprašanje« v Rezultatih; vrstice v barvah sedežnega reda
+  const TH: React.CSSProperties = { position: 'sticky', top: 0, zIndex: 2, background: 'var(--canvas)', borderBottom: '1px solid var(--hairline)', padding: '8px 12px',
+    fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500, color: 'var(--muted)', whiteSpace: 'nowrap', textAlign: 'center', userSelect: 'none' };
+  const TD: React.CSSProperties = { borderBottom: '1px solid var(--hairline)', padding: '7px 12px', verticalAlign: 'middle' };
+  const DIV = '2px solid var(--hairline)';
   const th = (k: SortKey, label: string, width?: number, align?: 'left' | 'center' | 'right', title?: string) => (
     <th key={k} onClick={() => clickSort(k)} title={title ?? `Razvrsti po stolpcu »${label}«`}
-      style={{ ...TH, width, textAlign: align ?? 'left', cursor: 'pointer', color: sort.key === k ? 'var(--forest)' : '#5f6b63' }}>
+      style={{ ...TH, width, textAlign: align ?? 'left', cursor: 'pointer', fontWeight: sort.key === k ? 700 : 500, color: sort.key === k ? 'var(--forest)' : 'var(--muted)',
+        ...(k === 'name' ? { position: 'sticky', left: 0, zIndex: 3 } : {}), ...(k === 'seat' ? { borderRight: DIV } : {}) }}>
       {label}{sort.key === k ? (sort.dir === 1 ? ' ▲' : ' ▼') : ''}
     </th>
   );
@@ -185,11 +188,10 @@ export default function RosterEditor({ classId, className }: { classId: string; 
               </button>
             )}
           </div>
-          <div style={{ overflowX: 'auto', border: '1px solid #cfd6cf', borderRadius: 'var(--r-md)', background: '#fff' }}>
-          <table style={{ borderCollapse: 'collapse', minWidth: '100%', fontFamily: 'var(--font-sans)', fontSize: '13px' }}>
+          <div style={{ overflow: 'auto', maxHeight: 'calc(100vh - 140px)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', background: '#fff' }}>
+          <table style={{ borderCollapse: 'collapse', minWidth: '100%', fontFamily: 'var(--font-sans)', fontSize: '15px' }}>
             <thead>
               <tr>
-                <th style={TH}>#</th>
                 {th('name', 'Učenec', undefined, 'left', 'Razvrsti po priimku')}
                 {th('gender', 'Spol', W.gender, 'center')}
                 {th('pin', 'PIN', W.pin, 'center')}
@@ -197,8 +199,8 @@ export default function RosterEditor({ classId, className }: { classId: string; 
                 {quizCols.map(c => (
                   <th key={c.s.id} onClick={() => clickSort(`q:${c.s.id}`)}
                     title={`${c.title}\n${new Date(c.s.created_at).toLocaleString('sl-SI', { day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })} · ${c.s.paper ? 'natisnjeno' : 'v živo'}\nKlik: razvrsti po rezultatu`}
-                    style={{ ...TH, width: W.quiz, maxWidth: W.quiz, textAlign: 'center', cursor: 'pointer', fontSize: '10px', textTransform: 'none', letterSpacing: 0, lineHeight: 1.2,
-                      color: sort.key === `q:${c.s.id}` ? 'var(--forest)' : '#5f6b63' }}>
+                    style={{ ...TH, width: W.quiz, maxWidth: W.quiz, minWidth: W.quiz, padding: '8px 6px', textAlign: 'center', cursor: 'pointer', fontSize: '11px', lineHeight: 1.25, whiteSpace: 'normal',
+                      fontWeight: sort.key === `q:${c.s.id}` ? 700 : 600, color: sort.key === `q:${c.s.id}` ? 'var(--forest)' : 'var(--muted)' }}>
                     <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'break-word' }}>{c.title}</span>
                     <span style={{ fontWeight: 500 }}>{new Date(c.s.created_at).toLocaleDateString('sl-SI', { day: 'numeric', month: 'numeric' })}{sort.key === `q:${c.s.id}` ? (sort.dir === 1 ? ' ▲' : ' ▼') : ''}</span>
                   </th>
@@ -206,26 +208,26 @@ export default function RosterEditor({ classId, className }: { classId: string; 
               </tr>
             </thead>
             <tbody>
-            {sortedStudents.map((s, idx) => { const gs = genderStyle(s.gender); const td: React.CSSProperties = { ...TD, background: gs.bg, borderColor: gs.border }; return (
+            {sortedStudents.map((s, idx) => { const gs = genderStyle(s.gender); const td: React.CSSProperties = { ...TD, background: gs.bg }; return (
               <tr key={s.id}>
-                <td style={{ ...td, width: 30, textAlign: 'right', color: gs.color, opacity: 0.7, fontVariantNumeric: 'tabular-nums' }}>{idx + 1}</td>
-                <td style={{ ...td, minWidth: 180 }}>
+                <td style={{ ...td, minWidth: 200, position: 'sticky', left: 0, zIndex: 1, whiteSpace: 'nowrap' }}>
+                <span style={{ display: 'inline-block', width: '22px', fontSize: '12px', color: gs.color, opacity: 0.6, fontVariantNumeric: 'tabular-nums' }}>{idx + 1}</span>
                 {renamingId === s.id ? (
                   <input autoFocus defaultValue={s.name}
                     onBlur={e => { renameStudent(s.id, e.currentTarget.value); setRenamingId(null); }}
                     onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') setRenamingId(null); }}
-                    style={{ width: '100%', boxSizing: 'border-box', fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--ink)', border: '1px solid var(--forest)', borderRadius: 'var(--r-sm)', padding: '3px 6px' }} />
+                    style={{ width: 'calc(100% - 22px)', boxSizing: 'border-box', fontFamily: 'var(--font-sans)', fontSize: '15px', color: 'var(--ink)', border: '1px solid var(--forest)', borderRadius: 'var(--r-sm)', padding: '3px 6px' }} />
                 ) : (
-                  <span style={{ fontWeight: 600, color: gs.color, whiteSpace: 'nowrap' }}>
+                  <span style={{ fontWeight: 500, color: gs.color }}>
                     {s.name}
                     <button onClick={() => setRenamingId(s.id)} title="Popravi ime (PIN, sedežni red in napredek ostanejo)"
-                      style={{ marginLeft: '6px', background: 'none', border: 'none', cursor: 'pointer', color: gs.color, opacity: 0.6, fontSize: '12px', padding: '0 2px' }}>✎</button>
+                      style={{ marginLeft: '8px', width: '24px', height: '24px', borderRadius: '50%', border: `1px solid ${gs.border}`, background: 'rgba(255,255,255,0.6)', color: gs.color, fontSize: '12px', lineHeight: 1, cursor: 'pointer', verticalAlign: 'middle' }}>✎</button>
                   </span>
                 )}
                 </td>
                 <td style={{ ...td, textAlign: 'center', fontWeight: 600, color: gs.color }}>{s.gender || '—'}</td>
-                <td title="PIN za kviz" style={{ ...td, textAlign: 'center', fontWeight: 600, fontVariantNumeric: 'tabular-nums', letterSpacing: '0.06em', color: s.pin ? 'var(--ink)' : 'var(--muted)' }}>{s.pin ?? '—'}</td>
-                <td style={{ ...td, textAlign: 'center', padding: '2px 4px', whiteSpace: 'nowrap' }}>
+                <td title="PIN za kviz" style={{ ...td, textAlign: 'center', fontWeight: 600, fontSize: '14px', fontVariantNumeric: 'tabular-nums', letterSpacing: '0.06em', color: s.pin ? 'var(--ink)' : 'var(--muted)' }}>{s.pin ?? '—'}</td>
+                <td style={{ ...td, textAlign: 'center', padding: '4px 8px', whiteSpace: 'nowrap', borderRight: DIV }}>
                   {(() => { const n = (s.frontRow ? 1 : 0) + (s.nextToBoy ? 1 : 0) + (s.apartFrom?.length ? 1 : 0); const tip = seatRulesText(s) || 'Brez pravil — klik za urejanje'; return (
                     <button onClick={() => setSeatFor(s.id)} title={tip}
                       style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', borderRadius: 'var(--r-sm)', padding: '2px 8px',
@@ -238,7 +240,7 @@ export default function RosterEditor({ classId, className }: { classId: string; 
                   ); })()}
                 </td>
                 {quizCols.map(c => { const r = c.res.get(s.id); return (
-                  <td key={c.s.id} style={{ ...td, textAlign: 'center', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                  <td key={c.s.id} style={{ ...td, textAlign: 'center', fontWeight: 700, fontSize: '15px', fontVariantNumeric: 'tabular-nums', padding: '7px 6px' }}>
                     {r ? (
                       <a href={c.s.paper ? `/r/${c.s.id}/${encodeURIComponent(s.id)}` : `/kvizi/statistika?s=${c.s.id}`} target={c.s.paper ? '_blank' : undefined} rel="noopener"
                         title={`${c.title}: ${formatNumber(r.pts)} / ${formatNumber(r.max)} točk — klik: ${c.s.paper ? 'rezultat učenca (kot pri QR kodi)' : 'rezultati izvedbe'}`} style={{ color: gradeColor(r.pct), textDecoration: 'none' }}>{r.pct} %</a>
@@ -247,6 +249,16 @@ export default function RosterEditor({ classId, className }: { classId: string; 
                 ); })}
               </tr>
             ); })}
+            {/* povprečje razreda po kvizih (le učenci, ki so sodelovali) */}
+            {quizCols.length > 0 && (
+              <tr>
+                <td style={{ position: 'sticky', left: 0, zIndex: 1, background: '#f7f6f3', padding: '7px 12px', borderTop: DIV, whiteSpace: 'nowrap', fontWeight: 700, color: 'var(--ink)' }}>Povprečje razreda</td>
+                <td colSpan={3} style={{ background: '#f7f6f3', borderTop: DIV, borderRight: DIV }} />
+                {quizCols.map(c => { const v = [...c.res.values()]; const p = v.length ? ceilPct(v.reduce((t, r) => t + r.pct, 0) / v.length) : null; return (
+                  <td key={c.s.id} title={`${v.length} učencev`} style={{ textAlign: 'center', padding: '7px 6px', borderTop: DIV, background: '#f7f6f3', fontWeight: 700, fontSize: '13px', color: p == null ? 'var(--muted)' : gradeColor(p) }}>{p == null ? '–' : `${p} %`}</td>
+                ); })}
+              </tr>
+            )}
             </tbody>
           </table>
           </div>
