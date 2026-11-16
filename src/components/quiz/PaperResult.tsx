@@ -4,14 +4,16 @@ import { useEffect, useState } from 'react';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { layoutSheet, sheetSeed, shuffleOpts } from '@/lib/quiz/printSheet';
 import { scoreAnswers } from '@/lib/quiz/scoring';
-import { formatNumber, gradeColor, dateTimeLabel } from '@/lib/quiz/format';
+import { formatNumber, gradeColor, dateTimeLabel, ceilPct } from '@/lib/quiz/format';
 import type { PaperInfo } from '@/lib/quiz/paperSession';
 import type { Question, McQuestion } from '@/lib/quiz/types';
 
 type Result =
   | { status: 'not_found' }
   | { status: 'open'; title: string }
-  | { status: 'ended'; title: string; className: string; name: string; createdAt: string; quiz: { questions: Question[] }; paper: PaperInfo; answers: Record<string, string> };
+  | { status: 'ended'; title: string; className: string; name: string; createdAt: string; quiz: { questions: Question[] }; paper: PaperInfo; answers: Record<string, string>;
+      /** anonimni odgovori vseh sodelujočih učencev (za povprečje razreda in porazdelitev); starejša različica funkcije jih nima */
+      classAnswers?: Record<string, string>[] };
 
 /**
  * Rezultat enega učenca za natisnjen kviz (odpre ga s QR kodo, brez prijave). Vidi se šele, ko učitelj kviz zaključi.
@@ -45,20 +47,44 @@ export default function PaperResult({ sessionId, studentId }: { sessionId: strin
   const byId = new Map(quiz.questions.map(q => [q.id, q]));
   const rows = lay.choice.map(c => ({ c, q: byId.get(c.item.id) as McQuestion | undefined })).filter((r): r is { c: typeof r.c; q: McQuestion } => !!r.q && r.q.kind === 'mc');
   const sc = scoreAnswers(quiz, answers);
+  /** list tega učenca ni bil skeniran: prazna vrstica (– / največ točk), ostalo kot pri drugih */
+  const took = Object.keys(answers).length > 0;
   const freeCount = lay.free.length;
+  const cls = res.classAnswers ?? [];
+  const classAvg = cls.length ? ceilPct(cls.reduce((t, a) => t + scoreAnswers(quiz, a).percent, 0) / cls.length) : null;
+  const label: React.CSSProperties = { fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted)', margin: '0 0 12px' };
 
   return (
-    <div style={page}>
-      <div style={box}>
-        <div style={{ fontSize: '13px', color: 'var(--muted)' }}>{res.title} · {res.className} · {dateTimeLabel(res.createdAt)}</div>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: '14px', flexWrap: 'wrap', margin: '8px 0 14px' }}>
-          <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '30px', fontWeight: 400, color: 'var(--ink)', margin: 0 }}>{res.name}</h1>
-          <span style={{ fontSize: '20px', fontVariantNumeric: 'tabular-nums' }}>
-            <b>{formatNumber(sc.points)}</b><span style={{ color: 'var(--muted)' }}> / {formatNumber(sc.maxPoints)}</span>
-            <b style={{ marginLeft: '12px', color: gradeColor(sc.percent) }}>{formatNumber(sc.percent)} %</b>
-          </span>
+    <div style={{ minHeight: '100vh', background: 'var(--surface, #f4f2ee)', fontFamily: 'var(--font-sans)' }}>
+      <div style={{ background: 'var(--forest)', padding: '22px 16px 20px' }}>
+        <div style={{ maxWidth: '760px', margin: '0 auto' }}>
+          <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '34px', fontWeight: 300, color: '#fff', lineHeight: 1, margin: 0, letterSpacing: '0.06em' }}>REZULTATI</h1>
+          <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)', margin: '8px 0 0' }}>{res.title} · {res.className} · {dateTimeLabel(res.createdAt)}</p>
         </div>
-        {/* pregled kot v učiteljevih rezultatih: ✓ ali pravilna črka (rdeče) pri napačnem odgovoru */}
+      </div>
+      <div style={{ padding: '16px 14px 40px' }}>
+      <div style={box}>
+        <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '28px', fontWeight: 400, color: 'var(--ink)', margin: '0 0 10px' }}>{res.name}</h2>
+        <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginBottom: '14px' }}>
+          <div>
+            <div style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Tvoj rezultat</div>
+            <div style={{ fontSize: '22px', fontVariantNumeric: 'tabular-nums' }}>
+              {took ? (<>
+                <b>{formatNumber(sc.points)}</b><span style={{ color: 'var(--muted)' }}> / {formatNumber(sc.maxPoints)}</span>
+                <b style={{ marginLeft: '10px', color: gradeColor(sc.percent) }}>{formatNumber(sc.percent)} %</b>
+              </>) : (
+                <span style={{ color: 'var(--muted)' }}>– / {formatNumber(sc.maxPoints)} <span style={{ fontSize: '13px' }}>(ni sodeloval)</span></span>
+              )}
+            </div>
+          </div>
+          {classAvg !== null && (
+            <div>
+              <div style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Povprečje razreda</div>
+              <div style={{ fontSize: '22px', fontWeight: 700, color: gradeColor(classAvg) }}>{classAvg} %</div>
+            </div>
+          )}
+        </div>
+        {/* ✓ pri pravilnih, rdeča črka pravilnega odgovora pri napačnih — v vrstnem redu tvojega lista */}
         <div style={{ overflowX: 'auto' }}>
           <table style={{ borderCollapse: 'collapse' }}>
             <tbody>
@@ -74,41 +100,55 @@ export default function PaperResult({ sessionId, studentId }: { sessionId: strin
             </tbody>
           </table>
         </div>
-        <p style={{ fontSize: '12px', color: 'var(--muted)', margin: '6px 0 0' }}>✓ pravilno · rdeča črka = pravilni odgovor, ti si izbral drugega · – brez odgovora</p>
+        <p style={{ fontSize: '12px', color: 'var(--muted)', margin: '8px 0 0', lineHeight: 1.5 }}>
+          <b>Legenda:</b> <span style={{ color: 'var(--green-ok)', fontWeight: 700 }}>✓</span> pravilen odgovor ·{' '}
+          <span style={{ color: '#c0392b', fontWeight: 700 }}>rdeča črka</span> = pravilni odgovor pri nalogi, ki si jo imel napačno ·{' '}
+          – brez odgovora. Številke so številke nalog na tvojem listu.
+        </p>
       </div>
 
       <div style={{ ...box, marginTop: '14px' }}>
-        <h2 style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted)', margin: '0 0 12px' }}>Tvoj list</h2>
-        <ol style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <h2 style={label}>Naloge in odgovori razreda</h2>
+        <ol style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '18px' }}>
           {rows.map(({ c, q }) => {
             const v = answers[q.id];
+            const answered = cls.filter(a => a[q.id]);
+            const okPct = cls.length ? ceilPct((cls.filter(a => a[q.id] === q.correct).length / cls.length) * 100) : null;
             return (
               <li key={c.n}>
-                <div style={{ fontSize: '15px', color: 'var(--ink)', whiteSpace: 'pre-wrap' }}><b>{c.n}.</b> {q.prompt}</div>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'baseline' }}>
+                  <div style={{ flex: 1, fontSize: '15px', color: 'var(--ink)', whiteSpace: 'pre-wrap' }}><b>{c.n}.</b> {q.prompt}</div>
+                  {okPct !== null && <b style={{ fontSize: '13px', color: gradeColor(okPct), whiteSpace: 'nowrap' }}>{okPct} % pravilno</b>}
+                </div>
                 {q.image && (/* eslint-disable-next-line @next/next/no-img-element */
                   <img src={q.image} alt="" style={{ maxWidth: '100%', maxHeight: '220px', marginTop: '6px', borderRadius: 'var(--r-sm)' }} />)}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '6px' }}>
                   {c.options.map(o => {
                     const text = q.options.find(x => x.id === o.id)?.text ?? '';
                     const isRight = o.id === q.correct, isMine = o.id === v;
-                    const bg = isMine ? (isRight ? '#e6f3e7' : '#fbe9e7') : 'transparent';
+                    const n = cls.filter(a => a[q.id] === o.id).length;
+                    const share = answered.length ? (n / answered.length) * 100 : 0;
                     const bd = isRight ? 'var(--green-ok)' : isMine ? '#c0392b' : 'var(--hairline)';
                     return (
-                      <div key={o.id} style={{ display: 'flex', gap: '8px', alignItems: 'baseline', padding: '6px 10px', borderRadius: 'var(--r-sm)', border: `1.5px solid ${bd}`, background: bg, fontSize: '14px' }}>
-                        <b style={{ minWidth: '18px' }}>{o.letter})</b>
-                        <span style={{ flex: 1 }}>{text}</span>
-                        {isRight && <span style={{ color: 'var(--green-ok)', fontWeight: 700, fontSize: '12px' }}>✓ pravilno</span>}
-                        {isMine && !isRight && <span style={{ color: '#c0392b', fontWeight: 700, fontSize: '12px' }}>tvoj odgovor</span>}
+                      <div key={o.id} style={{ position: 'relative', overflow: 'hidden', display: 'flex', gap: '8px', alignItems: 'baseline', padding: '6px 10px', borderRadius: 'var(--r-sm)', border: `1.5px solid ${bd}`, fontSize: '14px' }}>
+                        <div aria-hidden style={{ position: 'absolute', inset: 0, width: `${share}%`, background: isRight ? 'rgba(45,106,49,0.14)' : 'rgba(0,0,0,0.05)' }} />
+                        <b style={{ position: 'relative', minWidth: '18px' }}>{o.letter})</b>
+                        <span style={{ position: 'relative', flex: 1 }}>{text}</span>
+                        {isRight && <span style={{ position: 'relative', color: 'var(--green-ok)', fontWeight: 700, fontSize: '12px' }}>✓ pravilno</span>}
+                        {isMine && !isRight && <span style={{ position: 'relative', color: '#c0392b', fontWeight: 700, fontSize: '12px' }}>tvoj odgovor</span>}
+                        {isMine && isRight && <span style={{ position: 'relative', color: 'var(--green-ok)', fontSize: '12px' }}>(tvoj)</span>}
+                        {cls.length > 0 && <span style={{ position: 'relative', fontSize: '12px', color: 'var(--muted)', minWidth: '62px', textAlign: 'right' }}>{n} {n === 1 ? 'učenec' : n === 2 ? 'učenca' : n < 5 ? 'učenci' : 'učencev'}</span>}
                       </div>
                     );
                   })}
-                  {!v && <span style={{ fontSize: '12px', color: 'var(--muted)' }}>Brez odgovora.</span>}
+                  {!v && took && <span style={{ fontSize: '12px', color: 'var(--muted)' }}>Nisi odgovoril.</span>}
                 </div>
               </li>
             );
           })}
         </ol>
         {freeCount > 0 && <p style={{ fontSize: '13px', color: 'var(--muted)', margin: '16px 0 0' }}>Odprta vprašanja ({freeCount}) pregleda učitelj ročno; v točkah zgoraj niso všteta.</p>}
+      </div>
       </div>
     </div>
   );
