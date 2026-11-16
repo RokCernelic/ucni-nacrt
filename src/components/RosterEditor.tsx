@@ -27,7 +27,9 @@ export default function RosterEditor({ classId, className }: { classId: string; 
     const prevByName = new Map(students.map(s => [s.name.trim().toLowerCase(), s]));
     const merged = parseRoster(text).map(p => {
       const prev = prevByName.get(p.name.trim().toLowerCase());
-      return prev ? { ...prev, name: p.name, gender: p.gender } : p;
+      if (!prev) return p;
+      const { no: _old, ...rest } = prev; // eslint-disable-line @typescript-eslint/no-unused-vars
+      return { ...rest, name: p.name, gender: p.gender, ...(p.no != null ? { no: p.no } : {}) };
     });
     save(merged);
     setSaved(true);
@@ -66,6 +68,9 @@ export default function RosterEditor({ classId, className }: { classId: string; 
   type SortKey = 'name' | 'gender' | 'pin' | 'seat' | `q:${string}`;
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'name', dir: 1 });
   const clickSort = (key: SortKey) => setSort(p => (p.key === key ? { key, dir: (p.dir === 1 ? -1 : 1) } : { key, dir: 1 }));
+  // zaporedna številka: podana v seznamu (»Ime Priimek, M, 12«), sicer mesto po priimku
+  const byLast = sortByLastName(students);
+  const numberOf = (st: (typeof students)[number]) => st.no ?? byLast.findIndex(x => x.id === st.id) + 1;
   const nameOf = (id?: string) => students.find(x => x.id === id)?.name ?? '';
   const sortedStudents = (() => {
     const base = sortByLastName(students); // pri enakih vrednostih po priimku
@@ -208,10 +213,10 @@ export default function RosterEditor({ classId, className }: { classId: string; 
               </tr>
             </thead>
             <tbody>
-            {sortedStudents.map((s, idx) => { const gs = genderStyle(s.gender); const td: React.CSSProperties = { ...TD, background: gs.bg }; return (
+            {sortedStudents.map(s => { const gs = genderStyle(s.gender); const td: React.CSSProperties = { ...TD, background: gs.bg }; return (
               <tr key={s.id}>
                 <td style={{ ...td, minWidth: 200, position: 'sticky', left: 0, zIndex: 1, whiteSpace: 'nowrap' }}>
-                <span style={{ display: 'inline-block', width: '22px', fontSize: '12px', color: gs.color, opacity: 0.6, fontVariantNumeric: 'tabular-nums' }}>{idx + 1}</span>
+                <span style={{ display: 'inline-block', width: '22px', fontSize: '12px', color: gs.color, opacity: 0.6, fontVariantNumeric: 'tabular-nums' }} title={s.no != null ? 'Zaporedna številka v razredu' : 'Zaporedna številka po priimku'}>{numberOf(s)}</span>
                 {renamingId === s.id ? (
                   <input autoFocus defaultValue={s.name}
                     onBlur={e => { renameStudent(s.id, e.currentTarget.value); setRenamingId(null); }}
@@ -283,9 +288,9 @@ export default function RosterEditor({ classId, className }: { classId: string; 
               </tr>
             </thead>
             <tbody>
-              {sortedStudents.map((s, idx) => { const gs = genderStyle(s.gender); return (
+              {sortedStudents.map(s => { const gs = genderStyle(s.gender); return (
                 <tr key={s.id} style={{ background: gs.bg }}>
-                  <td className="num" style={{ color: gs.color }}>{idx + 1}</td>
+                  <td className="num" style={{ color: gs.color }}>{numberOf(s)}</td>
                   <td className="left name" style={{ color: gs.color }}>{s.name}</td>
                   <td style={{ color: gs.color }}>{s.gender || '—'}</td>
                   {printOpts.pin && <td className="pin">{s.pin ?? '—'}</td>}
@@ -302,7 +307,7 @@ export default function RosterEditor({ classId, className }: { classId: string; 
       {/* Vnos / urejanje seznama učencev (pod seznamom) */}
       <div style={{ marginTop: students.length > 0 ? '22px' : 0, borderTop: students.length > 0 ? '1px solid var(--hairline)' : 'none' }}>
       <p style={{ fontSize: '11px', color: 'var(--muted)', margin: '14px 0 8px', lineHeight: 1.5 }}>
-        Učenci — vsaka vrstica: <b>Ime Priimek, Ž/M</b>. Nato Shrani.
+        Učenci — vsaka vrstica: <b>Ime Priimek, Ž/M</b> ali z zaporedno številko <b>Ime Priimek, Ž/M, 12</b>. Nato Shrani.
       </p>
       <textarea
         value={text}
