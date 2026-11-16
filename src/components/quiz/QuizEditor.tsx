@@ -13,7 +13,7 @@ import { questionsLabel, pointsLabel, formatNumber, dateTimeLabel } from '@/lib/
 import { parseQuizText, readTextFile, type TextImportResult } from '@/lib/quiz/textImport';
 import type { Quiz, Question, McQuestion, NumericQuestion, QuizFolder } from '@/lib/quiz/types';
 import StartSessionDialog from '@/components/quiz/StartSessionDialog';
-import { scoringSignature, syncSessionScoring } from '@/lib/quiz/sessionApi';
+import { scoringSignature } from '@/lib/quiz/sessionApi';
 import { useTasks } from '@/hooks/useTasks';
 import { Rich, TaskBadges } from '@/components/tasks/ui';
 import type { Task } from '@/lib/tasks/types';
@@ -323,10 +323,8 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
       // spremenjeno točkovanje (točke, pravilni odgovor, toleranca) → posodobi tudi vse izvedbe tega kviza
       const sig = scoringSignature(q.questions);
       if (scoringRef.current !== null && sig !== scoringRef.current) {
-        const quizId = q.id, questions = q.questions;
-        void syncSessionScoring(quizId, questions)
-          .then(n => { if (n) setScoringNote(`Točkovanje posodobljeno v ${n} ${n === 1 ? 'izvedbi' : 'izvedbah'} — rezultati so preračunani.`); })
-          .catch(e => setError(`Točkovanja v izvedbah ni bilo mogoče posodobiti: ${e instanceof Error ? e.message : String(e)}`));
+        // izvedbe se ne posodobijo same: učitelj novo točkovanje potrdi v Rezultatih posamezne izvedbe
+        if (q.lastUsedAt) setScoringNote('Točkovanje je spremenjeno. Izvedbe tega kviza ga prevzamejo, ko v Rezultatih pri izvedbi potrdiš »↻ Posodobi točkovanje«.');
       }
       scoringRef.current = sig;
     } catch (e) {
@@ -470,7 +468,7 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
 
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px 32px 80px' }}>
         {error && <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: '#c0392b', margin: '0 0 14px' }}>{error}</p>}
-        {scoringNote && <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--green-ok)', margin: '0 0 14px' }}>✓ {scoringNote}</p>}
+        {scoringNote && <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: '#8a5a00', background: '#fdf6e3', border: '1px solid #ecd9a8', borderRadius: 'var(--r-sm)', padding: '8px 12px', margin: '0 0 14px' }}>{scoringNote}</p>}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {draft.questions.map((q, i) => {

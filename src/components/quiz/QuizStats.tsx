@@ -59,7 +59,10 @@ export default function QuizStats() {
       const part = students.filter(participated);
       const sum = part.reduce((t, st) => t + scoreAnswers(s.quiz, by.get(st.student_id) ?? {}).percent, 0);
       // ime kviza: trenutno ime v knjižnici (preimenovanje se pozna tudi v rezultatih), sicer ime ob izvedbi
-      const title = lib.quizzes.find(q => q.id === s.quiz_id)?.title || s.quiz_title;
+      const libQuiz = lib.quizzes.find(q => q.id === s.quiz_id);
+      const title = libQuiz?.title || s.quiz_title;
+      // točke v kvizu so bile spremenjene, izvedba pa še ni potrdila novega točkovanja
+      const scoringChanged = !!libQuiz && s.quiz.questions.some(sq => { const q = libQuiz.questions.find(x => x.id === sq.id); return !!q && sq.kind !== 'open' && q.points !== sq.points; });
       return {
         s: title === s.quiz_title ? s : { ...s, quiz_title: title }, key: keyOf(s), people: part.length, total: students.length,
         avg: part.length ? ceilPct(sum / part.length) : null,
@@ -67,7 +70,8 @@ export default function QuizStats() {
         deleted: !!s.quiz_id && lib.loaded && !lib.quizzes.some(q => q.id === s.quiz_id),
         nQ: s.paper ? ((s.paper as { items?: unknown[] }).items?.length ?? s.quiz.questions.length) : s.quiz.questions.length,
         maxPts: s.quiz.questions.filter(q => q.kind !== 'open').reduce((t, q) => t + q.points, 0),
-        quizCreated: lib.quizzes.find(q => q.id === s.quiz_id)?.createdAt ?? null,
+        quizCreated: libQuiz?.createdAt ?? null,
+        scoringChanged,
       };
     });
   }, [data, lib.loaded, lib.quizzes]);
@@ -165,6 +169,7 @@ export default function QuizStats() {
                     {r.s.class_name} · {dateTimeLabel(r.s.created_at)}
                     {r.live ? <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--green-ok)', marginLeft: '8px' }}>● v teku</span>
                       : r.open && <span style={{ fontSize: '11px', fontWeight: 600, color: '#b7791f', marginLeft: '8px' }}>nezaključeno</span>}
+                    {r.scoringChanged && <span style={{ fontSize: '11px', fontWeight: 600, color: '#b7791f', marginLeft: '8px' }} title="Točke v kvizu so bile spremenjene — odpri izvedbo in potrdi novo točkovanje">⚠ novo točkovanje ni potrjeno</span>}
                   </div>
                   <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '3px' }}>
                     {r.s.paper ? '🖨 natisnjeno' : r.s.mode === 'teacher' ? 'v živo · projekcija' : 'v živo · tablica'}
