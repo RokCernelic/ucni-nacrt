@@ -173,15 +173,25 @@ function Mark({ q, value, top, right }: { q: Question; value: string | undefined
 }
 
 /** Podrobna stran rezultatov: tabela učencev, statistika po vprašanjih, mreža učenec × vprašanje, CSV. */
-export function SessionResults({ session, students, answers, teacher, teacherAnswers, back, subtitle, note, sessionsByStudent }: {
+export function SessionResults({ session, students, answers, teacher, teacherAnswers, back, subtitle, note, sessionsByStudent, overall }: {
   session: QuizSession; students: SessionStudent[]; answers: SessionAnswer[];
   teacher: SessionStudent | null; teacherAnswers: SessionAnswer[];
   /** povezava nazaj (privzeto Kvizi), besedilo pod naslovom (privzeto razred · seja končana) in opomba */
   back?: { href: string; label: string }; subtitle?: string; note?: string;
   /** pri združenih rezultatih več sej: seja, v kateri je učenec rešil kviz (od nje zavisijo njegove črke); sicer velja `session` */
   sessionsByStudent?: Map<string, QuizSession>;
+  /** povprečje po nalogah čez vse izvedbe istega kviza (le če jih je več) */
+  overall?: { perQuestion: Map<string, number | null>; sessions: number; classes: number; people: number };
 }) {
   const [deleting, setDeleting] = useState(false);
+  const [ending, setEnding] = useState(false);
+  /** Konča izvedbo (natisnjen kviz: konec skeniranja) — s potrditvijo. */
+  const endHere = async () => {
+    if (!confirm(session.paper ? 'Končam izvedbo? Skeniranje listov ne bo več mogoče.' : 'Končam izvedbo? Učenci ne bodo mogli več odgovarjati.')) return;
+    setEnding(true);
+    try { await updateSession(session.id, { status: 'ended', ended_at: new Date().toISOString() }); window.location.reload(); }
+    catch (e) { alert(`Končanje ni uspelo: ${e instanceof Error ? e.message : String(e)}`); setEnding(false); }
+  };
   /** Pobriše vrstico enega učenca (njegove odgovore v tej izvedbi) — s potrditvijo. */
   const resetRow = async (studentId: string, name: string) => {
     if (!confirm(`Pobrišem rezultat učenca ${name} v tej izvedbi?\n\nIzbrisani bodo njegovi odgovori; list lahko nato znova skeniraš. Tega ni mogoče razveljaviti.`)) return;
@@ -306,6 +316,7 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
 
   // povprečje le med učenci, ki so sodelovali (neskenirani / nepovezani ne štejejo kot 0 %)
   const partRows = rows.filter(r => participated(r.s));
+  const overallLabel = overall ? `${overall.sessions} izvedb${overall.sessions === 2 ? 'i' : overall.sessions < 5 ? 'e' : ''}, ${overall.people} učencev` : '';
   const avgPct = partRows.length ? ceilPct(partRows.reduce((s, r) => s + r.sc.percent, 0) / partRows.length) : 0;
 
   const exportCsv = () => {
@@ -330,6 +341,13 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
           </p>
         </div>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {session.status === 'open' && (
+            <button onClick={() => void endHere()} disabled={ending}
+              title={session.paper ? 'Konča izvedbo: skeniranje listov ne bo več mogoče, učenci lahko s QR kodo vidijo rezultate' : 'Konča izvedbo: učenci ne morejo več odgovarjati'}
+              style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600, color: '#c0392b', background: '#fff', border: '1px solid #c0392b', borderRadius: 'var(--r-sm)', padding: '9px 16px', cursor: 'pointer', whiteSpace: 'nowrap', opacity: ending ? 0.5 : 1 }}>
+              {ending ? 'Končujem …' : '■ Končaj'}
+            </button>
+          )}
           <button onClick={exportCsv} style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600, color: '#fff', background: 'var(--forest)', border: 'none', borderRadius: 'var(--r-sm)', padding: '9px 16px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
             ⬇ Izvozi CSV
           </button>
@@ -400,6 +418,15 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
                   ); })}
                 </tr>
               )}
+              {!perStudentOrder && overall && (
+                <tr title={`Delež pravilnih odgovorov med vsemi ${overall.people} učenci v ${overall.sessions} izvedbah tega kviza`}>
+                  <td style={{ position: 'sticky', left: 0, background: '#efeee9', padding: '7px 12px', whiteSpace: 'nowrap', fontWeight: 700, color: 'var(--ink)' }}>Povprečje vseh izvedb <span style={{ fontWeight: 500, color: 'var(--muted)' }}>({overallLabel})</span></td>
+                  <td style={{ padding: '7px 12px', borderRight: '2px solid var(--hairline)', background: '#efeee9' }} />
+                  {questions.map(q => { const p = overall.perQuestion.get(q.id); return (
+                    <td key={q.id} style={{ textAlign: 'center', padding: '7px 6px', background: '#efeee9', fontWeight: 700, fontSize: '13px', color: p == null ? 'var(--muted)' : gradeColor(p) }}>{p == null ? '–' : `${p} %`}</td>
+                  ); })}
+                </tr>
+              )}
               {teacherScore && (
                 <tr title="Učitelj (testna oseba) — ne šteje v povprečje" style={{ fontStyle: 'italic' }}>
                   <td style={{ position: 'sticky', left: 0, background: '#fff', padding: '7px 12px', borderTop: '2px solid var(--hairline)', whiteSpace: 'nowrap', color: 'var(--muted)' }}>{TEACHER_NAME} (test)</td>
@@ -414,19 +441,30 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
         </div>
       </div>
 
-      {/* povprečje razreda po nalogah pri premešanih listih (vrstni red kviza) */}
+      {/* povprečje po nalogah pri premešanih listih (vrstni red kviza); pri več izvedbah čez vse izvedbe */}
       {perStudentOrder && rows.some(r => participated(r.s)) && (
         <div style={{ marginTop: '24px' }}>
-          <h2 style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted)', margin: '0 0 10px' }}>Povprečje razreda po nalogah (izvirni vrstni red kviza)</h2>
+          <h2 style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted)', margin: '0 0 10px' }}>
+            {overall ? `Povprečje po nalogah — vse izvedbe (${overallLabel})` : 'Povprečje razreda po nalogah'} (izvirni vrstni red kviza)
+          </h2>
           <div style={{ border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', overflow: 'hidden' }}>
-            {questions.map((q, i) => { const p = perQuestion.get(q.id); return (
-              <div key={q.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '7px 12px', borderTop: i ? '1px solid var(--hairline)' : 'none', background: 'var(--canvas)', fontSize: '13px' }}>
+            {overall && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '5px 12px', background: 'var(--surface)', fontSize: '11px', fontWeight: 700, color: 'var(--muted)' }}>
+                <span style={{ flex: 1 }} />
+                <span style={{ width: '120px', textAlign: 'center' }}>vse izvedbe</span>
+                <span style={{ minWidth: '48px', textAlign: 'right' }}>skupaj</span>
+                <span style={{ minWidth: '64px', textAlign: 'right' }}>{session.class_name}</span>
+              </div>
+            )}
+            {questions.map((q, i) => { const own = perQuestion.get(q.id); const p = overall ? overall.perQuestion.get(q.id) ?? null : own; return (
+              <div key={q.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '7px 12px', borderTop: i || overall ? '1px solid var(--hairline)' : 'none', background: 'var(--canvas)', fontSize: '13px' }}>
                 <b style={{ minWidth: '24px', color: 'var(--muted)' }}>{i + 1}.</b>
                 <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--ink)' }}>{q.prompt}</span>
                 <div style={{ width: '120px', height: '8px', background: 'var(--surface)', borderRadius: '4px', overflow: 'hidden' }}>
                   <div style={{ width: `${p ?? 0}%`, height: '100%', background: p == null ? 'transparent' : gradeColor(p) }} />
                 </div>
                 <b style={{ minWidth: '48px', textAlign: 'right', color: p == null ? 'var(--muted)' : gradeColor(p) }}>{p == null ? '–' : `${p} %`}</b>
+                {overall && <span style={{ minWidth: '64px', textAlign: 'right', color: own == null ? 'var(--muted)' : gradeColor(own) }}>{own == null ? '–' : `${own} %`}</span>}
               </div>
             ); })}
           </div>

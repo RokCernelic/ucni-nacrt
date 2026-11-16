@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuizLibrary } from '@/hooks/useQuizLibrary';
 import { loadAllHistory, joinStatsChannel, isLive, participated, type QuizSession, type SessionStudent, type SessionAnswer } from '@/lib/quiz/sessionApi';
-import { scoreAnswers } from '@/lib/quiz/scoring';
+import { scoreAnswers, isCorrect } from '@/lib/quiz/scoring';
 import { SessionResults } from './LiveSession';
 import { ceilPct, questionsLabel, pointsLabel, dateTimeLabel } from '@/lib/quiz/format';
 import { gradeColor } from '@/lib/quiz/format';
@@ -107,8 +107,28 @@ export default function QuizStats() {
     const students: SessionStudent[] = data.studentsBySession.get(s.id) ?? [];
     const answers: SessionAnswer[] = data.answersBySession.get(s.id) ?? [];
     const status = one.live ? 'v teku' : one.open ? 'nezaključeno' : 'končano';
+    // povprečje po nalogah čez vse izvedbe istega kviza (npr. v več razredih): delež pravilnih med vsemi sodelujočimi
+    const same = rows.filter(r => r.key === one.key && r.people > 0);
+    const okBy = new Map<string, { ok: number; n: number }>();
+    let allPeople = 0;
+    for (const r of same) {
+      const part = (data.studentsBySession.get(r.s.id) ?? []).filter(participated);
+      allPeople += part.length;
+      const by = new Map<string, Record<string, string>>();
+      for (const a of data.answersBySession.get(r.s.id) ?? []) by.set(a.student_id, { ...(by.get(a.student_id) ?? {}), [a.question_id]: a.value });
+      for (const q of r.s.quiz.questions) {
+        if (q.kind === 'open') continue;
+        const c = okBy.get(q.id) ?? { ok: 0, n: 0 };
+        for (const st of part) { c.n++; if (isCorrect(q, by.get(st.student_id)?.[q.id])) c.ok++; }
+        okBy.set(q.id, c);
+      }
+    }
+    const overall = same.length > 1 ? {
+      perQuestion: new Map([...okBy].map(([id, c]) => [id, c.n ? ceilPct((c.ok / c.n) * 100) : null])),
+      sessions: same.length, classes: new Set(same.map(r => r.s.class_name)).size, people: allPeople,
+    } : undefined;
     return (
-      <SessionResults session={s} students={students} answers={answers} teacher={null} teacherAnswers={[]}
+      <SessionResults session={s} students={students} answers={answers} teacher={null} teacherAnswers={[]} overall={overall}
         back={sessionId && shown.length > 1 ? { href: listHref, label: '← Izvedbe tega kviza' } : { href: '/kvizi/statistika', label: '← Rezultati' }}
         subtitle={`${s.class_name} · ${s.paper ? 'natisnjeno' : 'v živo'} · izvedba ${dateTimeLabel(s.created_at)} · ${status} · ${questionsLabel(one.nQ)} · ${pointsLabel(one.maxPts)}${one.quizCreated ? ` · kviz ustvarjen ${dateTimeLabel(one.quizCreated)}` : ''}`}
         note={one.deleted ? 'Kviz je izbrisan — rezultati so ohranjeni.' : undefined} />
