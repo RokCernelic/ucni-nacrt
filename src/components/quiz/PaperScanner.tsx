@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { joinChannel, joinStatsChannel } from '@/lib/quiz/sessionApi';
-import { loadPaperSession, savePaperAnswers, isPaperOpen, type PaperSession } from '@/lib/quiz/paperSession';
+import { loadPaperSession, savePaperAnswers, isPaperOpen, paperScannedAt, type PaperSession } from '@/lib/quiz/paperSession';
 import { layoutSheet, frameGeometry, parseToken, sheetSeed, shuffleOpts, type FrameGeometry, type SheetLayout, type LayoutItem } from '@/lib/quiz/printSheet';
 import { toGray, locate, readLocated, project, type SheetReading } from '@/lib/quiz/omr';
 
@@ -38,6 +38,8 @@ export default function PaperScanner() {
   const [status, setStatus] = useState('Usmeri kamero v okvir z odgovori (vsi štirje črni kvadratki in QR koda).');
   const [hit, setHit] = useState<Hit | null>(null);
   const [saved, setSaved] = useState<Record<string, number>>({});
+  /** ali je bil ta list že shranjen (tudi z druge naprave z istim računom) — čas zadnje shranitve */
+  const [scannedAt, setScannedAt] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const paused = useRef(false);
@@ -148,6 +150,8 @@ export default function PaperScanner() {
                   setStatus(`${st.name}: berem …`);
                   if (lastSig.current.n >= 2) {
                     setHit({ sessionId: tok.sessionId, studentId: tok.studentId, name: st.name, layout, geom, reading, chosen: reading.cells.map(c => c.chosen) });
+                    setScannedAt(null);
+                    void paperScannedAt(tok.sessionId, tok.studentId).then(setScannedAt).catch(() => {});
                     try { navigator.vibrate?.(60); } catch { /* ignore */ }
                   }
                 }
@@ -264,7 +268,9 @@ export default function PaperScanner() {
           <div style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: '6px 12px', margin: '4px 0 6px' }}>
             <b style={{ fontSize: '20px' }}>{hit.name}</b>
             <span style={{ fontSize: '20px', color: 'var(--forest)', fontWeight: 700 }}>{String(got).replace('.', ',')} / {String(max).replace('.', ',')}</span>
-            {saved[hit.studentId] !== undefined && <span style={{ fontSize: '12px', color: '#b7791f' }}>že skeniran — shranitev prepiše</span>}
+            {(saved[hit.studentId] !== undefined || scannedAt) && <span style={{ fontSize: '12px', color: '#b7791f' }}>
+              že skeniran{scannedAt ? ` (${new Date(scannedAt).toLocaleTimeString('sl-SI', { hour: '2-digit', minute: '2-digit' })}${saved[hit.studentId] === undefined ? ', na drugi napravi' : ''})` : ''} — shranitev prepiše
+            </span>}
           </div>
           <p style={{ fontSize: '13px', color: 'var(--muted)', margin: '0 0 12px' }}>Primerjaj z listom. Tapni črko, da popraviš. Oranžna vrstica = negotovo branje.</p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '4px 10px' }}>

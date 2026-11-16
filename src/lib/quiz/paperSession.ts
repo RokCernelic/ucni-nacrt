@@ -68,16 +68,29 @@ export async function loadPaperSession(id: string) {
 
 /** Shrani prebrane odgovore enega lista (prepiše prejšnje skeniranje tega učenca). */
 export async function savePaperAnswers(sessionId: string, studentId: string, answers: { questionId: string; value: string }[]) {
+  // Več naprav lahko skenira hkrati (isti račun na več telefonih): upsert namesto »izbriši + vstavi«, da se sočasni
+  // shranitvi istega lista ne spotakneta ob podvojene ključe — obvelja zadnja; nato odstrani odgovore, ki jih na listu ni več.
   const sb = getSupabaseBrowserClient();
   const now = new Date().toISOString();
-  const { error: d } = await sb.from('quiz_answers').delete().eq('session_id', sessionId).eq('student_id', studentId);
-  if (d) throw new Error(d.message);
   if (answers.length) {
-    const { error } = await sb.from('quiz_answers').insert(answers.map(a => ({ session_id: sessionId, student_id: studentId, question_id: a.questionId, value: a.value, answered_at: now })));
+    const { error } = await sb.from('quiz_answers').upsert(
+      answers.map(a => ({ session_id: sessionId, student_id: studentId, question_id: a.questionId, value: a.value, answered_at: now })),
+      { onConflict: 'session_id,student_id,question_id' });
     if (error) throw new Error(error.message);
   }
+  let del = sb.from('quiz_answers').delete().eq('session_id', sessionId).eq('student_id', studentId);
+  if (answers.length) del = del.not('question_id', 'in', `(${answers.map(a => `"${a.questionId.replace(/"/g, '')}"`).join(',')})`);
+  const { error: d } = await del;
+  if (d) throw new Error(d.message);
   const { error: e3 } = await sb.from('quiz_session_students').update({ submitted_at: now, joined_at: now }).eq('session_id', sessionId).eq('student_id', studentId);
   if (e3) throw new Error(e3.message);
+}
+
+/** Kdaj je bil list tega učenca nazadnje shranjen (tudi z druge naprave); null = še ni skeniran. */
+export async function paperScannedAt(sessionId: string, studentId: string): Promise<string | null> {
+  const { data } = await getSupabaseBrowserClient().from('quiz_session_students').select('submitted_at')
+    .eq('session_id', sessionId).eq('student_id', studentId).maybeSingle();
+  return (data as { submitted_at: string | null } | null)?.submitted_at ?? null;
 }
 
 /** Ali je seja natisnjenega kviza še odprta (skeniranje dovoljeno)? Po ročnem koncu seje skeniranje ni več mogoče. */
