@@ -321,16 +321,17 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
       <div style={{ marginTop: '28px' }}>
         <h2 style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted)', margin: '0 0 10px' }}>Učenec × vprašanje</h2>
         {perStudentOrder && <p style={{ fontSize: '12px', color: 'var(--muted)', margin: '-4px 0 10px' }}>Številke stolpcev so številke nalog na listu posameznega učenca (vsak je imel premešan vrstni red).</p>}
-        <div style={{ overflowX: 'auto', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)' }}>
+        {/* tabela se drsi v svojem okvirju, da glava s številkami nalog ostane pripeta na vrhu (tudi na projekciji) */}
+        <div style={{ overflow: 'auto', maxHeight: 'calc(100vh - 140px)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)' }}>
           <table style={{ borderCollapse: 'collapse', fontSize: '15px', minWidth: '100%' }}>
             <thead><tr>
-              <th style={{ position: 'sticky', left: 0, zIndex: 1, background: 'var(--canvas)', padding: '8px 12px', textAlign: 'left', borderBottom: '1px solid var(--hairline)', whiteSpace: 'nowrap' }}>
+              <th style={{ position: 'sticky', left: 0, top: 0, zIndex: 3, background: 'var(--canvas)', padding: '8px 12px', textAlign: 'left', borderBottom: '1px solid var(--hairline)', whiteSpace: 'nowrap' }}>
                 <button style={sortBtn(sortBy === 'name')} onClick={() => setSortBy('name')}>Učenec</button>
               </th>
-              <th style={{ padding: '8px 12px', textAlign: 'left', borderBottom: '1px solid var(--hairline)', borderRight: '2px solid var(--hairline)', whiteSpace: 'nowrap' }}>
+              <th style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--canvas)', padding: '8px 12px', textAlign: 'left', borderBottom: '1px solid var(--hairline)', borderRight: '2px solid var(--hairline)', whiteSpace: 'nowrap' }}>
                 <button style={sortBtn(sortBy === 'points')} onClick={() => setSortBy('points')}>Točke · %</button>
               </th>
-              {questions.map((q, i) => <th key={q.id} title={perStudentOrder ? `Naloga ${i + 1} na listu posameznega učenca` : q.prompt} style={{ padding: '8px 6px', borderBottom: '1px solid var(--hairline)', minWidth: '38px', color: 'var(--muted)', fontWeight: 600 }}>{i + 1}</th>)}
+              {questions.map((q, i) => <th key={q.id} title={perStudentOrder ? `Naloga ${i + 1} na listu posameznega učenca` : q.prompt} style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--canvas)', padding: '8px 6px', borderBottom: '1px solid var(--hairline)', minWidth: '38px', color: 'var(--muted)', fontWeight: 600 }}>{i + 1}</th>)}
             </tr></thead>
             <tbody>
               {rows.map(({ s, ans, sc }) => {
