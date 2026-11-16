@@ -6,7 +6,7 @@ import QRCode from 'qrcode';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuizLibrary } from '@/hooks/useQuizLibrary';
 import {
-  loadSession, updateSession, deleteSession, resolveDevice, joinChannel, isLive, participated, TEACHER_NAME,
+  loadSession, updateSession, deleteSession, resetStudentResult, resolveDevice, joinChannel, isLive, participated, TEACHER_NAME,
   type QuizSession, type SessionStudent, type SessionAnswer,
 } from '@/lib/quiz/sessionApi';
 import { isCorrect, answerStatus, scoreAnswers, parseNumber, numericValue } from '@/lib/quiz/scoring';
@@ -182,6 +182,12 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
   sessionsByStudent?: Map<string, QuizSession>;
 }) {
   const [deleting, setDeleting] = useState(false);
+  /** Pobriše vrstico enega učenca (njegove odgovore v tej izvedbi) — s potrditvijo. */
+  const resetRow = async (studentId: string, name: string) => {
+    if (!confirm(`Pobrišem rezultat učenca ${name} v tej izvedbi?\n\nIzbrisani bodo njegovi odgovori; list lahko nato znova skeniraš. Tega ni mogoče razveljaviti.`)) return;
+    try { await resetStudentResult(session.id, studentId); window.location.reload(); }
+    catch (e) { alert(`Brisanje ni uspelo: ${e instanceof Error ? e.message : String(e)}`); }
+  };
   /** Trajno izbriše to izvedbo (z vsemi odgovori) — vedno s potrditvijo. */
   const removeResult = async () => {
     const n = students.filter(participated).length;
@@ -300,6 +306,10 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
                   <tr key={s.student_id}>
                     <td style={{ position: 'sticky', left: 0, background: '#fff', padding: '7px 12px', borderBottom: '1px solid var(--hairline)', whiteSpace: 'nowrap', color: on ? 'var(--ink)' : 'var(--muted)' }}>
                       {s.name}{!on && <span style={{ fontSize: '12px' }}> (ni sodeloval)</span>}
+                      {(on || Object.keys(ans).length > 0) && (
+                        <button onClick={() => void resetRow(s.student_id, s.name)} title={`Pobriši rezultat učenca ${s.name} (odgovore v tej izvedbi)`}
+                          style={{ marginLeft: '8px', width: '24px', height: '24px', borderRadius: '50%', border: '1px solid var(--hairline)', background: 'transparent', color: 'var(--muted)', fontSize: '14px', lineHeight: 1, cursor: 'pointer', verticalAlign: 'middle' }}>↺</button>
+                      )}
                     </td>
                     <td style={{ padding: '7px 12px', borderBottom: '1px solid var(--hairline)', borderRight: '2px solid var(--hairline)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
                       {on ? (<>

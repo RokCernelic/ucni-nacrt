@@ -239,6 +239,15 @@ export async function deleteEmptySessionsOfQuiz(quizId: string): Promise<number>
   return empty.length;
 }
 
+/** Pobriše rezultat enega učenca v izvedbi (odgovori + oznaka oddaje); učenec lahko list znova odda oz. ga znova skeniraš. */
+export async function resetStudentResult(sessionId: string, studentId: string): Promise<void> {
+  const sb = getSupabaseBrowserClient();
+  const { error } = await sb.from('quiz_answers').delete().eq('session_id', sessionId).eq('student_id', studentId);
+  if (error) throw new Error(error.message);
+  const { error: e2 } = await sb.from('quiz_session_students').update({ submitted_at: null }).eq('session_id', sessionId).eq('student_id', studentId);
+  if (e2) throw new Error(e2.message);
+}
+
 /** Trajno izbriše eno izvedbo (sejo) z vsemi učenci in odgovori (rezultat izgine iz Rezultatov). */
 export async function deleteSession(id: string): Promise<void> {
   const { error } = await getSupabaseBrowserClient().from('quiz_sessions').delete().eq('id', id);
