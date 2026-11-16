@@ -336,7 +336,7 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
                       {on ? (<>
                         <b style={{ color: 'var(--ink)' }}>{formatNumber(sc.points)}</b><span style={{ color: 'var(--muted)' }}> / {formatNumber(sc.maxPoints)}</span>
                         <span style={{ marginLeft: '10px', fontWeight: 700, color: pctColor(sc.percent) }}>{formatNumber(sc.percent)} %</span>
-                      </>) : <span style={{ color: 'var(--muted)' }}>–</span>}
+                      </>) : <span style={{ color: 'var(--muted)' }}>– <span>/ {formatNumber(sc.maxPoints)}</span></span>}
                     </td>
                     {colsFor(s.student_id).map((q, i) => <Mark key={i} q={q} value={ans[q.id]} right={rightFor(s.student_id, q)} />)}
                   </tr>
