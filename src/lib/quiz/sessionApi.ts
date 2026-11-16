@@ -239,6 +239,51 @@ export async function deleteEmptySessionsOfQuiz(quizId: string): Promise<number>
   return empty.length;
 }
 
+/** Podpis točkovanja kviza (točke, pravilni odgovori, toleranca, enota) — za zaznavo sprememb. */
+export const scoringSignature = (questions: Question[]) => JSON.stringify(questions.map(q =>
+  [q.id, q.points, q.kind === 'open' ? null : q.correct, q.kind === 'numeric' ? q.tolerance : null, q.kind === 'numeric' ? q.unit ?? null : null]));
+
+/**
+ * Točkovanje kviza prenese v vse njegove izvedbe (tekoče, natisnjene, tudi zaključene): točke, pravilni odgovor,
+ * toleranca in enota istih vprašanj. Rezultati se ob naslednjem ogledu izračunajo po novem točkovanju.
+ * Vrne število posodobljenih izvedb.
+ */
+export async function syncSessionScoring(quizId: string, questions: Question[]): Promise<number> {
+  const sb = getSupabaseBrowserClient();
+  const { data, error } = await sb.from('quiz_sessions').select('id, quiz, paper').eq('quiz_id', quizId);
+  if (error) throw new Error(error.message);
+  const byId = new Map(questions.map(q => [q.id, q]));
+  let n = 0;
+  for (const row of (data ?? []) as { id: string; quiz: { questions: Question[] }; paper: { items: { id: string; choice: boolean; correct: string[]; points: number; options: { id: string }[] }[] } | null }[]) {
+    let changed = false;
+    const qs = row.quiz.questions.map(sq => {
+      const q = byId.get(sq.id);
+      if (!q || q.kind !== sq.kind) return sq;
+      const next = { ...sq, points: q.points } as Question;
+      if (next.kind === 'mc' && q.kind === 'mc' && q.correct && next.options.some(o => o.id === q.correct)) next.correct = q.correct;
+      if (next.kind === 'numeric' && q.kind === 'numeric') { next.correct = q.correct; next.tolerance = q.tolerance; next.unit = q.unit; }
+      if (JSON.stringify(next) !== JSON.stringify(sq)) changed = true;
+      return next;
+    });
+    const paper = row.paper ? {
+      ...row.paper,
+      items: row.paper.items.map(it => {
+        const q = byId.get(it.id);
+        if (!q) return it;
+        const correct = q.kind === 'mc' && q.correct && it.options.some(o => o.id === q.correct) ? [q.correct] : it.correct;
+        const next = { ...it, points: q.points, correct };
+        if (JSON.stringify(next) !== JSON.stringify(it)) changed = true;
+        return next;
+      }),
+    } : null;
+    if (!changed) continue;
+    const { error: e } = await sb.from('quiz_sessions').update({ quiz: { ...row.quiz, questions: qs }, ...(paper ? { paper } : {}) }).eq('id', row.id);
+    if (e) throw new Error(e.message);
+    n++;
+  }
+  return n;
+}
+
 /** Pobriše rezultat enega učenca v izvedbi (odgovori + oznaka oddaje); učenec lahko list znova odda oz. ga znova skeniraš. */
 export async function resetStudentResult(sessionId: string, studentId: string): Promise<void> {
   const sb = getSupabaseBrowserClient();

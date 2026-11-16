@@ -13,6 +13,7 @@ import { questionsLabel, pointsLabel, formatNumber, dateTimeLabel } from '@/lib/
 import { parseQuizText, readTextFile, type TextImportResult } from '@/lib/quiz/textImport';
 import type { Quiz, Question, McQuestion, NumericQuestion, QuizFolder } from '@/lib/quiz/types';
 import StartSessionDialog from '@/components/quiz/StartSessionDialog';
+import { scoringSignature, syncSessionScoring } from '@/lib/quiz/sessionApi';
 import { useTasks } from '@/hooks/useTasks';
 import { Rich, TaskBadges } from '@/components/tasks/ui';
 import type { Task } from '@/lib/tasks/types';
@@ -293,6 +294,9 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pending = useRef<Quiz | null>(null);
   const draftRef = useRef<Quiz | null>(null);
+  /** zadnje shranjeno točkovanje (za prenos sprememb v izvedbe) */
+  const scoringRef = useRef<string | null>(null);
+  const [scoringNote, setScoringNote] = useState<string | null>(null);
   useEffect(() => { draftRef.current = draft; });
 
   // naloži kviz enkrat (nadaljnje urejanje teče prek osnutka)
@@ -300,6 +304,7 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
     if (!lib.loaded || draft) return;
     const q = lib.quizzes.find(x => x.id === quizId);
     if (q) {
+      scoringRef.current = scoringSignature(q.questions);
       setDraft(q);
       // prazna (nova) vprašanja se odprejo za urejanje, ostala so v pogledu kot v bazi nalog
       setEditing(new Set(q.questions.filter(x => !x.prompt.trim() && !x.image).map(x => x.id)));
@@ -315,6 +320,15 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
     try {
       updateQuiz(q.id, { title: q.title, folderId: q.folderId, questions: q.questions });
       setStatus('saved'); setError(null);
+      // spremenjeno točkovanje (točke, pravilni odgovor, toleranca) → posodobi tudi vse izvedbe tega kviza
+      const sig = scoringSignature(q.questions);
+      if (scoringRef.current !== null && sig !== scoringRef.current) {
+        const quizId = q.id, questions = q.questions;
+        void syncSessionScoring(quizId, questions)
+          .then(n => { if (n) setScoringNote(`Točkovanje posodobljeno v ${n} ${n === 1 ? 'izvedbi' : 'izvedbah'} — rezultati so preračunani.`); })
+          .catch(e => setError(`Točkovanja v izvedbah ni bilo mogoče posodobiti: ${e instanceof Error ? e.message : String(e)}`));
+      }
+      scoringRef.current = sig;
     } catch (e) {
       setStatus('error');
       setError(e instanceof QuizStorageFullError ? e.message : 'Shranjevanje ni uspelo.');
@@ -456,6 +470,7 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
 
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px 32px 80px' }}>
         {error && <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: '#c0392b', margin: '0 0 14px' }}>{error}</p>}
+        {scoringNote && <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--green-ok)', margin: '0 0 14px' }}>✓ {scoringNote}</p>}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {draft.questions.map((q, i) => {
