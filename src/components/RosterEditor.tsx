@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useRoster, parseRoster, rosterToText } from '@/hooks/useRoster';
 import { sortByLastName } from '@/lib/names';
@@ -81,12 +81,14 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
 
   // ročni stolpci (poimenuje jih učitelj, vrednosti vpisuje sam) in lasten vrstni red stolpcev — za vsak razred posebej
   type ManualCol = { id: string; name: string; values: Record<string, string> };
-  type ColCfg = { manual: ManualCol[]; order: string[]; hidden?: string[] };
+  type ColCfg = { manual: ManualCol[]; order: string[]; hidden?: string[]; nameWidth?: number };
   const cfgKey = `ucni-nacrt-rostercols-${classId}`;
   const [cfg, setCfg] = useState<ColCfg>(() => {
-    try { const r = typeof window !== 'undefined' ? localStorage.getItem(cfgKey) : null; const v = r ? JSON.parse(r) : null; return { manual: v?.manual ?? [], order: v?.order ?? [], hidden: v?.hidden ?? [] }; }
+    try { const r = typeof window !== 'undefined' ? localStorage.getItem(cfgKey) : null; const v = r ? JSON.parse(r) : null; return { manual: v?.manual ?? [], order: v?.order ?? [], hidden: v?.hidden ?? [], nameWidth: v?.nameWidth }; }
     catch { return { manual: [], order: [] }; }
   });
+  const cfgRef = useRef(cfg);
+  useEffect(() => { cfgRef.current = cfg; }, [cfg]);
   const saveCfg = (next: ColCfg) => {
     setCfg(next);
     try { localStorage.setItem(cfgKey, JSON.stringify(next)); window.dispatchEvent(new Event('ucni-nacrt-changed')); } catch { /* ignore */ }
@@ -133,6 +135,23 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [focusId]);
+  // širina stolpca z imeni: uporabnik jo spremeni tako, da povleče desni rob glave »Učenec«
+  const [dragW, setDragW] = useState<number | null>(null);
+  const nameW = dragW ?? cfg.nameWidth ?? 250;
+  const startResize = (e: React.PointerEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    const x0 = e.clientX, w0 = nameW;
+    let w = w0;
+    const move = (ev: PointerEvent) => { w = Math.max(150, Math.min(600, w0 + ev.clientX - x0)); setDragW(w); };
+    const up = () => {
+      window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up);
+      document.body.style.cursor = '';
+      setDragW(null);
+      if (w !== w0) saveCfg({ ...cfgRef.current, nameWidth: Math.round(w) });
+    };
+    document.body.style.cursor = 'col-resize';
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+  };
   const customOrder = cfg.order.length > 0 && colKeys.some((k, i) => k !== defaultKeys[i]);
   const [dragKey, setDragKey] = useState<string | null>(null);
   const [overKey, setOverKey] = useState<string | null>(null);
@@ -209,7 +228,7 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
     const m = cfg.manual.find(m => `m:${m.id}` === k)!;
     return (
       <th key={k} {...dnd} onClick={() => clickSort(k)} title={`Ročni stolpec »${m.name}« — klik: razvrsti · povleci za premik`}
-        style={{ ...base, minWidth: W.manual, padding: '8px 6px', fontSize: '11px', lineHeight: 1.25, whiteSpace: 'normal', fontWeight: active ? 700 : 600, background: '#f3f1ea' }}>
+        style={{ ...base, width: W.manual, minWidth: W.manual, maxWidth: W.manual, padding: '8px 6px', fontSize: '11px', lineHeight: 1.25, whiteSpace: 'normal', fontWeight: active ? 700 : 600, background: '#f3f1ea' }}>
         <span style={{ display: 'block', wordBreak: 'break-word' }}>{m.name}{arrow(k)}</span>
         <span style={{ display: 'inline-flex', gap: '2px', marginTop: '2px' }}>
           <button onClick={e => { e.stopPropagation(); renameManual(m.id); }} title="Preimenuj stolpec" style={miniBtn}>✎</button>
@@ -258,7 +277,7 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
         <input key={v} defaultValue={v} aria-label={`${m.name} — ${s.name}`}
           onBlur={e => setManualValue(m.id, s.id, e.currentTarget.value)}
           onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') { e.currentTarget.value = v; e.currentTarget.blur(); } }}
-          style={{ width: '100%', minWidth: '60px', boxSizing: 'border-box', textAlign: 'center', fontFamily: 'var(--font-sans)', fontSize: '15px', fontWeight: 600, color: 'var(--ink)',
+          size={4} style={{ width: `${W.manual - 8}px`, boxSizing: 'border-box', textAlign: 'center', fontFamily: 'var(--font-sans)', fontSize: '15px', fontWeight: 600, color: 'var(--ink)',
             background: 'rgba(255,255,255,0.55)', border: `1px solid ${gs.border}`, borderRadius: 'var(--r-sm)', padding: '4px 6px', outline: 'none' }} />
       </td>
     );
@@ -406,13 +425,18 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
               </button>
             )}
           </div>
-          <div style={{ overflow: 'auto', maxHeight: 'calc(100vh - 140px)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', background: '#fff' }}>
-          <table style={{ borderCollapse: 'collapse', minWidth: '100%', fontFamily: 'var(--font-sans)', fontSize: '15px' }}>
+          <div style={{ overflow: 'auto', maxHeight: 'calc(100vh - 140px)', width: 'fit-content', maxWidth: '100%', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', background: '#fff' }}>
+          <table style={{ borderCollapse: 'collapse', tableLayout: 'auto', fontFamily: 'var(--font-sans)', fontSize: '15px' }}>
             <thead>
               <tr>
                 <th onClick={() => clickSort('name')} title="Razvrsti po priimku"
-                  style={{ ...TH, textAlign: 'left', cursor: 'pointer', position: 'sticky', left: 0, zIndex: 3, borderRight: DIV, fontWeight: sort.key === 'name' ? 700 : 500, color: sort.key === 'name' ? 'var(--forest)' : 'var(--muted)' }}>
+                  style={{ ...TH, textAlign: 'left', cursor: 'pointer', position: 'sticky', left: 0, zIndex: 3, borderRight: DIV, width: nameW, minWidth: nameW, maxWidth: nameW, boxSizing: 'border-box',
+                    fontWeight: sort.key === 'name' ? 700 : 500, color: sort.key === 'name' ? 'var(--forest)' : 'var(--muted)' }}>
                   Učenec{arrow('name')}
+                  <span onPointerDown={startResize} onClick={e => e.stopPropagation()} onDoubleClick={e => { e.stopPropagation(); saveCfg({ ...cfg, nameWidth: undefined }); }}
+                    title="Povleci za širino stolpca · dvoklik = privzeta širina"
+                    style={{ position: 'absolute', top: 0, right: -4, width: '9px', height: '100%', cursor: 'col-resize', zIndex: 4, touchAction: 'none',
+                      background: dragW != null ? 'linear-gradient(to right, transparent 3px, var(--forest) 3px, var(--forest) 5px, transparent 5px)' : undefined }} />
                 </th>
                 {visibleKeys.map(headCell)}
               </tr>
@@ -421,7 +445,7 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
             {sortedStudents.map(s => { const gs = genderStyle(s.gender); const dim = !!focusId && focusId !== s.id;
               const td: React.CSSProperties = { ...TD, background: gs.bg, ...(dim ? { filter: 'blur(5px)', opacity: 0.45, pointerEvents: 'none', userSelect: 'none' } : {}), transition: 'filter .2s, opacity .2s' }; return (
               <tr key={s.id} aria-hidden={dim || undefined}>
-                <td style={{ ...td, minWidth: 200, position: 'sticky', left: 0, zIndex: 1, whiteSpace: 'nowrap', borderRight: DIV }}>
+                <td style={{ ...td, width: nameW, minWidth: nameW, maxWidth: nameW, boxSizing: 'border-box', overflow: 'hidden', textOverflow: 'ellipsis', position: 'sticky', left: 0, zIndex: 1, whiteSpace: 'nowrap', borderRight: DIV }} title={s.name}>
                 <button onClick={() => setFocusId(f => (f === s.id ? null : s.id))} title={focusId === s.id ? 'Prikaži vse učence (Esc)' : 'Prikaži samo tega učenca — ostali se zameglijo'}
                   style={{ pointerEvents: 'auto', marginRight: '6px', width: '26px', height: '26px', borderRadius: '50%', verticalAlign: 'middle', cursor: 'pointer', lineHeight: 1, padding: 0,
                     border: `1px solid ${focusId === s.id ? 'var(--forest)' : gs.border}`, background: focusId === s.id ? 'var(--forest)' : 'rgba(255,255,255,0.6)', color: focusId === s.id ? '#fff' : gs.color }}>
@@ -447,7 +471,7 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
             {/* povprečje razreda po kvizih (le učenci, ki so sodelovali) in po ročnih stolpcih s števili */}
             {(quizCols.length > 0 || cfg.manual.length > 0) && (
               <tr style={focusId ? { filter: 'blur(5px)', opacity: 0.45 } : undefined}>
-                <td style={{ position: 'sticky', left: 0, zIndex: 1, background: '#f7f6f3', padding: '7px 12px', borderTop: DIV, borderRight: DIV, whiteSpace: 'nowrap', fontWeight: 700, color: 'var(--ink)' }}>Povprečje razreda</td>
+                <td style={{ position: 'sticky', left: 0, zIndex: 1, background: '#f7f6f3', padding: '7px 12px', borderTop: DIV, borderRight: DIV, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: nameW, maxWidth: nameW, boxSizing: 'border-box', fontWeight: 700, color: 'var(--ink)' }}>Povprečje razreda</td>
                 {visibleKeys.map(footCell)}
               </tr>
             )}
