@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useRoster, parseRoster, rosterToText } from '@/hooks/useRoster';
-import StudentHistoryDialog from '@/components/quiz/StudentHistoryDialog';
 import { sortByLastName } from '@/lib/names';
 import { genderStyle } from '@/lib/genderColors';
 import { useQuizLibrary } from '@/hooks/useQuizLibrary';
@@ -88,7 +87,7 @@ export default function RosterEditor({ classId, className }: { classId: string; 
       return c * sort.dir || a.i - b.i;
     }).map(x => x.st);
   })();
-  const W = { gender: 44, pin: 52, hist: 38, seat: 96, quiz: 72 };
+  const W = { gender: 44, pin: 52, seat: 96, quiz: 72 };
   const TH: React.CSSProperties = { position: 'sticky', top: 0, background: '#eef1ec', borderBottom: '2px solid #b9c4ba', borderRight: '1px solid #d6ddd6', padding: '7px 8px',
     fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#5f6b63', whiteSpace: 'nowrap', textAlign: 'center', userSelect: 'none' };
   const TD: React.CSSProperties = { borderBottom: '1px solid', borderRight: '1px solid', padding: '5px 8px', verticalAlign: 'middle' };
@@ -112,7 +111,6 @@ export default function RosterEditor({ classId, className }: { classId: string; 
       window.print();
     }, 60);
   };
-  const [historyFor, setHistoryFor] = useState<{ id: string; name: string } | null>(null);
 
   // Popravek imena na mestu: ohrani id, PIN in vse oznake (besedilno polje bi ga obravnavalo kot novega učenca).
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -195,7 +193,6 @@ export default function RosterEditor({ classId, className }: { classId: string; 
                 {th('name', 'Učenec', undefined, 'left', 'Razvrsti po priimku')}
                 {th('gender', 'Spol', W.gender, 'center')}
                 {th('pin', 'PIN', W.pin, 'center')}
-                <th style={{ ...TH, width: W.hist }} title="Zgodovina kvizov">📊</th>
                 {th('seat', 'Sedež', W.seat, 'center', 'Pravila sedežnega reda — klik razvrsti (učenci s pravili na vrh)')}
                 {quizCols.map(c => (
                   <th key={c.s.id} onClick={() => clickSort(`q:${c.s.id}`)}
@@ -228,12 +225,6 @@ export default function RosterEditor({ classId, className }: { classId: string; 
                 </td>
                 <td style={{ ...td, textAlign: 'center', fontWeight: 600, color: gs.color }}>{s.gender || '—'}</td>
                 <td title="PIN za kviz" style={{ ...td, textAlign: 'center', fontWeight: 600, fontVariantNumeric: 'tabular-nums', letterSpacing: '0.06em', color: s.pin ? 'var(--ink)' : 'var(--muted)' }}>{s.pin ?? '—'}</td>
-                <td style={{ ...td, textAlign: 'center', padding: '2px 4px' }}>
-                  {s.pin && (
-                    <button onClick={() => setHistoryFor({ id: s.id, name: s.name })} title="Zgodovina kvizov"
-                      style={{ fontSize: '12px', background: 'rgba(255,255,255,0.7)', border: `1px solid ${gs.border}`, borderRadius: 'var(--r-sm)', padding: '2px 6px', cursor: 'pointer' }}>📊</button>
-                  )}
-                </td>
                 <td style={{ ...td, textAlign: 'center', padding: '2px 4px', whiteSpace: 'nowrap' }}>
                   {(() => { const n = (s.frontRow ? 1 : 0) + (s.nextToBoy ? 1 : 0) + (s.apartFrom?.length ? 1 : 0); const tip = seatRulesText(s) || 'Brez pravil — klik za urejanje'; return (
                     <button onClick={() => setSeatFor(s.id)} title={tip}
@@ -249,7 +240,8 @@ export default function RosterEditor({ classId, className }: { classId: string; 
                 {quizCols.map(c => { const r = c.res.get(s.id); return (
                   <td key={c.s.id} style={{ ...td, textAlign: 'center', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
                     {r ? (
-                      <a href={`/kvizi/statistika?s=${c.s.id}`} title={`${c.title}: ${formatNumber(r.pts)} / ${formatNumber(r.max)} točk`} style={{ color: gradeColor(r.pct), textDecoration: 'none' }}>{r.pct} %</a>
+                      <a href={c.s.paper ? `/r/${c.s.id}/${encodeURIComponent(s.id)}` : `/kvizi/statistika?s=${c.s.id}`} target={c.s.paper ? '_blank' : undefined} rel="noopener"
+                        title={`${c.title}: ${formatNumber(r.pts)} / ${formatNumber(r.max)} točk — klik: ${c.s.paper ? 'rezultat učenca (kot pri QR kodi)' : 'rezultati izvedbe'}`} style={{ color: gradeColor(r.pct), textDecoration: 'none' }}>{r.pct} %</a>
                     ) : <span title={`${c.title}: ni sodeloval`} style={{ color: 'var(--muted)', fontWeight: 400 }}>–</span>}
                   </td>
                 ); })}
@@ -357,7 +349,6 @@ export default function RosterEditor({ classId, className }: { classId: string; 
           </div>
         </div>
       ); })()}
-      {historyFor && <StudentHistoryDialog studentId={historyFor.id} studentName={historyFor.name} onClose={() => setHistoryFor(null)} />}
       {typeof document !== 'undefined' && createPortal(
         <div className="print-pins" aria-hidden>
           <div className="print-pins-grid">
