@@ -263,12 +263,24 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
     return withScore.sort((a, b) => sortBy === 'points' ? b.sc.points - a.sc.points || compareByLastName(a.s.name, b.s.name) : compareByLastName(a.s.name, b.s.name));
   }, [students, answersByStudent, session.quiz, sortBy]);
 
+  // povprečje razreda po nalogah: delež pravilnih med učenci, ki so sodelovali (odprta vprašanja niso točkovana)
+  const perQuestion = useMemo(() => {
+    const part = rows.filter(r => participated(r.s));
+    return new Map(session.quiz.questions.map(q => {
+      if (q.kind === 'open' || !part.length) return [q.id, null] as const;
+      const ok = part.filter(r => isCorrect(q, r.ans[q.id])).length;
+      return [q.id, ceilPct((ok / part.length) * 100)] as const;
+    }));
+  }, [rows, session.quiz.questions]);
+
   // učitelj (testna oseba) — prikazan pod učenci, ne šteje v povprečje
   const teacherScore = teacher?.device_id
     ? scoreAnswers(session.quiz, Object.fromEntries(teacherAnswers.map(a => [a.question_id, a.value])))
     : null;
 
-  const avgPct = rows.length ? ceilPct(rows.reduce((s, r) => s + r.sc.percent, 0) / rows.length) : 0;
+  // povprečje le med učenci, ki so sodelovali (neskenirani / nepovezani ne štejejo kot 0 %)
+  const partRows = rows.filter(r => participated(r.s));
+  const avgPct = partRows.length ? ceilPct(partRows.reduce((s, r) => s + r.sc.percent, 0) / partRows.length) : 0;
 
   const exportCsv = () => {
     const csv = sessionResultsCsv(session.quiz, students.map(s => ({ name: s.name, participated: participated(s), answers: answersByStudent.get(s.student_id) ?? {} })));
@@ -342,6 +354,16 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
                   </tr>
                 );
               })}
+              {/* povprečje razreda po nalogah — le če so stolpci v istem vrstnem redu za vse učence */}
+              {!perStudentOrder && rows.some(r => participated(r.s)) && (
+                <tr>
+                  <td style={{ position: 'sticky', left: 0, background: '#f7f6f3', padding: '7px 12px', borderTop: '2px solid var(--hairline)', whiteSpace: 'nowrap', fontWeight: 700, color: 'var(--ink)' }}>Povprečje razreda</td>
+                  <td style={{ padding: '7px 12px', borderTop: '2px solid var(--hairline)', borderRight: '2px solid var(--hairline)', background: '#f7f6f3', whiteSpace: 'nowrap', fontWeight: 700, color: gradeColor(avgPct) }}>{avgPct} %</td>
+                  {questions.map(q => { const p = perQuestion.get(q.id); return (
+                    <td key={q.id} style={{ textAlign: 'center', padding: '7px 6px', borderTop: '2px solid var(--hairline)', background: '#f7f6f3', fontWeight: 700, fontSize: '13px', color: p == null ? 'var(--muted)' : gradeColor(p) }}>{p == null ? '–' : `${p} %`}</td>
+                  ); })}
+                </tr>
+              )}
               {teacherScore && (
                 <tr title="Učitelj (testna oseba) — ne šteje v povprečje" style={{ fontStyle: 'italic' }}>
                   <td style={{ position: 'sticky', left: 0, background: '#fff', padding: '7px 12px', borderTop: '2px solid var(--hairline)', whiteSpace: 'nowrap', color: 'var(--muted)' }}>{TEACHER_NAME} (test)</td>
@@ -355,6 +377,25 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
           </table>
         </div>
       </div>
+
+      {/* povprečje razreda po nalogah pri premešanih listih (vrstni red kviza) */}
+      {perStudentOrder && rows.some(r => participated(r.s)) && (
+        <div style={{ marginTop: '24px' }}>
+          <h2 style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted)', margin: '0 0 10px' }}>Povprečje razreda po nalogah (izvirni vrstni red kviza)</h2>
+          <div style={{ border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', overflow: 'hidden' }}>
+            {questions.map((q, i) => { const p = perQuestion.get(q.id); return (
+              <div key={q.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '7px 12px', borderTop: i ? '1px solid var(--hairline)' : 'none', background: 'var(--canvas)', fontSize: '13px' }}>
+                <b style={{ minWidth: '24px', color: 'var(--muted)' }}>{i + 1}.</b>
+                <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--ink)' }}>{q.prompt}</span>
+                <div style={{ width: '120px', height: '8px', background: 'var(--surface)', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div style={{ width: `${p ?? 0}%`, height: '100%', background: p == null ? 'transparent' : gradeColor(p) }} />
+                </div>
+                <b style={{ minWidth: '48px', textAlign: 'right', color: p == null ? 'var(--muted)' : gradeColor(p) }}>{p == null ? '–' : `${p} %`}</b>
+              </div>
+            ); })}
+          </div>
+        </div>
+      )}
 
       {/* statistika po vprašanjih */}
       {questions.length > 0 && (
