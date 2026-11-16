@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useRoster, parseRoster, rosterToText } from '@/hooks/useRoster';
 import StudentHistoryDialog from '@/components/quiz/StudentHistoryDialog';
-import { sortByLastName } from '@/lib/names';
+import { sortByLastName, compareByLastName } from '@/lib/names';
 
 export default function RosterEditor({ classId, className }: { classId: string; className: string }) {
   const { students, save } = useRoster(classId);
@@ -30,6 +30,40 @@ export default function RosterEditor({ classId, className }: { classId: string; 
   };
 
   const missingPins = students.some(s => !s.pin);
+
+  // razvrščanje seznama s klikom na ime stolpca (ponovni klik obrne smer)
+  type SortKey = 'name' | 'gender' | 'pin' | 'apart' | 'boy' | 'front';
+  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'name', dir: 1 });
+  const clickSort = (key: SortKey) => setSort(p => (p.key === key ? { key, dir: (p.dir === 1 ? -1 : 1) } : { key, dir: 1 }));
+  const nameOf = (id?: string) => students.find(x => x.id === id)?.name ?? '';
+  const sortedStudents = (() => {
+    const base = sortByLastName(students); // pri enakih vrednostih po priimku
+    const val = (st: (typeof students)[number]): string | number => {
+      switch (sort.key) {
+        case 'gender': return st.gender ?? '~';
+        case 'pin': return st.pin ?? '~';
+        case 'apart': return st.apartFrom?.length ? nameOf(st.apartFrom[0]).toLowerCase() : '~';
+        case 'boy': return st.nextToBoy ? 0 : 1;
+        case 'front': return st.frontRow ? 0 : 1;
+        default: return 0;
+      }
+    };
+    if (sort.key === 'name') return sort.dir === 1 ? base : [...base].reverse();
+    return base.map((st, i) => ({ st, i })).sort((a, b) => {
+      const va = val(a.st), vb = val(b.st);
+      const c = typeof va === 'number' && typeof vb === 'number' ? va - vb : String(va).localeCompare(String(vb), 'sl');
+      return c * sort.dir || a.i - b.i;
+    }).map(x => x.st);
+  })();
+  const W = { gender: 44, pin: 52, hist: 38, apart: 130, boy: 96, front: 104 };
+  const th = (k: SortKey, label: string, width?: number, align?: 'left' | 'center' | 'right', title?: string) => (
+    <button key={k} onClick={() => clickSort(k)} title={title ?? `Razvrsti po stolpcu »${label}«`}
+      style={{ width, flex: width ? 'none' : 1, textAlign: align ?? 'left', background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+        fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase',
+        color: sort.key === k ? 'var(--forest)' : 'var(--muted)', whiteSpace: 'nowrap' }}>
+      {label}{sort.key === k ? (sort.dir === 1 ? ' ▲' : ' ▼') : ''}
+    </button>
+  );
   const [historyFor, setHistoryFor] = useState<{ id: string; name: string } | null>(null);
 
   // Popravek imena na mestu: ohrani id, PIN in vse oznake (besedilno polje bi ga obravnavalo kot novega učenca).
@@ -91,7 +125,16 @@ export default function RosterEditor({ classId, className }: { classId: string; 
             )}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            {sortByLastName(students).map(s => (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '4px 0 6px', borderBottom: '1px solid var(--hairline)' }}>
+              {th('name', 'Učenec', undefined, 'left', 'Razvrsti po priimku')}
+              {th('gender', 'Spol', W.gender, 'center')}
+              {th('pin', 'PIN', W.pin, 'right')}
+              <span style={{ width: W.hist, flex: 'none' }} />
+              {th('apart', 'Ne ob', W.apart)}
+              {th('boy', 'Ob fantu', W.boy, 'center')}
+              {th('front', 'Prva vrsta', W.front, 'center')}
+            </div>
+            {sortedStudents.map(s => (
               <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '4px 0' }}>
                 {renamingId === s.id ? (
                   <input autoFocus defaultValue={s.name}
@@ -99,25 +142,25 @@ export default function RosterEditor({ classId, className }: { classId: string; 
                     onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') setRenamingId(null); }}
                     style={{ flex: 1, minWidth: 0, fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--ink)', border: '1px solid var(--forest)', borderRadius: 'var(--r-sm)', padding: '4px 8px' }} />
                 ) : (
-                  <span style={{ flex: 1, fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--ink)' }}>
+                  <span style={{ flex: 1, minWidth: 0, fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--ink)' }}>
                     {s.name}
-                    {s.gender && <span style={{ fontSize: '11px', color: 'var(--muted)', marginLeft: '6px' }}>{s.gender}</span>}
                     <button onClick={() => setRenamingId(s.id)} title="Popravi ime (PIN, sedežni red in napredek ostanejo)"
                       style={{ marginLeft: '6px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: '12px', padding: '0 2px' }}>✎</button>
                   </span>
                 )}
-                <span title="PIN za kviz" style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600, fontVariantNumeric: 'tabular-nums', letterSpacing: '0.06em', color: s.pin ? 'var(--ink)' : 'var(--muted)', minWidth: '44px', textAlign: 'right' }}>
+                <span style={{ width: W.gender, flex: 'none', textAlign: 'center', fontSize: '12px', color: 'var(--muted)' }}>{s.gender ?? '—'}</span>
+                <span title="PIN za kviz" style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600, fontVariantNumeric: 'tabular-nums', letterSpacing: '0.06em', color: s.pin ? 'var(--ink)' : 'var(--muted)', width: W.pin, flex: 'none', textAlign: 'right' }}>
                   {s.pin ?? '—'}
                 </span>
-                {s.pin && (
+                {s.pin ? (
                   <button onClick={() => setHistoryFor({ id: s.id, name: s.name })} title="Zgodovina kvizov"
-                    style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 500, color: 'var(--forest)', background: 'transparent', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', padding: '5px 8px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    style={{ width: W.hist, flex: 'none', fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 500, color: 'var(--forest)', background: 'transparent', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', padding: '5px 0', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                     📊
                   </button>
-                )}
+                ) : <span style={{ width: W.hist, flex: 'none' }} />}
                 <select value={s.apartFrom?.[0] ?? ''} onChange={e => setApart(s.id, e.target.value)}
                   title="Ne sme sedeti ob (v isti vrsti vsaj 3 sedeži razmaka, sicer vsaj ena vrsta vmes)"
-                  style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, maxWidth: '130px',
+                  style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, width: W.apart, flex: 'none',
                     color: s.apartFrom?.length ? '#fff' : 'var(--forest)', background: s.apartFrom?.length ? 'var(--forest)' : 'transparent',
                     border: `1px solid ${s.apartFrom?.length ? 'var(--forest)' : 'var(--hairline)'}`, borderRadius: 'var(--r-sm)', padding: '5px 6px', cursor: 'pointer' }}>
                   <option value="" style={{ color: '#000' }}>↔ Ne ob …</option>
@@ -131,7 +174,7 @@ export default function RosterEditor({ classId, className }: { classId: string; 
                     color: s.nextToBoy ? '#fff' : 'var(--forest)',
                     background: s.nextToBoy ? 'var(--forest)' : 'transparent',
                     border: `1px solid ${s.nextToBoy ? 'var(--forest)' : 'var(--hairline)'}`,
-                    borderRadius: 'var(--r-sm)', padding: '5px 10px', cursor: 'pointer', whiteSpace: 'nowrap',
+                    borderRadius: 'var(--r-sm)', padding: '5px 0', cursor: 'pointer', whiteSpace: 'nowrap', width: W.boy, flex: 'none',
                   }}>
                   👦 Ob fantu
                 </button>
@@ -143,7 +186,7 @@ export default function RosterEditor({ classId, className }: { classId: string; 
                     color: s.frontRow ? '#fff' : 'var(--forest)',
                     background: s.frontRow ? 'var(--forest)' : 'transparent',
                     border: `1px solid ${s.frontRow ? 'var(--forest)' : 'var(--hairline)'}`,
-                    borderRadius: 'var(--r-sm)', padding: '5px 10px', cursor: 'pointer', whiteSpace: 'nowrap',
+                    borderRadius: 'var(--r-sm)', padding: '5px 0', cursor: 'pointer', whiteSpace: 'nowrap', width: W.front, flex: 'none',
                   }}>
                   1↓ Prva vrsta
                 </button>
