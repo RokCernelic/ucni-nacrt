@@ -4,7 +4,11 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useRoster, parseRoster, rosterToText } from '@/hooks/useRoster';
 import StudentHistoryDialog from '@/components/quiz/StudentHistoryDialog';
-import { sortByLastName, compareByLastName } from '@/lib/names';
+import { sortByLastName } from '@/lib/names';
+import { useQuizLibrary } from '@/hooks/useQuizLibrary';
+import { loadClassHistory, participated, type QuizSession } from '@/lib/quiz/sessionApi';
+import { scoreAnswers } from '@/lib/quiz/scoring';
+import { ceilPct, gradeColor, formatNumber } from '@/lib/quiz/format';
 
 export default function RosterEditor({ classId, className }: { classId: string; className: string }) {
   const { students, save } = useRoster(classId);
@@ -31,8 +35,30 @@ export default function RosterEditor({ classId, className }: { classId: string; 
 
   const missingPins = students.some(s => !s.pin);
 
+  // rezultati kvizov/testov tega razreda: en stolpec na izvedbo (z vsaj enim sodelujočim), od najstarejše
+  const lib = useQuizLibrary();
+  const [history, setHistory] = useState<Awaited<ReturnType<typeof loadClassHistory>> | null>(null);
+  useEffect(() => {
+    let alive = true;
+    loadClassHistory(classId).then(h => { if (alive) setHistory(h); }).catch(() => { /* brez prijave / brez povezave: brez stolpcev */ });
+    return () => { alive = false; };
+  }, [classId]);
+  const quizCols = (() => {
+    if (!history) return [] as { s: QuizSession; title: string; res: Map<string, { pct: number; pts: number; max: number }> }[];
+    return history.sessions.map(s => {
+      const by = new Map<string, Record<string, string>>();
+      for (const a of history.answersBySession.get(s.id) ?? []) by.set(a.student_id, { ...(by.get(a.student_id) ?? {}), [a.question_id]: a.value });
+      const res = new Map<string, { pct: number; pts: number; max: number }>();
+      for (const st of (history.studentsBySession.get(s.id) ?? []).filter(participated)) {
+        const sc = scoreAnswers(s.quiz, by.get(st.student_id) ?? {});
+        res.set(st.student_id, { pct: ceilPct(sc.percent), pts: sc.points, max: sc.maxPoints });
+      }
+      return { s, title: lib.quizzes.find(q => q.id === s.quiz_id)?.title || s.quiz_title, res };
+    }).filter(c => c.res.size > 0);
+  })();
+
   // razvrščanje seznama s klikom na ime stolpca (ponovni klik obrne smer)
-  type SortKey = 'name' | 'gender' | 'pin' | 'apart' | 'boy' | 'front';
+  type SortKey = 'name' | 'gender' | 'pin' | 'apart' | 'boy' | 'front' | `q:${string}`;
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'name', dir: 1 });
   const clickSort = (key: SortKey) => setSort(p => (p.key === key ? { key, dir: (p.dir === 1 ? -1 : 1) } : { key, dir: 1 }));
   const nameOf = (id?: string) => students.find(x => x.id === id)?.name ?? '';
@@ -45,7 +71,10 @@ export default function RosterEditor({ classId, className }: { classId: string; 
         case 'apart': return st.apartFrom?.length ? nameOf(st.apartFrom[0]).toLowerCase() : '~';
         case 'boy': return st.nextToBoy ? 0 : 1;
         case 'front': return st.frontRow ? 0 : 1;
-        default: return 0;
+        default: {
+          const r = quizCols.find(c => `q:${c.s.id}` === sort.key)?.res.get(st.id);
+          return r ? -r.pct : 1; // najboljši najprej, brez rezultata na konec
+        }
       }
     };
     if (sort.key === 'name') return sort.dir === 1 ? base : [...base].reverse();
@@ -55,10 +84,10 @@ export default function RosterEditor({ classId, className }: { classId: string; 
       return c * sort.dir || a.i - b.i;
     }).map(x => x.st);
   })();
-  const W = { gender: 44, pin: 52, hist: 38, apart: 130, boy: 96, front: 104 };
+  const W = { gender: 44, pin: 52, hist: 38, apart: 130, boy: 96, front: 104, quiz: 72 };
   const th = (k: SortKey, label: string, width?: number, align?: 'left' | 'center' | 'right', title?: string) => (
     <button key={k} onClick={() => clickSort(k)} title={title ?? `Razvrsti po stolpcu »${label}«`}
-      style={{ width, flex: width ? 'none' : 1, textAlign: align ?? 'left', background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+      style={{ width, flex: width ? 'none' : 1, minWidth: width ? undefined : '170px', textAlign: align ?? 'left', background: 'none', border: 'none', padding: 0, cursor: 'pointer',
         fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase',
         color: sort.key === k ? 'var(--forest)' : 'var(--muted)', whiteSpace: 'nowrap' }}>
       {label}{sort.key === k ? (sort.dir === 1 ? ' ▲' : ' ▼') : ''}
@@ -124,7 +153,8 @@ export default function RosterEditor({ classId, className }: { classId: string; 
               </button>
             )}
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div style={{ overflowX: 'auto' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 'max-content' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '4px 0 6px', borderBottom: '1px solid var(--hairline)' }}>
               {th('name', 'Učenec', undefined, 'left', 'Razvrsti po priimku')}
               {th('gender', 'Spol', W.gender, 'center')}
@@ -133,6 +163,15 @@ export default function RosterEditor({ classId, className }: { classId: string; 
               {th('apart', 'Ne ob', W.apart)}
               {th('boy', 'Ob fantu', W.boy, 'center')}
               {th('front', 'Prva vrsta', W.front, 'center')}
+              {quizCols.map(c => (
+                <button key={c.s.id} onClick={() => clickSort(`q:${c.s.id}`)}
+                  title={`${c.title}\n${new Date(c.s.created_at).toLocaleString('sl-SI', { day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })} · ${c.s.paper ? 'natisnjeno' : 'v živo'}\nKlik: razvrsti po rezultatu`}
+                  style={{ width: W.quiz, flex: 'none', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'center', fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 700, lineHeight: 1.2,
+                    color: sort.key === `q:${c.s.id}` ? 'var(--forest)' : 'var(--muted)', overflow: 'hidden' }}>
+                  <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'break-word' }}>{c.title}</span>
+                  <span style={{ fontWeight: 500 }}>{new Date(c.s.created_at).toLocaleDateString('sl-SI', { day: 'numeric', month: 'numeric' })}{sort.key === `q:${c.s.id}` ? (sort.dir === 1 ? ' ▲' : ' ▼') : ''}</span>
+                </button>
+              ))}
             </div>
             {sortedStudents.map(s => (
               <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '4px 0' }}>
@@ -140,9 +179,9 @@ export default function RosterEditor({ classId, className }: { classId: string; 
                   <input autoFocus defaultValue={s.name}
                     onBlur={e => { renameStudent(s.id, e.currentTarget.value); setRenamingId(null); }}
                     onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') setRenamingId(null); }}
-                    style={{ flex: 1, minWidth: 0, fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--ink)', border: '1px solid var(--forest)', borderRadius: 'var(--r-sm)', padding: '4px 8px' }} />
+                    style={{ flex: 1, minWidth: '170px', fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--ink)', border: '1px solid var(--forest)', borderRadius: 'var(--r-sm)', padding: '4px 8px' }} />
                 ) : (
-                  <span style={{ flex: 1, minWidth: 0, fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--ink)' }}>
+                  <span style={{ flex: 1, minWidth: '170px', fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--ink)' }}>
                     {s.name}
                     <button onClick={() => setRenamingId(s.id)} title="Popravi ime (PIN, sedežni red in napredek ostanejo)"
                       style={{ marginLeft: '6px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: '12px', padding: '0 2px' }}>✎</button>
@@ -190,8 +229,15 @@ export default function RosterEditor({ classId, className }: { classId: string; 
                   }}>
                   1↓ Prva vrsta
                 </button>
+                {quizCols.map(c => { const r = c.res.get(s.id); return r ? (
+                  <a key={c.s.id} href={`/kvizi/statistika?s=${c.s.id}`} title={`${c.title}: ${formatNumber(r.pts)} / ${formatNumber(r.max)} točk`}
+                    style={{ width: W.quiz, flex: 'none', textAlign: 'center', fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 700, color: gradeColor(r.pct), textDecoration: 'none', fontVariantNumeric: 'tabular-nums' }}>
+                    {r.pct} %
+                  </a>
+                ) : <span key={c.s.id} title={`${c.title}: ni sodeloval`} style={{ width: W.quiz, flex: 'none', textAlign: 'center', color: 'var(--muted)', fontSize: '13px' }}>–</span>; })}
               </div>
             ))}
+          </div>
           </div>
         </div>
       )}

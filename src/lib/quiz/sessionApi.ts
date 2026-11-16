@@ -214,6 +214,25 @@ export async function loadAllHistory() {
   return { sessions, studentsBySession, answersBySession };
 }
 
+/** Vse izvedbe kvizov za en razred (z učenci in odgovori) — za stolpce rezultatov na seznamu učencev. */
+export async function loadClassHistory(classId: string) {
+  const sb = getSupabaseBrowserClient();
+  const { data, error } = await sb.from('quiz_sessions').select('*').eq('class_id', classId).order('created_at', { ascending: true });
+  if (error) throw new Error(error.message);
+  const sessions = (data ?? []) as QuizSession[];
+  const ids = sessions.map(s => s.id);
+  const studentsBySession = new Map<string, SessionStudent[]>();
+  const answersBySession = new Map<string, SessionAnswer[]>();
+  if (!ids.length) return { sessions, studentsBySession, answersBySession };
+  const [stRows, aRows] = await Promise.all([
+    fetchAllBySession<SessionStudent>('quiz_session_students', ids),
+    fetchAllBySession<SessionAnswer>('quiz_answers', ids),
+  ]);
+  for (const x of stRows.filter(x => !isTeacherRow(x))) studentsBySession.set(x.session_id, [...(studentsBySession.get(x.session_id) ?? []), x]);
+  for (const x of aRows.filter(x => !isTeacherRow(x))) answersBySession.set(x.session_id, [...(answersBySession.get(x.session_id) ?? []), x]);
+  return { sessions, studentsBySession, answersBySession };
+}
+
 /**
  * Ob brisanju kviza: izbriše njegove PRAZNE izvedbe (nihče ni sodeloval, ni odgovorov, seja ne teče) — npr. poskusne
  * tiske. Izvedbe z rezultati ostanejo (v Rezultatih ostanejo vidne tudi po izbrisu kviza). Vrne število izbrisanih sej.
