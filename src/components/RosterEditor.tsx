@@ -4,13 +4,16 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useRoster, parseRoster, rosterToText } from '@/hooks/useRoster';
 import { sortByLastName } from '@/lib/names';
-import { genderStyle } from '@/lib/genderColors';
+import { genderStyle as baseGenderStyle } from '@/lib/genderColors';
+import { seatColors } from '@/lib/schoolColor';
 import { useQuizLibrary } from '@/hooks/useQuizLibrary';
 import { loadClassHistory, participated, type QuizSession } from '@/lib/quiz/sessionApi';
 import { scoreAnswers } from '@/lib/quiz/scoring';
 import { ceilPct, gradeColor, formatNumber } from '@/lib/quiz/format';
 
-export default function RosterEditor({ classId, className }: { classId: string; className: string }) {
+export default function RosterEditor({ classId, className, shade }: { classId: string; className: string; /** odtenek šole (kot pri sedežnem redu) */ shade?: number }) {
+  // barve vrstic kot sedeži v sedežnem redu tega razreda (vsaka šola svoj par barv)
+  const genderStyle = (g: string | null | undefined) => seatColors(g ?? '', shade) ?? baseGenderStyle(g);
   const { students, save } = useRoster(classId);
   const [text, setText] = useState('');
   const [saved, setSaved] = useState(false);
@@ -218,7 +221,7 @@ export default function RosterEditor({ classId, className }: { classId: string; 
   const miniBtn: React.CSSProperties = { background: 'transparent', border: '1px solid var(--hairline)', borderRadius: '50%', width: '20px', height: '20px', fontSize: '11px', lineHeight: 1, cursor: 'pointer', color: 'var(--muted)', padding: 0 };
 
   /** Celica premakljivega stolpca za učenca. */
-  const bodyCell = (k: string, s: (typeof students)[number], gs: ReturnType<typeof genderStyle>, td: React.CSSProperties) => {
+  const bodyCell = (k: string, s: (typeof students)[number], gs: ReturnType<typeof baseGenderStyle>, td: React.CSSProperties) => {
     if (k === 'gender') return <td key={k} style={{ ...td, textAlign: 'center', fontWeight: 600, color: gs.color }}>{s.gender || '—'}</td>;
     if (k === 'pin') return <td key={k} title="PIN za kviz" style={{ ...td, textAlign: 'center', fontWeight: 600, fontSize: '14px', fontVariantNumeric: 'tabular-nums', letterSpacing: '0.06em', color: s.pin ? 'var(--ink)' : 'var(--muted)' }}>{s.pin ?? '—'}</td>;
     if (k === 'seat') {

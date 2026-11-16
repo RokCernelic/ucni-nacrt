@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { useMasterClasses } from '@/hooks/useMasterClasses';
 import RosterEditor from '@/components/RosterEditor';
+import { schoolShade } from '@/lib/schoolColor';
 
 const input: React.CSSProperties = {
   fontFamily: 'var(--font-sans)', fontSize: '14px', color: 'var(--ink)', background: 'var(--canvas)',
@@ -94,7 +95,7 @@ export default function UcenciRazredPage() {
               </button>
             </div>
             <div style={{ borderTop: '1px solid var(--hairline)', marginTop: '20px' }}>
-              <RosterEditor key={cur.id} classId={cur.id} className={[cur.name, cur.school].filter(Boolean).join(' · ')} />
+              <RosterEditor key={cur.id} classId={cur.id} className={[cur.name, cur.school].filter(Boolean).join(' · ')} shade={schoolShade(cur.school, classes)} />
             </div>
           </>
         )}
