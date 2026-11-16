@@ -218,6 +218,26 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
     }
     return m;
   }, [session, sessionsByStudent, students]);
+  /**
+   * Vprašanja v vrstnem redu lista posameznega učenca (natisnjen kviz z mešanjem): stolpec 1 = njegova naloga 1 itd.,
+   * da učenec na projekciji takoj vidi, katero svojo nalogo je imel narobe. Pri kvizu v živo velja izvirni vrstni red.
+   */
+  const orderBy = useMemo(() => {
+    const byId = new Map(session.quiz.questions.map(q => [q.id, q]));
+    const m = new Map<string, Question[]>();
+    for (const st of students) {
+      const paper = (sessionsByStudent?.get(st.student_id) ?? session).paper as PaperInfo | null | undefined;
+      if (!paper) continue;
+      const lay = layoutSheet(paper.items, paper.shuffle ? sheetSeed(paper.salt, st.student_id) : null, { ...shuffleOpts(paper), order: paper.orders?.[st.student_id] });
+      const seq = [...lay.choice, ...lay.free].map(c => byId.get(c.item.id)).filter((q): q is Question => !!q);
+      // vprašanja, ki jih na listu ni (npr. dodana kasneje), na konec
+      m.set(st.student_id, [...seq, ...session.quiz.questions.filter(q => !seq.includes(q))]);
+    }
+    return m;
+  }, [session, sessionsByStudent, students]);
+  const colsFor = (sid: string) => orderBy.get(sid) ?? session.quiz.questions;
+  const perStudentOrder = orderBy.size > 0 && [...orderBy.values()].some(list => list.some((q, i) => q.id !== session.quiz.questions[i]?.id));
+
   const rightFor = (sid: string, q: Question): string | undefined => {
     if (q.kind === 'numeric') return q.correct || undefined;
     if (q.kind !== 'mc' || !q.correct) return undefined;
@@ -288,6 +308,7 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
       {/* združena tabela: učenec · točke in % · ✓/✗ po vprašanjih (primerna za projekcijo) */}
       <div style={{ marginTop: '28px' }}>
         <h2 style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted)', margin: '0 0 10px' }}>Učenec × vprašanje</h2>
+        {perStudentOrder && <p style={{ fontSize: '12px', color: 'var(--muted)', margin: '-4px 0 10px' }}>Številke stolpcev so številke nalog na listu posameznega učenca (vsak je imel premešan vrstni red).</p>}
         <div style={{ overflowX: 'auto', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)' }}>
           <table style={{ borderCollapse: 'collapse', fontSize: '15px', minWidth: '100%' }}>
             <thead><tr>
@@ -297,7 +318,7 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
               <th style={{ padding: '8px 12px', textAlign: 'left', borderBottom: '1px solid var(--hairline)', borderRight: '2px solid var(--hairline)', whiteSpace: 'nowrap' }}>
                 <button style={sortBtn(sortBy === 'points')} onClick={() => setSortBy('points')}>Točke · %</button>
               </th>
-              {questions.map((q, i) => <th key={q.id} title={q.prompt} style={{ padding: '8px 6px', borderBottom: '1px solid var(--hairline)', minWidth: '38px', color: 'var(--muted)', fontWeight: 600 }}>{i + 1}</th>)}
+              {questions.map((q, i) => <th key={q.id} title={perStudentOrder ? `Naloga ${i + 1} na listu posameznega učenca` : q.prompt} style={{ padding: '8px 6px', borderBottom: '1px solid var(--hairline)', minWidth: '38px', color: 'var(--muted)', fontWeight: 600 }}>{i + 1}</th>)}
             </tr></thead>
             <tbody>
               {rows.map(({ s, ans, sc }) => {
@@ -317,7 +338,7 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
                         <span style={{ marginLeft: '10px', fontWeight: 700, color: pctColor(sc.percent) }}>{formatNumber(sc.percent)} %</span>
                       </>) : <span style={{ color: 'var(--muted)' }}>–</span>}
                     </td>
-                    {questions.map(q => <Mark key={q.id} q={q} value={ans[q.id]} right={rightFor(s.student_id, q)} />)}
+                    {colsFor(s.student_id).map((q, i) => <Mark key={i} q={q} value={ans[q.id]} right={rightFor(s.student_id, q)} />)}
                   </tr>
                 );
               })}
@@ -338,7 +359,7 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
       {/* statistika po vprašanjih */}
       {questions.length > 0 && (
         <div style={{ marginTop: '32px' }}>
-          <h2 style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted)', margin: '0 0 10px' }}>Vprašanja</h2>
+          <h2 style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted)', margin: '0 0 10px' }}>Vprašanja{perStudentOrder ? ' (v izvirnem vrstnem redu kviza)' : ''}</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {questions.map((q, i) => <QuestionStats key={q.id} q={q} index={i} answers={answers} totalStudents={students.length} />)}
           </div>
