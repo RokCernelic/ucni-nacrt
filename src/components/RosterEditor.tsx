@@ -425,7 +425,7 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
               </button>
             )}
           </div>
-          <div style={{ overflow: 'auto', maxHeight: 'calc(100vh - 140px)', width: 'fit-content', maxWidth: '100%', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', background: '#fff' }}>
+          <div style={{ overflow: 'auto', scrollbarGutter: 'stable', maxHeight: 'calc(100vh - 140px)', width: 'fit-content', maxWidth: '100%', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', background: '#fff' }}>
           <table style={{ borderCollapse: 'collapse', tableLayout: 'auto', fontFamily: 'var(--font-sans)', fontSize: '15px' }}>
             <thead>
               <tr>
