@@ -50,17 +50,24 @@ export default function RosterEditor({ classId, className }: { classId: string; 
     loadClassHistory(classId).then(h => { if (alive) setHistory(h); }).catch(() => { /* brez prijave / brez povezave: brez stolpcev */ });
     return () => { alive = false; };
   }, [classId]);
+  type R = { pct: number; pts: number; max: number; sid: string };
+  const normName = (n: string) => n.trim().toLowerCase().replace(/\s+/g, ' ');
+  // rezultat učenca v izvedbi: po id-ju iz seznama, sicer po imenu (npr. če je bil seznam ponovno vnesen in so id-ji novi)
+  const resOf = (c: { res: Map<string, R>; byName: Map<string, R> }, st: { id: string; name: string }) => c.res.get(st.id) ?? c.byName.get(normName(st.name));
   const quizCols = (() => {
-    if (!history) return [] as { s: QuizSession; title: string; res: Map<string, { pct: number; pts: number; max: number }> }[];
+    if (!history) return [] as { s: QuizSession; title: string; res: Map<string, R>; byName: Map<string, R> }[];
     return history.sessions.map(s => {
       const by = new Map<string, Record<string, string>>();
       for (const a of history.answersBySession.get(s.id) ?? []) by.set(a.student_id, { ...(by.get(a.student_id) ?? {}), [a.question_id]: a.value });
-      const res = new Map<string, { pct: number; pts: number; max: number }>();
+      const res = new Map<string, R>();
+      const byName = new Map<string, R>();
       for (const st of (history.studentsBySession.get(s.id) ?? []).filter(participated)) {
         const sc = scoreAnswers(s.quiz, by.get(st.student_id) ?? {});
-        res.set(st.student_id, { pct: ceilPct(sc.percent), pts: sc.points, max: sc.maxPoints });
+        const r: R = { pct: ceilPct(sc.percent), pts: sc.points, max: sc.maxPoints, sid: st.student_id };
+        res.set(st.student_id, r);
+        byName.set(normName(st.name), r);
       }
-      return { s, title: lib.quizzes.find(q => q.id === s.quiz_id)?.title || s.quiz_title, res };
+      return { s, title: lib.quizzes.find(q => q.id === s.quiz_id)?.title || s.quiz_title, res, byName };
     }).filter(c => c.res.size > 0);
   })();
 
@@ -80,7 +87,7 @@ export default function RosterEditor({ classId, className }: { classId: string; 
         case 'pin': return st.pin ?? '~';
         case 'seat': return -((st.frontRow ? 4 : 0) + (st.nextToBoy ? 2 : 0) + (st.apartFrom?.length ? 1 : 0));
         default: {
-          const r = quizCols.find(c => `q:${c.s.id}` === sort.key)?.res.get(st.id);
+          const r = (() => { const c = quizCols.find(c => `q:${c.s.id}` === sort.key); return c ? resOf(c, st) : undefined; })();
           return r ? -r.pct : 1; // najboljši najprej, brez rezultata na konec
         }
       }
@@ -244,10 +251,10 @@ export default function RosterEditor({ classId, className }: { classId: string; 
                     </button>
                   ); })()}
                 </td>
-                {quizCols.map(c => { const r = c.res.get(s.id); return (
+                {quizCols.map(c => { const r = resOf(c, s); return (
                   <td key={c.s.id} style={{ ...td, textAlign: 'center', fontWeight: 700, fontSize: '15px', fontVariantNumeric: 'tabular-nums', padding: '7px 6px' }}>
                     {r ? (
-                      <a href={c.s.paper ? `/r/${c.s.id}/${encodeURIComponent(s.id)}` : `/kvizi/statistika?s=${c.s.id}`} target={c.s.paper ? '_blank' : undefined} rel="noopener"
+                      <a href={c.s.paper ? `/r/${c.s.id}/${encodeURIComponent(r.sid)}` : `/kvizi/statistika?s=${c.s.id}`} target={c.s.paper ? '_blank' : undefined} rel="noopener"
                         title={`${c.title}: ${formatNumber(r.pts)} / ${formatNumber(r.max)} točk — klik: ${c.s.paper ? 'rezultat učenca (kot pri QR kodi)' : 'rezultati izvedbe'}`} style={{ color: gradeColor(r.pct), textDecoration: 'none' }}>{r.pct} %</a>
                     ) : <span title={`${c.title}: ni sodeloval`} style={{ color: 'var(--muted)', fontWeight: 400 }}>–</span>}
                   </td>
@@ -295,7 +302,7 @@ export default function RosterEditor({ classId, className }: { classId: string; 
                   <td style={{ color: gs.color }}>{s.gender || '—'}</td>
                   {printOpts.pin && <td className="pin">{s.pin ?? '—'}</td>}
                   {printOpts.rules && <td className="left" style={{ fontSize: '8.5pt' }}>{seatRulesText(s)}</td>}
-                  {printOpts.quizzes && quizCols.map(c => { const r = c.res.get(s.id); return <td key={c.s.id} className="res" style={{ color: r ? gradeColor(r.pct) : '#999' }}>{r ? `${r.pct} %` : '–'}</td>; })}
+                  {printOpts.quizzes && quizCols.map(c => { const r = resOf(c, s); return <td key={c.s.id} className="res" style={{ color: r ? gradeColor(r.pct) : '#999' }}>{r ? `${r.pct} %` : '–'}</td>; })}
                   {printOpts.blank > 0 && Array.from({ length: printOpts.blank }, (_, i) => <td key={`b${i}`} />)}
                 </tr>
               ); })}
