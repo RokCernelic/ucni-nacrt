@@ -9,12 +9,8 @@ import { useFixedSeats, fixedMapForDate } from '@/hooks/useFixedSeats';
 import { seatColors } from '@/lib/schoolColor';
 import { formatLessonDate, type Lesson } from '@/data/timetable';
 import { sortByLastName } from '@/lib/names';
+import { genderStyle } from '@/lib/genderColors';
 
-function genderStyle(g: string) {
-  if (g === 'Ž') return { bg: '#efe7f8', border: '#b79ce0', color: '#5b3a9b' };
-  if (g === 'M') return { bg: '#e2f3ee', border: '#82c4b0', color: '#17695a' };
-  return { bg: 'var(--canvas)', border: 'var(--hairline)', color: 'var(--ink)' };
-}
 
 /** Barva sedeža: vijolična/zelena po spolu; ko je več šol, ima vsaka šola svoj odtenek. */
 function seatStyle(stud: Student | undefined, shade?: number) {
