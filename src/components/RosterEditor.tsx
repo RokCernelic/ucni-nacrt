@@ -67,31 +67,9 @@ export default function RosterEditor({ classId, className }: { classId: string; 
 
   return (
     <div>
-      <p style={{ fontSize: '11px', color: 'var(--muted)', margin: '14px 0 8px', lineHeight: 1.5 }}>
-        Učenci — vsaka vrstica: <b>Ime Priimek, Ž/M</b>. Nato Shrani.
-      </p>
-      <textarea
-        value={text}
-        onChange={(e) => { setText(e.target.value); setSaved(false); }}
-        placeholder={'Ana Novak, Ž\nJan Kos, M\nEva Horvat, Ž'}
-        rows={9}
-        style={{ width: '100%', boxSizing: 'border-box', fontFamily: 'var(--font-sans)', fontSize: '13px', lineHeight: 1.6, color: 'var(--ink)', background: 'var(--canvas)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', padding: '10px 12px', outline: 'none', resize: 'vertical' }}
-      />
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '10px' }}>
-        <button
-          onClick={handleSave}
-          style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 600, color: '#fff', background: 'var(--forest)', border: 'none', borderRadius: 'var(--r-sm)', padding: '8px 16px', cursor: 'pointer' }}>
-          Shrani učence
-        </button>
-        <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
-          {parsed.length} učencev{parsed.length ? ` · ${z} Ž / ${m} M` : ''}
-        </span>
-        {saved && <span style={{ fontSize: '12px', color: 'var(--green-ok)' }}>Shranjeno ✓</span>}
-      </div>
-
       {/* Seznam shranjenih učencev z oznako »prva vrsta« */}
       {students.length > 0 && (
-        <div style={{ marginTop: '18px', borderTop: '1px solid var(--hairline)', paddingTop: '14px' }}>
+        <div style={{ marginTop: '14px' }}>
           <p style={{ fontSize: '11px', color: 'var(--muted)', margin: '0 0 10px', lineHeight: 1.5 }}>
             <b>1↓ Prva vrsta</b> — učenec vedno sedi v prvi vrsti (pri tabli), a naključno premešan znotraj nje.
             <br /><b>👦 Ob fantu</b> — učenec ima vedno vsaj enega soseda fanta.
@@ -174,6 +152,31 @@ export default function RosterEditor({ classId, className }: { classId: string; 
           </div>
         </div>
       )}
+      {/* Vnos / urejanje seznama učencev (pod seznamom) */}
+      <div style={{ marginTop: students.length > 0 ? '22px' : 0, borderTop: students.length > 0 ? '1px solid var(--hairline)' : 'none' }}>
+      <p style={{ fontSize: '11px', color: 'var(--muted)', margin: '14px 0 8px', lineHeight: 1.5 }}>
+        Učenci — vsaka vrstica: <b>Ime Priimek, Ž/M</b>. Nato Shrani.
+      </p>
+      <textarea
+        value={text}
+        onChange={(e) => { setText(e.target.value); setSaved(false); }}
+        placeholder={'Ana Novak, Ž\nJan Kos, M\nEva Horvat, Ž'}
+        rows={9}
+        style={{ width: '100%', boxSizing: 'border-box', fontFamily: 'var(--font-sans)', fontSize: '13px', lineHeight: 1.6, color: 'var(--ink)', background: 'var(--canvas)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', padding: '10px 12px', outline: 'none', resize: 'vertical' }}
+      />
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '10px' }}>
+        <button
+          onClick={handleSave}
+          style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 600, color: '#fff', background: 'var(--forest)', border: 'none', borderRadius: 'var(--r-sm)', padding: '8px 16px', cursor: 'pointer' }}>
+          Shrani učence
+        </button>
+        <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
+          {parsed.length} učencev{parsed.length ? ` · ${z} Ž / ${m} M` : ''}
+        </span>
+        {saved && <span style={{ fontSize: '12px', color: 'var(--green-ok)' }}>Shranjeno ✓</span>}
+      </div>
+      </div>
+
       {historyFor && <StudentHistoryDialog studentId={historyFor.id} studentName={historyFor.name} onClose={() => setHistoryFor(null)} />}
       {typeof document !== 'undefined' && createPortal(
         <div className="print-pins" aria-hidden>
