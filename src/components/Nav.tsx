@@ -159,25 +159,27 @@ export default function Nav() {
       background: 'var(--forest)', boxShadow: '0 1px 8px rgba(0,0,0,0.18)',
     }}>
       <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '12px 32px 10px', width: '100%' }}>
-        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 'clamp(16px, 2.5vw, 28px)', rowGap: '6px' }}>
+        <div className="app-nav-row" style={{ display: 'flex', alignItems: 'center', columnGap: 'clamp(16px, 2.5vw, 28px)', rowGap: '6px' }}>
           <Link href="/" style={item(ucniActive)}>Učni načrt</Link>
           {!loading && user && (
             <>
               <Link href="/sedezni-red" style={item(onSeating)}>Sedežni red</Link>
               <Link href="/kvizi" style={item(onQuizzes)}>Kvizi</Link>
               <Link href="/ucenci" style={item(onStudents)}>Učenci</Link>
-              <span style={{ flex: 1 }} />
+              {/* ura in kontrole so en blok: ob pomanjkanju prostora se skrajšata napis ure in e-pošta, ne prelomi se vrstica */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(12px, 2vw, 24px)', marginLeft: 'auto', minWidth: 0, flex: '1 1 0', justifyContent: 'flex-end' }}>
               <NavCountdown />
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginLeft: 'auto' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0, minWidth: 0 }}>
                 <Link href="/nastavitve" title="Nastavitve" aria-label="Nastavitve"
                   style={{ ...ctrl, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '30px', height: '28px', padding: 0,
                     ...(onSettings ? { background: 'rgba(255,255,255,0.2)', color: '#fff' } : {}) }}>
                   <GearIcon />
                 </Link>
                 <button onClick={signOut} style={ctrl}>Odjava</button>
-                <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap' }}>
+                <span className="app-nav-email" title={user.email ?? undefined} style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }}>
                   {user.email}
                 </span>
+              </div>
               </div>
             </>
           )}

@@ -221,6 +221,10 @@ body {
 
 /* skener natisnjenih kvizov: med delovanjem kamere brez glave aplikacije */
 html.scanner-full .app-nav { display: none; }
+/* zgornja vrstica menija: na širokih zaslonih vedno v eni vrstici (ne skače), na ozkih se prelomi */
+.app-nav-row { flex-wrap: nowrap; }
+@media (max-width: 860px) { .app-nav-row { flex-wrap: wrap; } }
+@media (max-width: 1180px) { .app-nav-email { display: none; } }
 
 /* Letna priprava: ležeči A4. Strani razdeli in oštevilči PrintLdn sam (»STRAN x OD y« v nogi), ker robni okvirji @page
    niso podprti v vseh brskalnikih. Pravila veljajo tudi za skrit merilni izris (.ldn-measure), zato niso samo v @media print. */

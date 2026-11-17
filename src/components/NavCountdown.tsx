@@ -10,11 +10,11 @@ export default function NavCountdown() {
   if (!cd) return null; // brez zapomnjene šole → privzeti urnik
   return (
     <div title={school ? `Urnik: ${school}` : undefined}
-      style={{ display: 'flex', alignItems: 'baseline', gap: '8px', whiteSpace: 'nowrap', fontFamily: 'var(--font-sans)' }}>
+      style={{ display: 'flex', alignItems: 'baseline', gap: '8px', whiteSpace: 'nowrap', fontFamily: 'var(--font-sans)', minWidth: 0, flexShrink: 1 }}>
       {cd.remaining !== null ? (
         <>
-          <span style={{ fontFamily: 'var(--font-serif)', fontSize: '22px', fontWeight: 400, lineHeight: 1, fontVariantNumeric: 'tabular-nums', color: cd.inLesson ? '#bfe3c0' : '#ff6459' }}>{cd.clock}</span>
-          <span style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)' }}>
+          <span style={{ flexShrink: 0, fontFamily: 'var(--font-serif)', fontSize: '22px', fontWeight: 400, lineHeight: 1, fontVariantNumeric: 'tabular-nums', color: cd.inLesson ? '#bfe3c0' : '#ff6459' }}>{cd.clock}</span>
+          <span style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
             {cd.caption}{school ? ` · ${school}` : ''}
           </span>
         </>
