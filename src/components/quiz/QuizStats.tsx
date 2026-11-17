@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuizLibrary } from '@/hooks/useQuizLibrary';
+import type { QuizFolder } from '@/lib/quiz/types';
 import { loadAllHistory, joinStatsChannel, isLive, participated, type QuizSession, type SessionStudent, type SessionAnswer } from '@/lib/quiz/sessionApi';
 import { scoreAnswers, isCorrect } from '@/lib/quiz/scoring';
 import { SessionResults } from './LiveSession';
@@ -14,6 +15,14 @@ import { gradeColor } from '@/lib/quiz/format';
 type Data = Awaited<ReturnType<typeof loadAllHistory>>;
 const keyOf = (s: QuizSession) => s.quiz_id ?? `naslov:${s.quiz_title}`;
 const pctColor = gradeColor;
+
+function FolderIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round">
+      <path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.3l2 2.2h8.7A1.5 1.5 0 0 1 21 8.7v9.8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z" />
+    </svg>
+  );
+}
 
 /** Kvizi → Rezultati: vsaka izvedba kviza (seja) posebej; ?k=kviz filtrira, ?s=seja odpre podrobne rezultate. */
 export default function QuizStats() {
@@ -29,6 +38,14 @@ export default function QuizStats() {
   const toggleQuiz = (k: string) => setOpenQuizzes(prev => {
     const n = new Set(prev); if (n.has(k)) n.delete(k); else n.add(k);
     try { localStorage.setItem('rezultati-odprti', JSON.stringify([...n])); } catch { /* ignore */ }
+    return n;
+  });
+  const [openFolders, setOpenFolders] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('rezultati-mape-odprte') ?? '[]')); } catch { return new Set(); }
+  });
+  const toggleFolder = (id: string) => setOpenFolders(prev => {
+    const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id);
+    try { localStorage.setItem('rezultati-mape-odprte', JSON.stringify([...n])); } catch { /* ignore */ }
     return n;
   });
   const [data, setData] = useState<Data | null>(null);
@@ -87,15 +104,102 @@ export default function QuizStats() {
     return [...m.entries()].map(([key, rs]) => {
       const people = rs.reduce((t, r) => t + r.people, 0);
       const sum = rs.reduce((t, r) => t + (r.avg ?? 0) * r.people, 0);
-      return { key, rows: rs, title: rs[0].s.quiz_title, people, avg: people ? ceilPct(sum / people) : null,
+      const quizId = rs[0].s.quiz_id;
+      const folderId = (quizId && lib.quizzes.find(q => q.id === quizId)?.folderId) || null;
+      return { key, folderId, rows: rs, title: rs[0].s.quiz_title, people, avg: people ? ceilPct(sum / people) : null,
         classes: [...new Set(rs.map(r => r.s.class_name))], live: rs.some(r => r.live), open: rs.some(r => r.open), deleted: rs[0].deleted };
     });
-  }, [rows, selected, showEmpty]);
+  }, [rows, selected, showEmpty, lib.quizzes]);
 
   if (loading) return null;
   if (!user) return <div style={{ maxWidth: '900px', margin: '0 auto', padding: '32px' }}><p style={{ color: 'var(--muted)' }}>Za rezultate se <Link href="/login" style={{ color: 'var(--forest)' }}>prijavite</Link>.</p></div>;
   if (error) return <div style={{ maxWidth: '900px', margin: '0 auto', padding: '32px' }}><p style={{ color: '#c0392b', fontFamily: 'var(--font-sans)' }}>{error}</p></div>;
   if (!data) return <div style={{ maxWidth: '900px', margin: '0 auto', padding: '32px', fontFamily: 'var(--font-sans)', color: 'var(--muted)' }}>Nalagam …</div>;
+
+  const renderGroup = (g: (typeof groups)[number]) => {
+          const isOpen = !!selected || openQuizzes.has(g.key);
+          return (
+            <div key={g.key} style={{ border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', background: 'var(--canvas)', overflow: 'hidden' }}>
+              <div onClick={() => !selected && toggleQuiz(g.key)}
+                style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', padding: '12px 16px', cursor: selected ? 'default' : 'pointer', background: isOpen ? 'rgba(45,106,49,0.06)' : 'transparent' }}>
+                <span style={{ color: 'var(--muted)', fontSize: '14px', width: '12px', display: 'inline-block', transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}>›</span>
+                <div style={{ flex: '1 1 240px', minWidth: 0 }}>
+                  <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--ink)' }}>
+                    {g.title}{g.deleted && <span style={{ fontSize: '11px', fontWeight: 500, color: '#b7791f', marginLeft: '8px' }}>izbrisan kviz</span>}
+                    {g.live ? <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--green-ok)', marginLeft: '8px' }}>● v teku</span>
+                      : g.open && <span style={{ fontSize: '11px', fontWeight: 600, color: '#b7791f', marginLeft: '8px' }}>nezaključeno</span>}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '2px' }}>
+                    {g.rows.length} {g.rows.length === 1 ? 'izvedba' : g.rows.length === 2 ? 'izvedbi' : g.rows.length < 5 ? 'izvedbe' : 'izvedb'} · {g.classes.join(', ')} · nazadnje {dateTimeLabel(g.rows[0].s.created_at)}
+                  </div>
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--muted)' }}>{g.people} rezultatov</div>
+                <div style={{ fontSize: '20px', fontWeight: 700, color: pctColor(g.avg), minWidth: '64px', textAlign: 'right' }}>{g.avg === null ? '—' : `${g.avg} %`}</div>
+              </div>
+              {isOpen && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '8px 12px 12px 34px', borderTop: '1px solid var(--hairline)' }}>
+                  {g.rows.map(r => (
+              <Link key={r.s.id} href={`/kvizi/statistika?${selected ? `k=${encodeURIComponent(selected)}&` : ''}s=${r.s.id}`} style={card}>
+                <div style={{ flex: '1 1 240px', minWidth: 0 }}>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--ink)' }}>
+                    {r.s.class_name} · {dateTimeLabel(r.s.created_at)}
+                    {r.live ? <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--green-ok)', marginLeft: '8px' }}>● v teku</span>
+                      : r.open && <span style={{ fontSize: '11px', fontWeight: 600, color: '#b7791f', marginLeft: '8px' }}>nezaključeno</span>}
+                    {r.scoringChanged && <span style={{ fontSize: '11px', fontWeight: 600, color: '#b7791f', marginLeft: '8px' }} title="Točke v kvizu so bile spremenjene — odpri izvedbo in potrdi novo točkovanje">⚠ novo točkovanje ni potrjeno</span>}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '3px' }}>
+                    {r.s.paper ? '🖨 natisnjeno' : r.s.mode === 'teacher' ? 'v živo · projekcija' : 'v živo · tablica'}
+                    {r.s.ended_at && ` · končana ${dateTimeLabel(r.s.ended_at)}`}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '1px' }}>
+                    {questionsLabel(r.nQ)} · {pointsLabel(r.maxPts)} (samodejno točkovano){r.quizCreated && ` · kviz ustvarjen ${dateTimeLabel(r.quizCreated)}`}
+                  </div>
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--muted)' }}>{r.people} / {r.total} učencev</div>
+                <div style={{ fontSize: '20px', fontWeight: 700, color: pctColor(r.avg), minWidth: '64px', textAlign: 'right' }}>{r.avg === null ? '—' : `${r.avg} %`}</div>
+              </Link>
+            
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+  };
+
+  // rezultati so razvrščeni v iste mape kot kvizi (Kvizi → mape); izbrisani kvizi so brez mape
+  const folderIds = new Set(lib.folders.map(f => f.id));
+  const groupsIn = (folderId: string | null) => groups.filter(g => (g.folderId && folderIds.has(g.folderId) ? g.folderId : null) === folderId);
+  /** ali je mapa `id` enaka `ancestor` ali leži v njej */
+  const inFolder = (id: string, ancestor: string): boolean => {
+    for (let cur: string | null = id, guard = 0; cur && guard < 50; guard++) {
+      if (cur === ancestor) return true;
+      cur = lib.folders.find(f => f.id === cur)?.parentId ?? null;
+    }
+    return false;
+  };
+  const countIn = (folderId: string) => groups.filter(g => g.folderId && folderIds.has(g.folderId) && inFolder(g.folderId, folderId)).length;
+  const foldersIn = (parentId: string | null) => lib.folders.filter(f => f.parentId === parentId && countIn(f.id) > 0).sort((a, b) => a.name.localeCompare(b.name, 'sl'));
+  const renderFolder = (f: QuizFolder, depth: number): React.ReactNode => {
+    const isOpen = openFolders.has(f.id);
+    return (
+      <div key={f.id} style={{ border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', background: depth ? 'transparent' : 'var(--canvas)', overflow: 'hidden' }}>
+        <div onClick={() => toggleFolder(f.id)}
+          style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', cursor: 'pointer', background: isOpen ? 'rgba(45,106,49,0.06)' : 'transparent' }}>
+          <span style={{ color: 'var(--muted)', fontSize: '13px', width: '12px', display: 'inline-block', transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}>›</span>
+          <span style={{ color: 'var(--forest)', display: 'flex' }}><FolderIcon /></span>
+          <span style={{ flex: 1, minWidth: 0, fontSize: '15px', fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {f.name} <span style={{ fontWeight: 400, fontSize: '13px', color: 'var(--muted)' }}>· {countIn(f.id)}</span>
+          </span>
+        </div>
+        {isOpen && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '8px 12px 12px 28px', borderTop: '1px solid var(--hairline)' }}>
+            {foldersIn(f.id).map(sf => renderFolder(sf, depth + 1))}
+            {groupsIn(f.id).map(renderGroup)}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const listHref = selected ? `/kvizi/statistika?k=${encodeURIComponent(selected)}` : '/kvizi/statistika';
   const shown = selected ? rows.filter(r => r.key === selected) : rows;
@@ -160,55 +264,15 @@ export default function QuizStats() {
           );
         })()}
         {groups.length === 0 && <p style={{ color: 'var(--muted)', fontSize: '14px' }}>{selected ? 'Ta kviz še ni bil rešen.' : 'Noben kviz še ni bil rešen.'}</p>}
-        {groups.map(g => {
-          const isOpen = !!selected || openQuizzes.has(g.key);
-          return (
-            <div key={g.key} style={{ border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', background: 'var(--canvas)', overflow: 'hidden' }}>
-              <div onClick={() => !selected && toggleQuiz(g.key)}
-                style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', padding: '12px 16px', cursor: selected ? 'default' : 'pointer', background: isOpen ? 'rgba(45,106,49,0.06)' : 'transparent' }}>
-                <span style={{ color: 'var(--muted)', fontSize: '14px', width: '12px', display: 'inline-block', transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}>›</span>
-                <div style={{ flex: '1 1 240px', minWidth: 0 }}>
-                  <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--ink)' }}>
-                    {g.title}{g.deleted && <span style={{ fontSize: '11px', fontWeight: 500, color: '#b7791f', marginLeft: '8px' }}>izbrisan kviz</span>}
-                    {g.live ? <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--green-ok)', marginLeft: '8px' }}>● v teku</span>
-                      : g.open && <span style={{ fontSize: '11px', fontWeight: 600, color: '#b7791f', marginLeft: '8px' }}>nezaključeno</span>}
-                  </div>
-                  <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '2px' }}>
-                    {g.rows.length} {g.rows.length === 1 ? 'izvedba' : g.rows.length === 2 ? 'izvedbi' : g.rows.length < 5 ? 'izvedbe' : 'izvedb'} · {g.classes.join(', ')} · nazadnje {dateTimeLabel(g.rows[0].s.created_at)}
-                  </div>
-                </div>
-                <div style={{ fontSize: '13px', color: 'var(--muted)' }}>{g.people} rezultatov</div>
-                <div style={{ fontSize: '20px', fontWeight: 700, color: pctColor(g.avg), minWidth: '64px', textAlign: 'right' }}>{g.avg === null ? '—' : `${g.avg} %`}</div>
-              </div>
-              {isOpen && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '8px 12px 12px 34px', borderTop: '1px solid var(--hairline)' }}>
-                  {g.rows.map(r => (
-              <Link key={r.s.id} href={`/kvizi/statistika?${selected ? `k=${encodeURIComponent(selected)}&` : ''}s=${r.s.id}`} style={card}>
-                <div style={{ flex: '1 1 240px', minWidth: 0 }}>
-                  <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--ink)' }}>
-                    {r.s.class_name} · {dateTimeLabel(r.s.created_at)}
-                    {r.live ? <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--green-ok)', marginLeft: '8px' }}>● v teku</span>
-                      : r.open && <span style={{ fontSize: '11px', fontWeight: 600, color: '#b7791f', marginLeft: '8px' }}>nezaključeno</span>}
-                    {r.scoringChanged && <span style={{ fontSize: '11px', fontWeight: 600, color: '#b7791f', marginLeft: '8px' }} title="Točke v kvizu so bile spremenjene — odpri izvedbo in potrdi novo točkovanje">⚠ novo točkovanje ni potrjeno</span>}
-                  </div>
-                  <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '3px' }}>
-                    {r.s.paper ? '🖨 natisnjeno' : r.s.mode === 'teacher' ? 'v živo · projekcija' : 'v živo · tablica'}
-                    {r.s.ended_at && ` · končana ${dateTimeLabel(r.s.ended_at)}`}
-                  </div>
-                  <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '1px' }}>
-                    {questionsLabel(r.nQ)} · {pointsLabel(r.maxPts)} (samodejno točkovano){r.quizCreated && ` · kviz ustvarjen ${dateTimeLabel(r.quizCreated)}`}
-                  </div>
-                </div>
-                <div style={{ fontSize: '13px', color: 'var(--muted)' }}>{r.people} / {r.total} učencev</div>
-                <div style={{ fontSize: '20px', fontWeight: 700, color: pctColor(r.avg), minWidth: '64px', textAlign: 'right' }}>{r.avg === null ? '—' : `${r.avg} %`}</div>
-              </Link>
-            
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
+        {selected || !lib.folders.some(f => groups.some(g => g.folderId && inFolder(g.folderId, f.id)))
+          ? groups.map(renderGroup)
+          : (
+            <>
+              {foldersIn(null).map(f => renderFolder(f, 0))}
+              {groupsIn(null).length > 0 && <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted)', margin: '10px 0 0 4px' }}>Brez mape</div>}
+              {groupsIn(null).map(renderGroup)}
+            </>
+          )}
       </div>
     </div>
   );
