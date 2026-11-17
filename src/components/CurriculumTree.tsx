@@ -1153,12 +1153,10 @@ function GradeCard({ children, pattern, grade }: { children: (ref: React.RefObje
 
 // ── Grade divider ─────────────────────────────────────────
 
-function GradeDivider({ razred, target, used, doneHours, totalHours, weekly, onWeekly, onSortByDate }: {
+function GradeDivider({ razred, target, used, doneHours, totalHours, weekly, onWeekly }: {
   razred: number; target: number; used: number; doneHours: number; totalHours: number;
   /** povprečno število ur predmeta na teden */
   weekly: number; onWeekly?: (v: number) => void;
-  /** razvrsti počitnice / praznike / dneve dejavnosti po datumu */
-  onSortByDate?: () => void;
 }) {
   const wStep: CSSProperties = { width: '18px', height: '18px', border: '1px solid var(--hairline)', borderRadius: '4px', background: 'transparent', cursor: 'pointer', color: 'var(--forest)', fontSize: '12px', lineHeight: 1, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' };
   const remaining = target - used;
@@ -1188,12 +1186,6 @@ function GradeDivider({ razred, target, used, doneHours, totalHours, weekly, onW
         {onWeekly && <button style={wStep} onClick={() => onWeekly(weekly + 0.5)} aria-label="Več ur na teden">+</button>}
         <span>{weekly === 1 ? 'ura' : weekly === 2 ? 'uri' : weekly > 2 && weekly < 5 && Number.isInteger(weekly) ? 'ure' : 'ur'} na teden</span>
       </span>
-      {onSortByDate && (
-        <button onClick={onSortByDate} title="Počitnice, praznike in dneve dejavnosti z datumom razvrsti na pravo mesto po datumu (po urah na teden)"
-          style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: PAUSE_COLOR, background: 'transparent', border: `1px solid ${PAUSE_COLOR}66`, borderRadius: 'var(--r-sm)', padding: '2px 8px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-          ↻ Razvrsti po datumu
-        </button>
-      )}
     </div>
   );
 }
@@ -1364,6 +1356,13 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
     }, patch);
   }, [filteredPoglavja, resolveOrder, predmet.id, patternOf, placeDated, getHoursD]);
 
+  // samodejno: ob vsaki spremembi ur, ur na teden, vrstnega reda poglavij ali enot se elementi z datumom
+  // (počitnice, prazniki, ocenjevanja …) prerazporedijo po datumu; brez spremembe se nič ne zapiše
+  useEffect(() => {
+    const t = setTimeout(() => { for (const g of new Set(filteredPoglavja.map(p => p.razred ?? 0))) placeGradeByDate(g); }, 300);
+    return () => clearTimeout(t);
+  }, [placeGradeByDate, filteredPoglavja, resolve]); // resolve: sprememba enot (npr. premik, nova enota)
+
   const setDatesAndPlace = useCallback((key: string, id: string, from: string | null, to: string | null, hours?: number) => {
     const chapterId = key.slice(predmet.id.length + 1);
     const grade = filteredPoglavja.find(p => p.id === chapterId)?.razred ?? 0;
@@ -1476,7 +1475,6 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
                     totalHours={gradeUsed[razred] ?? 0}
                     weekly={weeklyOf(razred)}
                     onWeekly={isAnonymous ? undefined : v => setWeekly(razred, v)}
-                    onSortByDate={() => placeGradeByDate(razred)}
                   />
                   <Palette
                     onDragStart={setPaletteDrag}

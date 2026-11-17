@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { relayoutDated, customHours } from '@/lib/calendarPlacement';
 
 export const PALETTE_TYPES = ['Pisno ocenjevanje', 'Preverjanje', 'Ustno ocenjevanje', 'Utrjevanje'] as const;
@@ -57,6 +57,8 @@ export function materialize(stored: StoredItem[] | undefined, currIds: string[])
 
 export function useEnotaOrder(storageKey = 'ucni-nacrt-enote-order') {
   const [store, setStore] = useState<Store>({});
+  const storeRef = useRef<Store>(store);
+  useEffect(() => { storeRef.current = store; }, [store]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -174,23 +176,23 @@ export function useEnotaOrder(storageKey = 'ucni-nacrt-enote-order') {
     targetOf: (from: string) => number,
     patch?: { key: string; id: string; from: string | null; to: string | null; hours?: number },
   ) => {
-    setStore(prev => {
-      const lists = chapters.map(c => materialize(prev[c.key], c.currIds));
-      if (patch) {
-        const ci = chapters.findIndex(c => c.key === patch.key);
-        if (ci >= 0) lists[ci] = lists[ci].map(i => {
-          if (i.k !== 'x' || i.id !== patch.id) return i;
-          const { from: _f, to: _t, ...rest } = i; void _f; void _t;
-          return { ...rest, ...(patch.from ? { from: patch.from } : {}), ...(patch.to ? { to: patch.to } : {}), ...(patch.hours != null ? { hours: patch.hours } : {}) };
-        });
-      }
-      if (!patch && !lists.some(l => l.some(i => i.k === 'x' && i.from))) return prev;
-      const rest = relayoutDated(lists, (ci, i) => (i.k === 'c' ? curriculumHours(chapters[ci].key, i.id) : customHours(i)), targetOf);
-      const s = { ...prev };
-      chapters.forEach((c, ci) => { s[c.key] = rest[ci]; });
-      localStorage.setItem(storageKey, JSON.stringify(s));
-      return s;
-    });
+    // izračun iz zadnjega stanja; zapiše se le, če se vrstni red (ali datum) dejansko spremeni — zato je varno
+    // samodejno klicanje ob vsaki spremembi ur / poglavij (ni zanke)
+    const prev = storeRef.current;
+    const original = chapters.map(c => materialize(prev[c.key], c.currIds));
+    const lists = original.map((l, ci) => (patch && chapters[ci].key === patch.key ? l.map(i => {
+      if (i.k !== 'x' || i.id !== patch.id) return i;
+      const { from: _f, to: _t, ...rest } = i; void _f; void _t;
+      return { ...rest, ...(patch.from ? { from: patch.from } : {}), ...(patch.to ? { to: patch.to } : {}), ...(patch.hours != null ? { hours: patch.hours } : {}) };
+    }) : l));
+    if (!patch && !lists.some(l => l.some(i => i.k === 'x' && i.from))) return;
+    const out = relayoutDated(lists, (ci, i) => (i.k === 'c' ? curriculumHours(chapters[ci].key, i.id) : customHours(i)), targetOf);
+    if (JSON.stringify(out) === JSON.stringify(original)) return;
+    const next = { ...prev };
+    chapters.forEach((c, ci) => { next[c.key] = out[ci]; });
+    storeRef.current = next;
+    setStore(next);
+    localStorage.setItem(storageKey, JSON.stringify(next));
     window.dispatchEvent(new Event('ucni-nacrt-changed'));
   }, [storageKey]);
 
