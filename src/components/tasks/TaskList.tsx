@@ -135,8 +135,8 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
               </div>
             )}
             {genOpen === t.id && (
-              <div style={{ marginTop: '10px', border: '1px dashed var(--forest)', borderRadius: 'var(--r-md)', padding: '12px', background: 'var(--surface)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <div style={{ fontSize: '12px', color: 'var(--forest)', fontWeight: 600 }}>✨ Generiraj iz te naloge</div>
+              <div style={{ marginTop: '10px', border: '2px solid #6f9bd1', borderRadius: 'var(--r-md)', padding: '14px 16px', background: '#e9f1fb', boxShadow: '0 4px 18px rgba(31,79,138,0.14)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#1f4f8a' }}>✨ Generiraj iz te naloge</div>
                 <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
                   <span style={{ ...tinyLabel, minWidth: '120px' }}>Osnova</span>
                   <Chip active={kindMode === 'similar'} onClick={() => setKindMode('similar')} title="Nova, podobna naloga (druga situacija, podatki, izid)">podobna naloga</Chip>
@@ -172,8 +172,8 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
               </div>
             )}
             {gen?.forId === t.id && (
-              <div style={{ marginTop: '10px', border: '1px dashed var(--forest)', borderRadius: 'var(--r-md)', padding: '12px', background: 'var(--surface)' }}>
-                <div style={{ fontSize: '12px', color: 'var(--forest)', fontWeight: 600, marginBottom: '2px' }}>{gen.mode === 'complete' ? '✨ Dopolnjena naloga (preveri in shrani — prepiše to nalogo)' : '✨ Predlagana naloga (osnutek — preveri, popravi in shrani)'}</div>
+              <div style={{ marginTop: '10px' }}>
+                <div style={{ fontSize: '12px', color: '#1f4f8a', fontWeight: 600, marginBottom: '6px' }}>{gen.mode === 'complete' ? '✨ Dopolnjena naloga (preveri in shrani — prepiše to nalogo)' : '✨ Predlagana naloga (osnutek — preveri, popravi in shrani)'}</div>
                 {gen.note && <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '8px' }}>{gen.note}</div>}
                 <TaskEditor initial={gen.draft} onCancel={() => setGen(null)} onSave={async d => { await save(gen.mode === 'complete' ? { ...d, id: t.id, parent_id: t.parent_id } : { ...d, parent_id: t.parent_id ?? t.id }); setGen(null); }} />
               </div>
@@ -195,7 +195,7 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
         </div>
       )}
       {showAdd && adding && (
-        <div style={{ border: '1px dashed var(--forest)', borderRadius: 'var(--r-md)', padding: '12px', background: 'var(--surface)' }}>
+        <div>
           <TaskEditor fixedTopic={fixedTopic} onCancel={() => setAdding(false)} onSave={async d => { await save(d); setAdding(false); }} />
         </div>
       )}
