@@ -146,9 +146,6 @@ export default function Nav() {
     ? { view: (subjectMatch[1] === 'predmet' ? 'ucni' : 'sedez') as ViewKind, subjectId: subjectMatch[2] }
     : null;
 
-  // velik odštevalnik je že v glavi predmeta / sedežnega reda in na celozaslonskem
-  const hasBigCountdown = /^\/(predmet|sedezni-red)\/[^/]+(\/ura)?$/.test(path);
-
   const pick = (curriculumId: string, school: string) => {
     const id = addSubject(curriculumId);
     if (school) updateSubtitle(id, school);
@@ -170,7 +167,7 @@ export default function Nav() {
               <Link href="/kvizi" style={item(onQuizzes)}>Kvizi</Link>
               <Link href="/ucenci" style={item(onStudents)}>Učenci</Link>
               <span style={{ flex: 1 }} />
-              {!hasBigCountdown && <NavCountdown />}
+              <NavCountdown />
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginLeft: 'auto' }}>
                 <Link href="/nastavitve" title="Nastavitve" aria-label="Nastavitve"
                   style={{ ...ctrl, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '30px', height: '28px', padding: 0,
