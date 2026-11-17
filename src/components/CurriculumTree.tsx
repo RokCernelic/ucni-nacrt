@@ -23,7 +23,7 @@ import { useOpenChapters } from '@/hooks/useOpenChapters';
 import { useChapterOrder } from '@/hooks/useChapterOrder';
 import { usePalette } from '@/hooks/usePalette';
 import { useListMode } from '@/hooks/useListMode';
-import Countdown from '@/components/Countdown';
+import RememberSchool from '@/components/RememberSchool';
 import PrintLdnButton from '@/components/PrintLdn';
 import { useEnotaOrder, type ResolvedEnotaItem } from '@/hooks/useEnotaOrder';
 
@@ -1099,7 +1099,7 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
                 </h1>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px', flexShrink: 0 }}>
-                <Countdown school={subtitle} />
+                <RememberSchool school={subtitle} />
                 {!isAnonymous && (
                   <PrintLdnButton predmet={predmet} classId={classId} razredFilter={razredFilter} school={subtitle}
                     classLabel={classLabel} target={razredFilter != null ? gradeTargets[razredFilter] : undefined} />

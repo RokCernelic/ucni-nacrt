@@ -9,7 +9,7 @@ import { useMasterClasses } from '@/hooks/useMasterClasses';
 import { useViewClasses } from '@/hooks/useViewClasses';
 import { schoolShade } from '@/lib/schoolColor';
 import SeatingChart from '@/components/SeatingChart';
-import Countdown from '@/components/Countdown';
+import RememberSchool from '@/components/RememberSchool';
 import { lessonsFor, canonLabel, schoolLetterFrom } from '@/data/timetable';
 
 const printLinkStyle = { fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'rgba(255,255,255,0.6)', border: '1px dashed rgba(255,255,255,0.3)', borderRadius: 'var(--r-sm)', padding: '5px 12px', textDecoration: 'none' } as const;
@@ -62,7 +62,7 @@ export default function SedezniRedSubjectPage() {
                 {entry ? entry.predmet.naslov : 'Sedežni red'}
               </h1>
             </div>
-            <Countdown school={subject?.subtitle} />
+            <RememberSchool school={subject?.subtitle} />
           </div>
           {user && sameSchoolCount > 0 && activeSchoolLetter && (
             <div style={{ marginTop: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
