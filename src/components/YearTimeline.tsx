@@ -2,7 +2,7 @@
 /* eslint-disable react-hooks/set-state-in-effect -- trak meri DOM po vsakem izrisu; stanje se spremeni le ob dejanski razliki */
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { schoolYearOf, hoursUntil, monthMarks, shortDate, HOURS_PER_WEEK } from '@/lib/schoolYear';
+import { schoolYearOf, hoursUntil, monthMarks, shortDate, parseDay, HOURS_PER_WEEK } from '@/lib/schoolYear';
 
 type Anchor = [y: number, hours: number];
 
@@ -18,6 +18,8 @@ export default function YearTimeline({ cardRef }: { cardRef: React.RefObject<HTM
   /** odseki počitnic / praznikov na traku (y od–do) in ali jih je učitelj sploh vnesel */
   const [pauses, setPauses] = useState<[number, number][]>([]);
   const [ownPauses, setOwnPauses] = useState(false);
+  /** počitnice z datumi: [ure ob začetku, ure ob koncu, od, do] (sidra za poravnavo s koledarjem) */
+  const [dated, setDated] = useState<[number, number, string, string][]>([]);
   const [today, setToday] = useState<Date | null>(null);
   useEffect(() => {
     const tick = () => setToday(new Date());
@@ -32,12 +34,16 @@ export default function YearTimeline({ cardRef }: { cardRef: React.RefObject<HTM
     const cr = card.getBoundingClientRect();
     const a: Anchor[] = [[0, 0]];
     const ps: [number, number][] = [];
+    const ds: [number, number, string, string][] = [];
     let h = 0;
     const y = (r: DOMRect, edge: 'top' | 'bottom') => r[edge] - cr.top;
     for (const ch of Array.from(card.querySelectorAll<HTMLElement>('[data-tl-chapter]'))) {
       const r = ch.getBoundingClientRect();
       const units = Array.from(ch.querySelectorAll<HTMLElement>('[data-tl-unit]'));
       a.push([y(r, 'top'), h]);
+      try {
+        for (const [off, hrs, from, to] of JSON.parse(ch.dataset.tlDated ?? '[]') as [number, number, string, string][]) ds.push([h + off, h + off + hrs, from, to]);
+      } catch { /* ignore */ }
       if (!units.length) {
         h += Number(ch.dataset.tlHours) || 0;
       } else {
@@ -56,6 +62,7 @@ export default function YearTimeline({ cardRef }: { cardRef: React.RefObject<HTM
     if (!same) setAnchors(a);
     if (Math.abs(cr.height - height) > 0.5) setHeight(cr.height);
     if (JSON.stringify(ps.map(p => p.map(Math.round))) !== JSON.stringify(pauses.map(p => p.map(Math.round)))) setPauses(ps);
+    if (JSON.stringify(ds) !== JSON.stringify(dated)) setDated(ds);
     const own = !!card.querySelector('[data-tl-pause]');
     if (own !== ownPauses) setOwnPauses(own);
     if (card.offsetTop !== top) setTop(card.offsetTop);
@@ -91,11 +98,28 @@ export default function YearTimeline({ cardRef }: { cardRef: React.RefObject<HTM
   // učitelj je vnesel lastne počitnice/praznike → vgrajenih (približnih) počitnic ne upoštevamo, sicer bi jih šteli dvakrat
   const sy0 = schoolYearOf(today);
   const sy = ownPauses ? { ...sy0, holidays: [] } : sy0;
+  // koledar (ure pouka po 2 na teden) → položaj v učnem načrtu: počitnice z datumom so sidra, vmes teče 1 : 1
+  const pts: [number, number][] = [[0, 0]];
+  for (const [h0, h1, from, to] of [...dated].sort((x, y) => x[0] - y[0])) {
+    const f = parseDay(from), t = parseDay(to);
+    if (!f || !t) continue;
+    const c0 = hoursUntil(new Date(f.getFullYear(), f.getMonth(), f.getDate() - 1), sy), c1 = hoursUntil(t, sy);
+    const [pc, ph] = pts[pts.length - 1];
+    if (c0 >= pc && h0 >= ph && c1 >= c0 && h1 >= h0) pts.push([c0, h0], [c1, h1]);
+  }
+  const toH = (c: number) => {
+    for (let i = 1; i < pts.length; i++) {
+      const [c0, h0] = pts[i - 1], [c1, h1] = pts[i];
+      if (c <= c1) return c1 > c0 ? h0 + ((c - c0) / (c1 - c0)) * (h1 - h0) : h1;
+    }
+    const [cl, hl] = pts[pts.length - 1];
+    return hl + (c - cl);
+  };
   const inYear = today >= sy.start && today <= sy.end;
-  const nowH = hoursUntil(today, sy);
+  const nowH = toH(hoursUntil(today, sy));
   const nowY = inYear ? yOf(Math.min(nowH, total)) : null;
-  const marks = monthMarks(sy).filter(m => m.hours <= total + 1e-6);
-  const endH = hoursUntil(sy.end, sy);
+  const marks = monthMarks(sy).map(m => ({ ...m, hours: toH(m.hours) })).filter(m => m.hours <= total + 1e-6);
+  const endH = toH(hoursUntil(sy.end, sy));
   const ends = endH <= total ? yOf(endH) : null;
   const yearLabel = `${sy.start.getFullYear()}/${String(sy.end.getFullYear()).slice(2)}`;
 
@@ -105,11 +129,13 @@ export default function YearTimeline({ cardRef }: { cardRef: React.RefObject<HTM
       <i className="year-tl-rail" />
       {nowY != null && <i className="year-tl-past" style={{ height: nowY }} />}
       {pauses.map(([y0, y1], i) => <i key={i} className="year-tl-pause" style={{ top: y0, height: Math.max(3, y1 - y0) }} />)}
-      {marks.map(m => {
-        const y = yOf(m.hours);
+      {marks.map(m => ({ ...m, y: yOf(m.hours) }))
+        // meseci, ki padejo skoraj na isto mesto: ostane poznejši (prejšnji bi se prekrival)
+        .filter((m, i, arr) => !(arr[i + 1] && arr[i + 1].y - m.y < 12))
+        .map(({ label, y, ...m }) => {
         return (
-          <span key={m.label} className="year-tl-mark" style={{ top: y }}>
-            <b>{m.label}</b>
+          <span key={label} className="year-tl-mark" style={{ top: y }} data-h={m.hours}>
+            <b>{label}</b>
           </span>
         );
       })}

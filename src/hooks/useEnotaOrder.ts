@@ -14,7 +14,7 @@ export const PALETTE_COLORS: Record<string, string> = {
 
 type StoredItem =
   | { k: 'c'; id: string }
-  | { k: 'x'; id: string; type: string; checked: boolean; color?: string; hours?: number; pause?: boolean };
+  | { k: 'x'; id: string; type: string; checked: boolean; color?: string; hours?: number; pause?: boolean; from?: string; to?: string };
 
 /**
  * Čas brez pouka (počitnice, praznik, dan dejavnosti): ure, ki odpadejo — ne štejejo v nabor ur učnega načrta,
@@ -31,7 +31,7 @@ type Store = Record<string, StoredItem[]>;
 
 export type ResolvedEnotaItem =
   | { kind: 'curriculum'; id: string }
-  | { kind: 'custom'; id: string; type: string; checked: boolean; color: string; hours: number; pause?: boolean };
+  | { kind: 'custom'; id: string; type: string; checked: boolean; color: string; hours: number; pause?: boolean; from?: string; to?: string };
 
 /**
  * Sestavi poln, usklajen seznam enot za poglavje: shranjeni vrstni red
@@ -74,7 +74,7 @@ export function useEnotaOrder(storageKey = 'ucni-nacrt-enote-order') {
       item.k === 'c'
         ? { kind: 'curriculum', id: item.id }
         : item.pause
-          ? { kind: 'custom', id: item.id, type: item.type, checked: false, color: item.color ?? PAUSE_COLOR, hours: item.hours ?? 1, pause: true }
+          ? { kind: 'custom', id: item.id, type: item.type, checked: false, color: item.color ?? PAUSE_COLOR, hours: item.hours ?? 1, pause: true, ...(item.from ? { from: item.from } : {}), ...(item.to ? { to: item.to } : {}) }
           : { kind: 'custom', id: item.id, type: item.type, checked: item.checked, color: item.color ?? PALETTE_COLORS[item.type] ?? '#666', hours: item.hours ?? 1 });
   }, [store]);
 
@@ -143,6 +143,22 @@ export function useEnotaOrder(storageKey = 'ucni-nacrt-enote-order') {
     window.dispatchEvent(new Event('ucni-nacrt-changed'));
   }, [storageKey]);
 
+  /** Datumi počitnic (YYYY-MM-DD); z njimi časovni trak poravna to mesto s koledarjem. Po želji nastavi tudi ure. */
+  const setCustomDates = useCallback((poglavjeKey: string, id: string, from: string | null, to: string | null, hours?: number) => {
+    setStore(prev => {
+      const cur = prev[poglavjeKey];
+      if (!cur) return prev;
+      const s = { ...prev, [poglavjeKey]: cur.map(i => {
+        if (i.k !== 'x' || i.id !== id) return i;
+        const { from: _f, to: _t, ...rest } = i; void _f; void _t;
+        return { ...rest, ...(from ? { from } : {}), ...(to ? { to } : {}), ...(hours != null ? { hours } : {}) };
+      }) };
+      localStorage.setItem(storageKey, JSON.stringify(s));
+      return s;
+    });
+    window.dispatchEvent(new Event('ucni-nacrt-changed'));
+  }, [storageKey]);
+
   const toggleCustom = useCallback((poglavjeKey: string, id: string) => {
     setStore(prev => {
       const cur = prev[poglavjeKey];
@@ -177,5 +193,5 @@ export function useEnotaOrder(storageKey = 'ucni-nacrt-enote-order') {
     poglavjeKeys.reduce((n, k) => n + (store[k]?.filter(isCustom).filter(i => i.checked).reduce((s, i) => s + (i.hours ?? 1), 0) ?? 0), 0),
   [store]);
 
-  return { resolve, addEnota, moveEnota, reorder, removeEnota, toggleCustom, renameCustom, setCustomHours, countCustom, countCheckedCustom };
+  return { resolve, addEnota, moveEnota, reorder, removeEnota, toggleCustom, renameCustom, setCustomHours, setCustomDates, countCustom, countCheckedCustom };
 }

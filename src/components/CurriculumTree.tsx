@@ -27,6 +27,7 @@ import RememberSchool from '@/components/RememberSchool';
 import YearTimeline from '@/components/YearTimeline';
 import PrintLdnButton from '@/components/PrintLdn';
 import { useEnotaOrder, PAUSE_TYPES, PAUSE_COLOR, type ResolvedEnotaItem } from '@/hooks/useEnotaOrder';
+import { parseDay, lostHours, shortDate } from '@/lib/schoolYear';
 
 // ── Icons ──────────────────────────────────────────────────
 
@@ -431,13 +432,30 @@ function SunIcon() {
 const hoursLabel = (h: number) => (h === 1 ? 'ura' : h === 2 ? 'uri' : h < 5 ? 'ure' : 'ur');
 
 /** Počitnice / praznik / dan dejavnosti: naslov in ure, ki odpadejo (brez učne vsebine, vprašanj in ciljev; ne šteje v nabor ur). */
-function PauseRow({ item, onDragStart, onDragEnd, onRename, onHoursChange }: {
+function PauseRow({ item, onDragStart, onDragEnd, onRename, onHoursChange, onDates }: {
   item: ResolvedEnotaItem & { kind: 'custom' };
   onDragStart: () => void;
   onDragEnd: (e: React.DragEvent) => void;
   onRename: (label: string) => void;
   onHoursChange: (hours: number) => void;
+  /** datumi od–do (YYYY-MM-DD ali null); `hours` = predlagane odpadle ure iz datumov */
+  onDates: (from: string | null, to: string | null, hours?: number) => void;
 }) {
+  const setDates = (from: string | null, to: string | null) => {
+    // prazen »do« ob vnosu »od« → en dan (praznik) ali do petka (počitnice)
+    let t = to;
+    const f = from ? parseDay(from) : null;
+    if (f && !t) {
+      const end = new Date(f);
+      if (item.hours >= 2) end.setDate(f.getDate() + Math.max(0, 5 - ((f.getDay() + 6) % 7) - 1));
+      t = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`;
+    }
+    const a = from ? parseDay(from) : null, b = t ? parseDay(t) : null;
+    if (a && b && b < a) t = from;
+    const a2 = from ? parseDay(from) : null, b2 = t ? parseDay(t) : null;
+    onDates(from, t, a2 && b2 ? lostHours(a2, b2) : undefined);
+  };
+  const dateInput: React.CSSProperties = { fontFamily: 'var(--font-sans)', fontSize: '11px', color: PAUSE_COLOR, background: 'rgba(255,255,255,0.7)', border: `1px solid ${PAUSE_COLOR}55`, borderRadius: '4px', padding: '1px 4px', width: '112px' };
   const headerRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState(false);
   const [label, setLabel] = useState(item.type);
@@ -470,9 +488,16 @@ function PauseRow({ item, onDragStart, onDragEnd, onRename, onHoursChange }: {
         <span onDoubleClick={() => { setLabel(item.type); setEditing(true); }} title="Dvoklik za preimenovanje (npr. Jesenske počitnice, Dan reformacije)"
           style={{ flex: 1, fontSize: '13px', fontWeight: 600, letterSpacing: '0.01em' }}>
           {item.type}
-          <span style={{ fontWeight: 400, fontSize: '11px', color: '#a0814a', marginLeft: '8px' }}>brez pouka · ne šteje v nabor ur</span>
+          <span style={{ fontWeight: 400, fontSize: '11px', color: '#a0814a', marginLeft: '8px' }}>
+            {item.from ? `${shortDate(parseDay(item.from)!)}${item.to && item.to !== item.from ? ` – ${shortDate(parseDay(item.to)!)}` : ''} · ` : ''}brez pouka · ne šteje v nabor ur
+          </span>
         </span>
       )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }} title="Datum počitnic oz. praznika — časovni trak se na tem mestu poravna s koledarjem">
+        <input type="date" value={item.from ?? ''} onChange={e => setDates(e.target.value || null, item.to ?? null)} style={dateInput} aria-label="Od" />
+        <span style={{ fontSize: '11px' }}>–</span>
+        <input type="date" value={item.to ?? ''} min={item.from} onChange={e => setDates(item.from ?? null, e.target.value || null)} style={dateInput} aria-label="Do" />
+      </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0 }}>
         <span style={{ fontSize: '10px', letterSpacing: '0.04em', marginRight: '1px' }}>odpade:</span>
         <button style={{ ...step, opacity: hrs <= 1 ? 0.35 : 1, cursor: hrs <= 1 ? 'not-allowed' : 'pointer' }} disabled={hrs <= 1} onClick={() => onHoursChange(hrs - 1)} title="Manj ur">−</button>
@@ -812,7 +837,7 @@ function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, 
 
 // ── Poglavje row ──────────────────────────────────────────
 
-function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, onToggleOpen, getHours, onHourChange, remaining, resolve, addEnota, moveEnota, reorder, removeEnota, toggleCustom, renameCustom, setCustomHours, isAnonymous, listMode, getNote, onNoteChange, onDragStart, onDragEnd, collapsedPodpoglavja, onToggleCollapsePodpoglavje }: {
+function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, onToggleOpen, getHours, onHourChange, remaining, resolve, addEnota, moveEnota, reorder, removeEnota, toggleCustom, renameCustom, setCustomHours, setCustomDates, isAnonymous, listMode, getNote, onNoteChange, onDragStart, onDragEnd, collapsedPodpoglavja, onToggleCollapsePodpoglavje }: {
   poglavje: import('@/types/curriculum').Poglavje;
   index: number;
   predmetId: string;
@@ -831,6 +856,7 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
   toggleCustom: (key: string, id: string) => void;
   renameCustom: (key: string, id: string, label: string) => void;
   setCustomHours: (key: string, id: string, hours: number) => void;
+  setCustomDates: (key: string, id: string, from: string | null, to: string | null, hours?: number) => void;
   isAnonymous?: boolean;
   listMode?: boolean;
   getNote: (key: string) => string;
@@ -874,6 +900,16 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
   const allDone = totalHours > 0 && doneHours === totalHours;
   // počitnice / prazniki v poglavju: čas brez pouka (za časovni trak, ko je poglavje zaprto)
   const pauseHours = customItems.filter(i => i.pause).reduce((s, i) => s + i.hours, 0);
+  // počitnice z datumom: [ure od začetka poglavja, ure, od, do] — sidra za poravnavo časovnega traku s koledarjem
+  const datedPauses: [number, number, string, string][] = [];
+  {
+    let off = 0;
+    for (const it of items) {
+      const h = it.kind === 'curriculum' ? getHours(`${predmetId}:${it.id}`) : it.hours;
+      if (it.kind === 'custom' && it.pause && it.from) datedPauses.push([off, h, it.from, it.to ?? it.from]);
+      off += h;
+    }
+  }
 
   const handleDrop = (toIndex: number) => {
     if (paletteType !== null) {
@@ -891,7 +927,7 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
   };
 
   return (
-    <div data-tl-chapter data-tl-hours={totalHours + pauseHours} data-tl-pause={pauseHours > 0 ? '1' : undefined} style={{ borderBottom: '1px solid var(--hairline)' }}>
+    <div data-tl-chapter data-tl-hours={totalHours + pauseHours} data-tl-pause={pauseHours > 0 ? '1' : undefined} data-tl-dated={datedPauses.length ? JSON.stringify(datedPauses) : undefined} style={{ borderBottom: '1px solid var(--hairline)' }}>
       <div ref={chapterHeaderRef} onDragOver={armOpen} onDragLeave={disarmOpen} onDrop={disarmOpen} style={{ display: 'flex', alignItems: 'center', background: 'transparent' }}>
         <span
           draggable
@@ -958,6 +994,7 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
                       <PauseRow item={item}
                         onRename={(label) => renameCustom(poglavjeKey, item.id, label)}
                         onHoursChange={(h) => setCustomHours(poglavjeKey, item.id, Math.max(1, h))}
+                        onDates={(f, t, h) => setCustomDates(poglavjeKey, item.id, f, t, h)}
                         onDragStart={() => { dragDroppedRef.current = false; dragFromRef.current = idx; setIsDraggingCustom(true); setCustomDrag({ fromKey: poglavjeKey, id: item.id }); }}
                         onDragEnd={(e) => {
                           if (!dragDroppedRef.current && dragFromRef.current !== null && droppedOutsideList(e)) {
@@ -1081,7 +1118,7 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
   const { checked, toggle } = useProgress(classId ? `ucni-nacrt-progress-${classId}` : undefined);
   const { getHours, change } = useHours(classId ? `ucni-nacrt-hours-${classId}` : undefined);
   const { getNote, setNote } = useNotes(classId ? `ucni-nacrt-notes-${classId}` : undefined);
-  const { resolve, addEnota, moveEnota, reorder, removeEnota, toggleCustom, renameCustom, setCustomHours, countCustom, countCheckedCustom } = useEnotaOrder(classId ? `ucni-nacrt-enote-order-${classId}` : undefined);
+  const { resolve, addEnota, moveEnota, reorder, removeEnota, toggleCustom, renameCustom, setCustomHours, setCustomDates, countCustom, countCheckedCustom } = useEnotaOrder(classId ? `ucni-nacrt-enote-order-${classId}` : undefined);
   const { openChapters, toggle: toggleChapter, expandAll, collapseAll } = useOpenChapters(classId ? `ucni-nacrt-open-chapters-${classId}` : undefined);
   // Klik na naslov podpoglavja strne/razširi cilje, standarde, pojme in učno vsebino ZANJ POSEBEJ
   // (v nasprotju z gumbom "Strnjen seznam", ki to naredi globalno za vsa podpoglavja).
@@ -1312,6 +1349,7 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
                               toggleCustom={toggleCustom}
                               renameCustom={renameCustom}
                               setCustomHours={setCustomHours}
+                              setCustomDates={setCustomDates}
                               isAnonymous={isAnonymous}
                               listMode={listMode}
                               getNote={getNote}

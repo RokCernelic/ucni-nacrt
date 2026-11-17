@@ -54,3 +54,18 @@ export function monthMarks(sy: SchoolYear): { label: string; hours: number }[] {
 }
 
 export const shortDate = (d: Date) => `${d.getDate()}. ${d.getMonth() + 1}.`;
+
+/** Datum iz polja <input type="date"> (YYYY-MM-DD) v lokalnem času. */
+export const parseDay = (iso: string): Date | null => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
+};
+
+/** Ure pouka, ki odpadejo v obdobju od–do (delovni dnevi × 2 / 5), vsaj 1. */
+export function lostHours(from: Date, to: Date): number {
+  let days = 0;
+  for (let d = from; d <= to; d = addDays(d, 1)) { const wd = d.getDay(); if (wd !== 0 && wd !== 6) days++; }
+  return Math.max(1, Math.round((days * HOURS_PER_WEEK) / 5));
+}
+
+export const nextDay = (d: Date) => addDays(d, 1);
