@@ -86,7 +86,7 @@ export default function TaskBank({ picker }: { picker?: BankPicker } = {}) {
       if (source && t.source !== source) return false;
       if (status && t.status !== status) return false;
       if (onlyMin && !hasMinimalStandard(t.standards, t.topics)) return false;
-      if (noTopic && t.topics.length) return false;
+      if (noTopic && t.topics.some(k => topicInfo(k))) return false; // tudi naloge z ukinjenim podpoglavjem
       if (unlinked && (t.topics.length || t.chapters.length)) return false;
       if (img === 'with' && !hasImage(t)) return false;
       if (img === 'without' && hasImage(t)) return false;
@@ -224,7 +224,7 @@ export default function TaskBank({ picker }: { picker?: BankPicker } = {}) {
                 <Chip active={status === 'verified'} onClick={() => setStatus(status === 'verified' ? '' : 'verified')}>preverjene</Chip>
                 <Chip active={status === 'draft'} color="#b7791f" onClick={() => setStatus(status === 'draft' ? '' : 'draft')}>osnutki</Chip>
                 <Chip active={onlyMin} onClick={() => setOnlyMin(!onlyMin)} title="Naloge, ki preverjajo vsaj en minimalni standard znanja">minimalni standardi (M)</Chip>
-                <Chip active={noTopic} onClick={() => setNoTopic(!noTopic)} title="Naloge brez podpoglavja (tudi tiste, ki so povezane samo s poglavjem)">brez podpoglavja</Chip>
+                <Chip active={noTopic} onClick={() => setNoTopic(!noTopic)} title="Naloge brez podpoglavja (tudi tiste, ki so povezane samo s poglavjem ali z ukinjenim podpoglavjem)">brez podpoglavja</Chip>
                 <Chip active={unlinked} onClick={() => setUnlinked(!unlinked)} title="Naloge, ki niso povezane z nobenim poglavjem ali podpoglavjem">nepovezane z učnim načrtom</Chip>
                 {anyFilter && <button onClick={reset} style={{ ...btn(), padding: '3px 9px', fontSize: '11px' }}>počisti filtre</button>}
               </Row>
