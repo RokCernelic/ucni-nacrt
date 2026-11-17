@@ -288,7 +288,12 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
   const [view, setView] = useState<'a4' | 'list'>(() => { try { return localStorage.getItem('kviz-pogled') === 'list' ? 'list' : 'a4'; } catch { return 'a4'; } });
   const switchView = (v: 'a4' | 'list') => { setView(v); try { localStorage.setItem('kviz-pogled', v); } catch { /* ignore */ } };
   /** naloga, odprta v stranskem urejevalniku (id vprašanja ali '__new') */
-  const [active, setActive] = useState<string | null>(null);
+  const [active, setActiveId] = useState<string | null>(null);
+  /** stransko okno z urejevalnikom: ob zaprtju ostane vsebina (animacija), zato je odprtost ločena od izbrane naloge */
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  /** vsako odprtje = svež urejevalnik (tudi za isto nalogo) */
+  const [openSeq, setOpenSeq] = useState(0);
+  const setActive = (id: string | null) => { if (id) { setActiveId(id); setDrawerOpen(true); setOpenSeq(n => n + 1); } else setDrawerOpen(false); };
   /** vprašanja, posodobljena iz baze nalog ob odprtju kviza (z možnostjo razveljavitve) */
   const [bankSync, setBankSync] = useState<{ n: number; prev: Question[] } | null>(null);
   const synced = useRef(false);
@@ -461,7 +466,7 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
     if (!d || i < 0) return;
     if (confirm(`Odstranim vprašanje ${i + 1} iz kviza? (Naloga v bazi ostane.)`)) {
       const prev = d.questions;
-      update({ ...d, questions: d.questions.filter(q => q.id !== id) }); if (active === id) setActive(null);
+      update({ ...d, questions: d.questions.filter(q => q.id !== id) }); if (drawerOpen && active === id) setActive(null);
       offerUndo(`Vprašanje ${i + 1} odstranjeno`, async () => { const cur = draftRef.current; if (cur) update({ ...cur, questions: prev }); });
     }
   };
@@ -560,7 +565,7 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
         </div>
       </div>
 
-      <div style={{ maxWidth: '900px', margin: active && view === 'a4' ? '0 max(min(600px, 46vw), 360px) 0 auto' : '0 auto', padding: '24px 32px 80px' }}>
+      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px 32px 80px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px', fontFamily: 'var(--font-sans)' }}>
           <div style={{ display: 'inline-flex', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', overflow: 'hidden' }}>
             {([['a4', '📄 List A4'], ['list', '☰ Seznam vprašanj']] as const).map(([v, l]) => (
@@ -585,7 +590,7 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
 
         {view === 'a4' && (
           <div style={{ overflowX: 'auto', margin: '0 -32px', padding: '4px 0 8px' }}>
-            <QuizPaper quiz={draft} tasksById={taskById} activeId={active}
+            <QuizPaper quiz={draft} tasksById={taskById} activeId={drawerOpen ? active : null}
               onOpen={id => { flush(); setActive(id); }} onMove={moveOnSheet} onDuplicate={duplicateById} onDelete={deleteById}
               onSpacing={setSpacing} onColGap={setColGap} />
           </div>
@@ -654,7 +659,7 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
       {starting && <StartSessionDialog quiz={draft} onClose={() => setStarting(false)} />}
       {picking && <BankPickerShell title={draft.title} onAdd={addFromBank} onClose={() => setPicking(false)} />}
       {active && view === 'a4' && (
-        <QuestionTaskDrawer key={active} question={activeQ} number={activeQ ? sheetNumber(activeQ.id) : null}
+        <QuestionTaskDrawer open={drawerOpen} editorKey={`${active}-${openSeq}`} question={activeQ} number={activeQ ? sheetNumber(activeQ.id) : null}
           task={activeQ?.taskId ? taskById.get(activeQ.taskId) : undefined} quizId={draft.id}
           save={saveTask} onSaved={onTaskSaved} onClose={() => setActive(null)} />
       )}

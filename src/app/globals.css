@@ -356,3 +356,8 @@ html.printing-questions .print-questions.ldn, .ldn.ldn-measure { font-size: 9pt;
 .year-tl-week { position: absolute; left: 2px; width: 4px; height: 0; border-top: 1px solid #d6d2c8; }
 .year-tl-week b { position: absolute; left: 6px; top: -5px; font-size: 8px; font-weight: 500; color: #c4c0b5; line-height: 1; font-variant-numeric: tabular-nums; }
 .year-tl-now em small { display: block; font-size: 8.5px; font-weight: 600; color: #e07a70; margin-top: 2px; text-align: right; }
+
+/* Stransko okno (SideDrawer): stran se zoži za širino okna, z enako animacijo */
+body { transition: padding-right 260ms cubic-bezier(.2,.8,.2,1); }
+html.has-drawer body { padding-right: var(--drawer-w, 0px); }
+@media print { html.has-drawer body { padding-right: 0; } }

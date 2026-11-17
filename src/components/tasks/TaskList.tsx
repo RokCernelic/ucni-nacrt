@@ -8,6 +8,7 @@ import { nestUnderParents, isNested } from '@/lib/tasks/order';
 import { offerUndo } from '@/lib/undoStore';
 import { GEN_GROUPS } from '@/lib/tasks/genOptions';
 import TaskEditor from './TaskEditor';
+import SideDrawer from '@/components/SideDrawer';
 import { Rich, TaskBadges, TaskAnswer, Chip, btn, tinyLabel, input } from './ui';
 
 /** Seznam nalog (vsaka v svojem okvirju): kljukica za izbor, Uredi, Izbriši, + Nova naloga. */
@@ -35,8 +36,14 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
 }) {
   const { save, remove, restore } = useTasks();
   const { selected, toggle } = useTaskSelection();
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [adding, setAdding] = useState(false);
+  const [editingId, setEditingIdRaw] = useState<string | null>(null);
+  /** urejevalnik je v stranskem oknu z desne; ob zaprtju vsebina ostane do konca animacije */
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerSeq, setDrawerSeq] = useState(0);
+  const setEditingId = (id: string | null) => { if (id) { setEditingIdRaw(id); setDrawerOpen(true); setDrawerSeq(n => n + 1); } else setDrawerOpen(false); };
+  // nova naloga se ureja v istem stranskem oknu (id '__new')
+  const adding = drawerOpen && editingId === '__new';
+  const setAdding = (on: boolean) => setEditingId(on ? '__new' : null);
   const [error, setError] = useState<string | null>(null);
   /** naloga, ki ima odprto okno ✨ Generiraj */
   const [genOpen, setGenOpen] = useState<string | null>(null);
@@ -90,11 +97,10 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
         const on = selected.has(t.id);
         return (
           <div key={t.id} style={{ border: `1px solid ${on ? 'var(--forest)' : 'var(--hairline)'}`, borderRadius: 'var(--r-md)',
-            background: editingId === t.id ? 'transparent' : 'var(--canvas)', padding: editingId === t.id ? 0 : '10px 12px', ...(editingId === t.id ? { border: 'none' } : {}), fontSize: '13px', color: 'var(--body)', lineHeight: 1.5,
+            background: drawerOpen && editingId === t.id ? '#f3f8fe' : 'var(--canvas)', padding: '10px 12px', ...(drawerOpen && editingId === t.id ? { borderColor: '#6f9bd1', boxShadow: '0 0 0 1px #6f9bd1' } : {}), fontSize: '13px', color: 'var(--body)', lineHeight: 1.5,
             ...(nested ? { marginLeft: '28px', borderLeft: '4px solid var(--forest)' } : {}) }}>
-            {editingId === t.id ? (
-              <TaskEditor initial={t} onCancel={() => setEditingId(null)} onSave={async d => { await save({ ...d, id: t.id }); setEditingId(null); }} />
-            ) : (
+            {(
+
               <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
                 <input type="checkbox" checked={on} onChange={() => toggle(t.id)} title="Izberi (za tisk / kviz)" style={{ marginTop: '3px', cursor: 'pointer' }} />
                 <span style={{ color: 'var(--muted)', minWidth: '18px', fontVariantNumeric: 'tabular-nums' }}>{nested ? '↳' : `${num}.`}</span>
@@ -187,18 +193,23 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
           {leading}
           {!adding && (
-            <button onClick={() => { setAdding(true); setEditingId(null); }} style={{ ...btn(), borderStyle: 'dashed', padding: '7px 14px' }}>
+            <button onClick={() => setAdding(true)} style={{ ...btn(), borderStyle: 'dashed', padding: '7px 14px' }}>
               + Nova naloga
             </button>
           )}
           {extraAction}
         </div>
       )}
-      {showAdd && adding && (
-        <div>
-          <TaskEditor fixedTopic={fixedTopic} onCancel={() => setAdding(false)} onSave={async d => { await save(d); setAdding(false); }} />
-        </div>
-      )}
+      <SideDrawer open={drawerOpen} onClose={() => setEditingId(null)}
+        title={editingId === '__new' ? 'Nova naloga' : 'Urejanje naloge'}
+        subtitle={editingId === '__new' ? undefined : 'sprememba se shrani v bazo nalog in povsod, kjer je naloga uporabljena'}>
+        {editingId === '__new' ? (
+          <TaskEditor key={`nova-${drawerSeq}`} fixedTopic={fixedTopic} onCancel={() => setAdding(false)} onSave={async d => { await save(d); setAdding(false); }} />
+        ) : (() => {
+          const t = tasks.find(x => x.id === editingId);
+          return t ? <TaskEditor key={`${t.id}-${drawerSeq}`} initial={t} onCancel={() => setEditingId(null)} onSave={async d => { await save({ ...d, id: t.id }); setEditingId(null); }} /> : null;
+        })()}
+      </SideDrawer>
     </div>
   );
 }
