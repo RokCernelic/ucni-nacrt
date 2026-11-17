@@ -353,3 +353,6 @@ html.printing-questions .print-questions.ldn, .ldn.ldn-measure { font-size: 9pt;
 @media (max-width: 700px) { .year-tl { display: none; } }
 @media print { .year-tl { display: none !important; } }
 .year-tl-pause { position: absolute; left: -2.5px; width: 5px; border-radius: 3px; background: repeating-linear-gradient(to bottom, #d9a441 0 3px, #f3dfb4 3px 6px); }
+.year-tl-week { position: absolute; left: 2px; width: 4px; height: 0; border-top: 1px solid #d6d2c8; }
+.year-tl-week b { position: absolute; left: 6px; top: -5px; font-size: 8px; font-weight: 500; color: #c4c0b5; line-height: 1; font-variant-numeric: tabular-nums; }
+.year-tl-now em small { display: block; font-size: 8.5px; font-weight: 600; color: #e07a70; margin-top: 2px; text-align: right; }

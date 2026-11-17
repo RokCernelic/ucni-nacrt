@@ -69,3 +69,17 @@ export function lostHours(from: Date, to: Date): number {
 }
 
 export const nextDay = (d: Date) => addDays(d, 1);
+
+/** Šolski teden: 1. teden je tisti (pon–ned), v katerem je 1. september. */
+export function schoolWeek(date: Date, sy: SchoolYear = schoolYearOf(date)): number {
+  const w0 = mondayOf(sy.start);
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  return Math.floor((mondayOf(d).getTime() - w0.getTime() + 12 * 3600e3) / (7 * 86400e3)) + 1;
+}
+
+/** Začetki šolskih tednov (ponedeljki; 1. teden od 1. 9.) do konca pouka. */
+export function weekStarts(sy: SchoolYear): { n: number; date: Date }[] {
+  const out: { n: number; date: Date }[] = [{ n: 1, date: sy.start }];
+  for (let d = addDays(mondayOf(sy.start), 7), n = 2; d <= sy.end; d = addDays(d, 7), n++) out.push({ n, date: d });
+  return out;
+}
