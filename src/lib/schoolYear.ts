@@ -30,25 +30,25 @@ export function schoolYearOf(today = new Date()): SchoolYear {
 
 const isHoliday = (d: Date, sy: SchoolYear) => sy.holidays.some(([a, b]) => d >= a && d <= b);
 
-/** Ure pouka od začetka šolskega leta do vključno `date` (po 2 uri na teden, dnevi pouka enakomerno). */
-export function hoursUntil(date: Date, sy: SchoolYear): number {
+/**
+ * Ure pouka od začetka šolskega leta do vključno `date`: po urniku razreda (`pattern`, ure na dan v tednu)
+ * ali enakomerno 2 uri na teden; vgrajene počitnice v `sy` se izpustijo.
+ */
+export function hoursUntil(date: Date, sy: SchoolYear, pattern?: WeekPattern | null): number {
   const end = date < sy.end ? date : sy.end;
-  let days = 0;
-  for (let d = sy.start; d <= end; d = addDays(d, 1)) {
-    const wd = d.getDay();
-    if (wd !== 0 && wd !== 6 && !isHoliday(d, sy)) days++;
-  }
-  return (days * HOURS_PER_WEEK) / 5;
+  let h = 0;
+  for (let d = sy.start; d <= end; d = addDays(d, 1)) if (!isHoliday(d, sy)) h += hoursOnDay(d, pattern);
+  return h;
 }
 
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'maj', 'jun', 'jul', 'avg', 'sep', 'okt', 'nov', 'dec'];
 
 /** Začetki mesecev v šolskem letu (sep … jun) z urami, opravljenimi do tedaj. */
-export function monthMarks(sy: SchoolYear): { label: string; hours: number }[] {
+export function monthMarks(sy: SchoolYear, pattern?: WeekPattern | null): { label: string; hours: number }[] {
   const out: { label: string; hours: number }[] = [];
   for (let i = 0; i < 10; i++) {
     const d = day(sy.start.getFullYear(), 8 + i, 1);
-    out.push({ label: MONTHS[d.getMonth()], hours: i === 0 ? 0 : hoursUntil(addDays(d, -1), sy) });
+    out.push({ label: MONTHS[d.getMonth()], hours: i === 0 ? 0 : hoursUntil(addDays(d, -1), sy, pattern) });
   }
   return out;
 }
@@ -61,11 +61,15 @@ export const parseDay = (iso: string): Date | null => {
   return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
 };
 
-/** Ure pouka, ki odpadejo v obdobju od–do (delovni dnevi × 2 / 5), vsaj 1. */
-export function lostHours(from: Date, to: Date): number {
-  let days = 0;
-  for (let d = from; d <= to; d = addDays(d, 1)) { const wd = d.getDay(); if (wd !== 0 && wd !== 6) days++; }
-  return Math.max(1, Math.round((days * HOURS_PER_WEEK) / 5));
+/**
+ * Ure predmeta, ki odpadejo v obdobju od–do: cel dan brez pouka → odpadejo vse ure predmeta tisti dan
+ * (po urniku razreda; brez urnika enakomerno 2 / 5 na delovni dan).
+ */
+export function lostHours(from: Date, to: Date, pattern?: WeekPattern | null): number {
+  let h = 0, weekdays = 0;
+  for (let d = from; d <= to; d = addDays(d, 1)) { h += hoursOnDay(d, pattern); if (d.getDay() % 6 !== 0) weekdays++; }
+  // brez urnika ne vemo, ali je bil predmet tisti dan: en dan (praznik, dan dejavnosti) = 1 ura
+  return pattern ? Math.round(h) : weekdays ? Math.max(1, Math.round(h)) : 0;
 }
 
 export const nextDay = (d: Date) => addDays(d, 1);
@@ -83,3 +87,34 @@ export function weekStarts(sy: SchoolYear): { n: number; date: Date }[] {
   for (let d = addDays(mondayOf(sy.start), 7), n = 2; d <= sy.end; d = addDays(d, 7), n++) out.push({ n, date: d });
   return out;
 }
+
+/**
+ * Ure predmeta po dnevih v tednu (0 = nedelja … 6 = sobota) iz urnika razreda: običajno število ur na tisti dan.
+ * null, če razreda v urniku ni ali urnik nima 2 ur na teden (takrat velja enakomerno 2 uri na teden).
+ */
+export type WeekPattern = number[];
+export function weekPatternFrom(lessons: { d: string; u: string | null }[], subject: string): WeekPattern | null {
+  const own = lessons.filter(l => l.u === subject);
+  if (!own.length) return null;
+  const perDate = new Map<string, number>();
+  for (const l of own) perDate.set(l.d, (perDate.get(l.d) ?? 0) + 1);
+  const days = new Set(lessons.map(l => l.d));
+  const pat = [0, 0, 0, 0, 0, 0, 0];
+  for (let wd = 0; wd < 7; wd++) {
+    const dates = [...days].filter(d => parseDay(d)?.getDay() === wd);
+    if (!dates.length) continue;
+    // najpogostejše število ur tega predmeta na ta dan v tednu
+    const counts = new Map<number, number>();
+    for (const d of dates) { const n = perDate.get(d) ?? 0; counts.set(n, (counts.get(n) ?? 0) + 1); }
+    pat[wd] = [...counts.entries()].sort((a, b) => b[1] - a[1] || b[0] - a[0])[0][0];
+  }
+  // urnik upoštevamo le, če se ujema z 2 urama na teden (sicer je v njem verjetno kaj manjkalo)
+  return pat.reduce((x, n) => x + n, 0) === HOURS_PER_WEEK ? pat : null;
+}
+
+/** Ure, ki bi bile na dan `d` (po urniku razreda ali enakomerno 2 / 5 na delovni dan). */
+export const hoursOnDay = (d: Date, pattern?: WeekPattern | null) => {
+  const wd = d.getDay();
+  if (pattern) return pattern[wd] ?? 0;
+  return wd === 0 || wd === 6 ? 0 : HOURS_PER_WEEK / 5;
+};

@@ -2,7 +2,7 @@
 /* eslint-disable react-hooks/set-state-in-effect -- trak meri DOM po vsakem izrisu; stanje se spremeni le ob dejanski razliki */
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { schoolYearOf, hoursUntil, monthMarks, shortDate, parseDay, schoolWeek, weekStarts, HOURS_PER_WEEK } from '@/lib/schoolYear';
+import { schoolYearOf, hoursUntil, monthMarks, shortDate, parseDay, schoolWeek, weekStarts, type WeekPattern } from '@/lib/schoolYear';
 
 type Anchor = [y: number, hours: number];
 
@@ -11,7 +11,7 @@ type Anchor = [y: number, hours: number];
  * (in lastnih enot) določajo, kje je kateri mesec šolskega leta (2 uri na teden). Rdeča črtica = danes.
  * Zaprto poglavje se šteje kot en blok z vsemi svojimi urami; odpiranje, zapiranje in spreminjanje ur trak sproti prilagodi.
  */
-export default function YearTimeline({ cardRef }: { cardRef: React.RefObject<HTMLElement | null> }) {
+export default function YearTimeline({ cardRef, pattern }: { cardRef: React.RefObject<HTMLElement | null>; pattern?: WeekPattern | null }) {
   const [anchors, setAnchors] = useState<Anchor[]>([]);
   const [height, setHeight] = useState(0);
   const [top, setTop] = useState(0);
@@ -103,7 +103,7 @@ export default function YearTimeline({ cardRef }: { cardRef: React.RefObject<HTM
   for (const [h0, h1, from, to] of [...dated].sort((x, y) => x[0] - y[0])) {
     const f = parseDay(from), t = parseDay(to);
     if (!f || !t) continue;
-    const c0 = hoursUntil(new Date(f.getFullYear(), f.getMonth(), f.getDate() - 1), sy), c1 = hoursUntil(t, sy);
+    const c0 = hoursUntil(new Date(f.getFullYear(), f.getMonth(), f.getDate() - 1), sy, pattern), c1 = hoursUntil(t, sy, pattern);
     const [pc, ph] = pts[pts.length - 1];
     if (c0 >= pc && h0 >= ph && c1 >= c0 && h1 >= h0) pts.push([c0, h0], [c1, h1]);
   }
@@ -116,16 +116,16 @@ export default function YearTimeline({ cardRef }: { cardRef: React.RefObject<HTM
     return hl + (c - cl);
   };
   const inYear = today >= sy.start && today <= sy.end;
-  const nowH = toH(hoursUntil(today, sy));
+  const nowH = toH(hoursUntil(today, sy, pattern));
   const nowY = inYear ? yOf(Math.min(nowH, total)) : null;
-  const marks = monthMarks(sy).map(m => ({ ...m, hours: toH(m.hours) })).filter(m => m.hours <= total + 1e-6);
-  const endH = toH(hoursUntil(sy.end, sy));
+  const marks = monthMarks(sy, pattern).map(m => ({ ...m, hours: toH(m.hours) })).filter(m => m.hours <= total + 1e-6);
+  const endH = toH(hoursUntil(sy.end, sy, pattern));
   const ends = endH <= total ? yOf(endH) : null;
   // šolski tedni (diskretno, desno ob traku): črtica za vsak teden, številka, kjer je dovolj prostora
   const weeks: { n: number; y: number; label: boolean }[] = [];
   let lastLabel = -1e9, lastTick = -1e9;
   for (const w of weekStarts(sy)) {
-    const h = toH(hoursUntil(new Date(w.date.getFullYear(), w.date.getMonth(), w.date.getDate() - 1), sy));
+    const h = toH(hoursUntil(new Date(w.date.getFullYear(), w.date.getMonth(), w.date.getDate() - 1), sy, pattern));
     if (h > total + 1e-6) break;
     const y = yOf(h);
     if (y - lastTick < 3) continue;
@@ -163,7 +163,7 @@ export default function YearTimeline({ cardRef }: { cardRef: React.RefObject<HTM
       )}
       {nowY != null && (
         <span className="year-tl-now" style={{ top: nowY }}
-          title={`Danes, ${shortDate(today)} (${week}. šolski teden): po urniku (${HOURS_PER_WEEK} uri na teden) je za razredom približno ${Math.round(nowH)} ur${nowH > total ? ' — več, kot jih je razporejenih v učnem načrtu' : ''}`}>
+          title={`Danes, ${shortDate(today)} (${week}. šolski teden): po urniku je za razredom približno ${Math.round(nowH)} ur${nowH > total ? ' — več, kot jih je razporejenih v učnem načrtu' : ''}`}>
           <em>{shortDate(today)}<small>{week}. teden</small></em>
         </span>
       )}

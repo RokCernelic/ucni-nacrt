@@ -27,7 +27,8 @@ import RememberSchool from '@/components/RememberSchool';
 import YearTimeline from '@/components/YearTimeline';
 import PrintLdnButton from '@/components/PrintLdn';
 import { useEnotaOrder, PAUSE_TYPES, PAUSE_COLOR, type ResolvedEnotaItem } from '@/hooks/useEnotaOrder';
-import { parseDay, lostHours, shortDate } from '@/lib/schoolYear';
+import { parseDay, lostHours, shortDate, weekPatternFrom, type WeekPattern } from '@/lib/schoolYear';
+import { lessonsFor, canonLabel } from '@/data/timetable';
 
 // ── Icons ──────────────────────────────────────────────────
 
@@ -432,7 +433,7 @@ function SunIcon() {
 const hoursLabel = (h: number) => (h === 1 ? 'ura' : h === 2 ? 'uri' : h < 5 ? 'ure' : 'ur');
 
 /** Počitnice / praznik / dan dejavnosti: naslov in ure, ki odpadejo (brez učne vsebine, vprašanj in ciljev; ne šteje v nabor ur). */
-function PauseRow({ item, onDragStart, onDragEnd, onRename, onHoursChange, onDates }: {
+function PauseRow({ item, onDragStart, onDragEnd, onRename, onHoursChange, onDates, pattern }: {
   item: ResolvedEnotaItem & { kind: 'custom' };
   onDragStart: () => void;
   onDragEnd: (e: React.DragEvent) => void;
@@ -440,6 +441,8 @@ function PauseRow({ item, onDragStart, onDragEnd, onRename, onHoursChange, onDat
   onHoursChange: (hours: number) => void;
   /** datumi od–do (YYYY-MM-DD ali null); `hours` = predlagane odpadle ure iz datumov */
   onDates: (from: string | null, to: string | null, hours?: number) => void;
+  /** ure predmeta po dnevih v tednu iz urnika razreda (null = enakomerno 2 na teden) */
+  pattern?: WeekPattern | null;
 }) {
   const setDates = (from: string | null, to: string | null) => {
     // prazen »do« ob vnosu »od« → en dan (praznik) ali do petka (počitnice)
@@ -447,13 +450,13 @@ function PauseRow({ item, onDragStart, onDragEnd, onRename, onHoursChange, onDat
     const f = from ? parseDay(from) : null;
     if (f && !t) {
       const end = new Date(f);
-      if (item.hours >= 2) end.setDate(f.getDate() + Math.max(0, 5 - ((f.getDay() + 6) % 7) - 1));
+      if (/počitnic/i.test(item.type)) end.setDate(f.getDate() + Math.max(0, 5 - ((f.getDay() + 6) % 7) - 1));
       t = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`;
     }
     const a = from ? parseDay(from) : null, b = t ? parseDay(t) : null;
     if (a && b && b < a) t = from;
     const a2 = from ? parseDay(from) : null, b2 = t ? parseDay(t) : null;
-    onDates(from, t, a2 && b2 ? lostHours(a2, b2) : undefined);
+    onDates(from, t, a2 && b2 ? lostHours(a2, b2, pattern) : undefined);
   };
   const dateInput: React.CSSProperties = { fontFamily: 'var(--font-sans)', fontSize: '11px', color: PAUSE_COLOR, background: 'rgba(255,255,255,0.7)', border: `1px solid ${PAUSE_COLOR}55`, borderRadius: '4px', padding: '1px 4px', width: '112px' };
   const headerRef = useRef<HTMLDivElement>(null);
@@ -500,7 +503,7 @@ function PauseRow({ item, onDragStart, onDragEnd, onRename, onHoursChange, onDat
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0 }}>
         <span style={{ fontSize: '10px', letterSpacing: '0.04em', marginRight: '1px' }}>odpade:</span>
-        <button style={{ ...step, opacity: hrs <= 1 ? 0.35 : 1, cursor: hrs <= 1 ? 'not-allowed' : 'pointer' }} disabled={hrs <= 1} onClick={() => onHoursChange(hrs - 1)} title="Manj ur">−</button>
+        <button style={{ ...step, opacity: hrs <= 0 ? 0.35 : 1, cursor: hrs <= 0 ? 'not-allowed' : 'pointer' }} disabled={hrs <= 0} onClick={() => onHoursChange(hrs - 1)} title="Manj ur">−</button>
         <span style={{ minWidth: '16px', textAlign: 'center', fontSize: '12px', fontWeight: 700, fontFamily: 'var(--font-sans)' }}>{hrs}</span>
         <button style={step} onClick={() => onHoursChange(hrs + 1)} title="Več ur">+</button>
         <span style={{ fontSize: '10px', letterSpacing: '0.04em', marginLeft: '2px', minWidth: '22px' }}>{hoursLabel(hrs)}</span>
@@ -837,7 +840,7 @@ function PodpoglavjeRow({ podpoglavje, predmetId, checked, onToggle, unitHours, 
 
 // ── Poglavje row ──────────────────────────────────────────
 
-function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, onToggleOpen, getHours, onHourChange, remaining, resolve, addEnota, moveEnota, reorder, removeEnota, toggleCustom, renameCustom, setCustomHours, setCustomDates, isAnonymous, listMode, getNote, onNoteChange, onDragStart, onDragEnd, collapsedPodpoglavja, onToggleCollapsePodpoglavje }: {
+function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, onToggleOpen, getHours, onHourChange, remaining, resolve, addEnota, moveEnota, reorder, removeEnota, toggleCustom, renameCustom, setCustomHours, setCustomDates, pattern, isAnonymous, listMode, getNote, onNoteChange, onDragStart, onDragEnd, collapsedPodpoglavja, onToggleCollapsePodpoglavje }: {
   poglavje: import('@/types/curriculum').Poglavje;
   index: number;
   predmetId: string;
@@ -857,6 +860,7 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
   renameCustom: (key: string, id: string, label: string) => void;
   setCustomHours: (key: string, id: string, hours: number) => void;
   setCustomDates: (key: string, id: string, from: string | null, to: string | null, hours?: number) => void;
+  pattern?: WeekPattern | null;
   isAnonymous?: boolean;
   listMode?: boolean;
   getNote: (key: string) => string;
@@ -993,7 +997,8 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
                     {item.kind === 'custom' && item.pause ? (
                       <PauseRow item={item}
                         onRename={(label) => renameCustom(poglavjeKey, item.id, label)}
-                        onHoursChange={(h) => setCustomHours(poglavjeKey, item.id, Math.max(1, h))}
+                        pattern={pattern}
+                        onHoursChange={(h) => setCustomHours(poglavjeKey, item.id, Math.max(0, h))}
                         onDates={(f, t, h) => setCustomDates(poglavjeKey, item.id, f, t, h)}
                         onDragStart={() => { dragDroppedRef.current = false; dragFromRef.current = idx; setIsDraggingCustom(true); setCustomDrag({ fromKey: poglavjeKey, id: item.id }); }}
                         onDragEnd={(e) => {
@@ -1062,11 +1067,11 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
 
 // ── Kartica razreda s časovnim trakom ob levi ─────────────
 
-function GradeCard({ children }: { children: (ref: React.RefObject<HTMLDivElement | null>) => ReactNode }) {
+function GradeCard({ children, pattern }: { children: (ref: React.RefObject<HTMLDivElement | null>) => ReactNode; pattern?: WeekPattern | null }) {
   const ref = useRef<HTMLDivElement>(null);
   return (
     <div style={{ position: 'relative' }}>
-      <YearTimeline cardRef={ref} />
+      <YearTimeline cardRef={ref} pattern={pattern} />
       {children(ref)}
     </div>
   );
@@ -1125,6 +1130,8 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
   const { openChapters: collapsedPodpoglavja, toggle: toggleCollapsedPodpoglavje } = useOpenChapters(classId ? `ucni-nacrt-collapsed-podpoglavja-${classId}` : undefined);
   const { resolveOrder, reorderChapters } = useChapterOrder(classId ? `ucni-nacrt-chapter-order-${classId}` : undefined);
   const [paletteDrag, setPaletteDrag] = useState<PaletteDrag | null>(null);
+  // ure predmeta po dnevih v tednu iz urnika tega razreda (za odpadle ure in časovni trak)
+  const pattern = useMemo(() => (classLabel ? weekPatternFrom(lessonsFor(canonLabel(classLabel), subtitle), predmet.id) : null), [classLabel, subtitle, predmet.id]);
   const [customDrag, setCustomDrag] = useState<CustomDrag | null>(null);
 
   // samodejno drsenje strani, ko med vlečenjem prideš blizu zgornjega ali spodnjega roba zaslona
@@ -1323,7 +1330,7 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
                     onDragEnd={() => setPaletteDrag(null)}
                   />
                   {gi === 0 && <Legend />}
-                  <GradeCard>{cardRef => <div ref={cardRef} data-list-card style={{ marginTop: '6px', background: 'var(--canvas)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
+                  <GradeCard pattern={pattern}>{cardRef => <div ref={cardRef} data-list-card style={{ marginTop: '6px', background: 'var(--canvas)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
                     <div onDragOver={(e) => e.preventDefault()}>
                       {chapterDragging && <DropZone onDrop={() => handleChapterDrop(groupKey, 0, ids)} />}
                       {poglavja.map((poglavje, ci) => {
@@ -1350,6 +1357,7 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
                               renameCustom={renameCustom}
                               setCustomHours={setCustomHours}
                               setCustomDates={setCustomDates}
+                              pattern={pattern}
                               isAnonymous={isAnonymous}
                               listMode={listMode}
                               getNote={getNote}
