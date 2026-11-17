@@ -45,7 +45,11 @@ export function ItemBody({ c }: { c: SheetItem }) {
   const inline = c.item.choice && c.options.length > 0 && c.options.every(o => o.text.length <= 18) && c.options.reduce((n, o) => n + o.text.length, 0) <= 56;
   return (
     <>
-      <div className="pqz-q"><b>{c.n}.</b><Rich html={c.item.html} /></div>
+      <div className="pqz-q">
+        {/* pri nalogah, ki jih učitelj popravi ročno: levo prazno polje za dosežene točke, desno vse točke naloge */}
+        {!c.item.choice && <span className="pqz-pts" title="Dosežene / vse točke"><i /><i>{String(c.item.points).replace('.', ',')}</i></span>}
+        <b>{c.n}.</b><Rich html={c.item.html} />
+      </div>
       {c.item.choice
         ? <div className={inline ? 'pqz-opts pqz-inline' : 'pqz-opts'}>{c.options.map(o => <div key={o.letter}><b>{o.letter})</b> {o.text}</div>)}</div>
         : <div className="pqz-free" style={{ height: `${c.item.space}mm` }} />}

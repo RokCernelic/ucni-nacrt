@@ -210,6 +210,7 @@ body {
   .pqz-item { margin-bottom: 7mm; break-inside: avoid; }
   .pqz-item.pqz-c { margin-bottom: 5.5mm; }
   .pqz-q { display: flex; gap: 1.5mm; }
+  .pqz-pts { flex: none; display: inline-flex; height: 5.2mm; margin-top: -.4mm; border: .25mm solid #555; border-radius: .8mm; overflow: hidden; } .pqz-pts i { font-style: normal; width: 6.5mm; display: flex; align-items: center; justify-content: center; font-size: 8pt; font-weight: 700; color: #555; } .pqz-pts i + i { border-left: .25mm solid #555; background: #f1f1f1; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .pqz-q .rich-content { flex: 1; }
   .pqz-q .rich-content p { margin: 0 0 .5mm; }
   .pqz-q img { max-width: 100%; max-height: 45mm; }
@@ -275,6 +276,7 @@ html.printing-questions .print-questions.ldn, .ldn.ldn-measure { font-size: 9pt;
 .pqz-preview .pqz-item { margin-bottom: 7mm; break-inside: avoid; }
 .pqz-preview .pqz-item.pqz-c { margin-bottom: 5.5mm; }
 .pqz-preview .pqz-q { display: flex; gap: 1.5mm; }
+.pqz-preview .pqz-pts { flex: none; display: inline-flex; height: 5.2mm; margin-top: -.4mm; border: .25mm solid #555; border-radius: .8mm; overflow: hidden; } .pqz-preview .pqz-pts i { font-style: normal; width: 6.5mm; display: flex; align-items: center; justify-content: center; font-size: 8pt; font-weight: 700; color: #555; } .pqz-preview .pqz-pts i + i { border-left: .25mm solid #555; background: #f1f1f1; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .pqz-preview .pqz-q .rich-content { flex: 1; }
 .pqz-preview .pqz-q .rich-content p { margin: 0 0 .5mm; }
 .pqz-preview .pqz-q img { max-width: 100%; max-height: 45mm; }
