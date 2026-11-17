@@ -78,11 +78,11 @@ export function useEnotaOrder(storageKey = 'ucni-nacrt-enote-order') {
           : { kind: 'custom', id: item.id, type: item.type, checked: item.checked, color: item.color ?? PALETTE_COLORS[item.type] ?? '#666', hours: item.hours ?? 1 });
   }, [store]);
 
-  const addEnota = useCallback((poglavjeKey: string, type: string, color: string, atIndex: number, currIds: string[], hours: number = 1, pause?: boolean) => {
+  const addEnota = useCallback((poglavjeKey: string, type: string, color: string, atIndex: number, currIds: string[], hours: number = 1, pause?: boolean | { from: string; to: string }) => {
     setStore(prev => {
       const cur = materialize(prev[poglavjeKey], currIds);
       const item: StoredItem = pause
-        ? { k: 'x', id: crypto.randomUUID(), type, checked: false, color, hours, pause: true }
+        ? { k: 'x', id: crypto.randomUUID(), type, checked: false, color, hours, pause: true, ...(typeof pause === 'object' ? pause : {}) }
         : { k: 'x', id: crypto.randomUUID(), type, checked: false, color, hours };
       const next = [...cur.slice(0, atIndex), item, ...cur.slice(atIndex)];
       const s = { ...prev, [poglavjeKey]: next };

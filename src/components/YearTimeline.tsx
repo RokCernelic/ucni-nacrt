@@ -11,7 +11,7 @@ type Anchor = [y: number, hours: number];
  * (in lastnih enot) določajo, kje je kateri mesec šolskega leta (2 uri na teden). Rdeča črtica = danes.
  * Zaprto poglavje se šteje kot en blok z vsemi svojimi urami; odpiranje, zapiranje in spreminjanje ur trak sproti prilagodi.
  */
-export default function YearTimeline({ cardRef, pattern }: { cardRef: React.RefObject<HTMLElement | null>; pattern?: WeekPattern | null }) {
+export default function YearTimeline({ cardRef, pattern, grade }: { cardRef: React.RefObject<HTMLElement | null>; pattern?: WeekPattern | null; grade?: number }) {
   const [anchors, setAnchors] = useState<Anchor[]>([]);
   const [height, setHeight] = useState(0);
   const [top, setTop] = useState(0);
@@ -96,7 +96,7 @@ export default function YearTimeline({ cardRef, pattern }: { cardRef: React.RefO
   };
 
   // učitelj je vnesel lastne počitnice/praznike → vgrajenih (približnih) počitnic ne upoštevamo, sicer bi jih šteli dvakrat
-  const sy0 = schoolYearOf(today);
+  const sy0 = schoolYearOf(today, grade);
   const sy = ownPauses ? { ...sy0, holidays: [] } : sy0;
   // koledar (ure pouka po 2 na teden) → položaj v učnem načrtu: počitnice z datumom so sidra, vmes teče 1 : 1
   const pts: [number, number][] = [[0, 0]];

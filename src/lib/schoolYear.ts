@@ -1,7 +1,9 @@
 /**
- * Šolsko leto (1. 9. – 24. 6.) in štetje ur pouka do danega datuma (2 uri na teden, kot fizika v OŠ).
- * Počitnice so približne (slovenski šolski koledar): jesenske, novoletne, zimske, prvomajske — v teh dneh ur ni.
+ * Šolsko leto (1. 9. – 24. 6., 9. razred do 15. 6.) in štetje ur pouka do danega datuma (2 uri na teden, kot fizika v OŠ).
+ * Počitnice in prazniki po uradnem šolskem koledarju (src/data/schoolCalendar.ts), za druga leta približno — v teh dneh ur ni.
  */
+
+import { SCHOOL_CALENDARS } from '@/data/schoolCalendar';
 
 export const HOURS_PER_WEEK = 2;
 
@@ -11,14 +13,22 @@ const mondayOf = (d: Date) => addDays(d, -((d.getDay() + 6) % 7));
 
 export interface SchoolYear { start: Date; end: Date; holidays: [Date, Date][] }
 
-/** Šolsko leto, v katerem je `today` (julij in avgust štejeta k letu, ki se začne 1. 9.). */
-export function schoolYearOf(today = new Date()): SchoolYear {
+/**
+ * Šolsko leto, v katerem je `today` (julij in avgust štejeta k letu, ki se začne 1. 9.). Za leta z uradnim koledarjem
+ * (src/data/schoolCalendar.ts) veljajo uradni datumi počitnic in praznikov ter konec pouka (9. razred prej), sicer približni.
+ */
+export function schoolYearOf(today = new Date(), grade?: number | null): SchoolYear {
   const y = today.getMonth() >= 6 ? today.getFullYear() : today.getFullYear() - 1;
+  const cal = SCHOOL_CALENDARS[y];
+  if (cal) {
+    const p = (iso: string) => parseDay(iso)!;
+    return { start: p(cal.start), end: p(grade === 9 ? cal.end9 : cal.end), holidays: cal.events.map(e => [p(e.from), p(e.to)] as [Date, Date]) };
+  }
   const autumn = mondayOf(day(y, 9, 29));                 // teden okrog 29. 10.
   const winter = mondayOf(day(y + 1, 1, 20));             // teden okrog 20. 2. (ena od obeh skupin)
   return {
     start: day(y, 8, 1),
-    end: day(y + 1, 5, 24),
+    end: day(y + 1, 5, grade === 9 ? 15 : 24),
     holidays: [
       [autumn, addDays(autumn, 4)],
       [day(y, 11, 25), day(y + 1, 0, 2)],
