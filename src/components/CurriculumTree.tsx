@@ -1324,6 +1324,48 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
     return () => clearTimeout(timer);
   }, [classId, isAnonymous, predmet.id]);
 
+  /**
+   * Datum pri počitnicah / prazniku / dnevu dejavnosti: shrani ga in element premakne na mesto, do katerega bi razred
+   * po urah (2 uri fizike na teden, oz. po urniku razreda) prišel do tistega dne — tudi v drugo poglavje istega razreda.
+   */
+  const setDatesAndPlace = useCallback((key: string, id: string, from: string | null, to: string | null, hours?: number) => {
+    setCustomDates(key, id, from, to, hours);
+    const f = from ? parseDay(from) : null;
+    if (!f) return;
+    const chapterId = key.slice(predmet.id.length + 1);
+    const grade = filteredPoglavja.find(p => p.id === chapterId)?.razred ?? 0;
+    const inGrade = filteredPoglavja.filter(p => (p.razred ?? 0) === grade);
+    const byId = new Map(inGrade.map(p => [p.id, p]));
+    const slots = resolveOrder(`${predmet.id}:${grade}`, inGrade.map(p => p.id)).map(cid => {
+      const p = byId.get(cid)!;
+      const k = `${predmet.id}:${p.id}`;
+      const currIds = p.podpoglavja.map(pp => pp.id);
+      const all = resolve(k, currIds);
+      return { key: k, currIds, all, items: all.filter(it => it.id !== id).map(it => (it.kind === 'curriculum' ? getHoursD(`${predmet.id}:${it.id}`) : it.hours)) };
+    });
+    if (!slots.length) return;
+    const sy = { ...schoolYearOf(f, grade), holidays: [] };
+    const target = hoursUntil(new Date(f.getFullYear(), f.getMonth(), f.getDate() - 1), sy, pattern);
+    let h = 0, at: { si: number; i: number } | null = null;
+    outer: for (let si = 0; si < slots.length; si++) {
+      for (let i = 0; i < slots[si].items.length; i++) {
+        if (h >= target - 1e-6) { at = i === 0 && si > 0 ? { si: si - 1, i: slots[si - 1].items.length } : { si, i }; break outer; }
+        h += slots[si].items[i];
+      }
+    }
+    if (!at) at = { si: slots.length - 1, i: slots[slots.length - 1].items.length };
+    const dest = slots[at.si];
+    const fromIdx = slots.find(sl => sl.key === key)?.all.findIndex(it => it.id === id) ?? -1;
+    if (fromIdx < 0) return;
+    if (dest.key === key) {
+      // `at` je indeks brez tega elementa; reorder pričakuje mesto v seznamu z njim
+      const toWith = at.i >= fromIdx ? at.i + 1 : at.i;
+      if (toWith !== fromIdx && toWith !== fromIdx + 1) reorder(key, fromIdx, toWith, dest.currIds);
+    } else {
+      moveEnota(key, dest.key, id, at.i, dest.currIds);
+    }
+  }, [setCustomDates, predmet.id, filteredPoglavja, resolveOrder, resolve, getHoursD, pattern, reorder, moveEnota]);
+
   const handleExpandAll = useCallback(() => { setListMode(false); expandAll(filteredPoglavja.map(p => p.id)); }, [expandAll, filteredPoglavja]);
   const handleExpandList = useCallback(() => {
     if (listMode) { setListMode(false); return; }   // izklop – vrni podroben pogled
@@ -1459,7 +1501,7 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
                               toggleCustom={toggleCustom}
                               renameCustom={renameCustom}
                               setCustomHours={setCustomHours}
-                              setCustomDates={setCustomDates}
+                              setCustomDates={setDatesAndPlace}
                               pattern={pattern}
                               isAnonymous={isAnonymous}
                               listMode={listMode}
