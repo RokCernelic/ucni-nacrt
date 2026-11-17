@@ -28,7 +28,7 @@ import YearTimeline from '@/components/YearTimeline';
 import PrintLdnButton from '@/components/PrintLdn';
 import { useEnotaOrder, PAUSE_TYPES, PAUSE_COLOR, type ResolvedEnotaItem } from '@/hooks/useEnotaOrder';
 import { parseDay, lostHours, shortDate, weekPatternFrom, schoolYearOf, hoursUntil, type WeekPattern } from '@/lib/schoolYear';
-import { SCHOOL_CALENDARS } from '@/data/schoolCalendar';
+import { SCHOOL_CALENDARS, eventKey } from '@/data/schoolCalendar';
 import { lessonsFor, canonLabel } from '@/data/timetable';
 
 // ── Icons ──────────────────────────────────────────────────
@@ -431,6 +431,16 @@ function SunIcon() {
   );
 }
 
+const INFO_COLOR = '#4a6b8f';
+
+function FlagIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+      <path d="M5 21V4M5 4h11l-2 4 2 4H5" />
+    </svg>
+  );
+}
+
 const hoursLabel = (h: number) => (h === 1 ? 'ura' : h === 2 ? 'uri' : h < 5 ? 'ure' : 'ur');
 
 /** Počitnice / praznik / dan dejavnosti: naslov in ure, ki odpadejo (brez učne vsebine, vprašanj in ciljev; ne šteje v nabor ur). */
@@ -446,22 +456,22 @@ function PauseRow({ item, onDragStart, onDragEnd, onRename, onHoursChange, onDat
   pattern?: WeekPattern | null;
 }) {
   // počitnice trajajo več dni (od–do); praznik, dan dejavnosti, pouka prost dan so en dan
-  const multiDay = /počitnic/i.test(item.type) || (!!item.to && item.to !== item.from);
+  const multiDay = (/počitnic/i.test(item.type) && !item.info) || (!!item.to && item.to !== item.from);
   const setDates = (from: string | null, to: string | null) => {
     // prazen »do« ob vnosu »od« → en dan (praznik) ali do petka (počitnice)
     let t = to;
     const f = from ? parseDay(from) : null;
     if (f && !t) {
       const end = new Date(f);
-      if (/počitnic/i.test(item.type)) end.setDate(f.getDate() + Math.max(0, 5 - ((f.getDay() + 6) % 7) - 1));
+      if (/počitnic/i.test(item.type) && !item.info) end.setDate(f.getDate() + Math.max(0, 5 - ((f.getDay() + 6) % 7) - 1));
       t = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`;
     }
     const a = from ? parseDay(from) : null, b = t ? parseDay(t) : null;
     if (a && b && b < a) t = from;
     const a2 = from ? parseDay(from) : null, b2 = t ? parseDay(t) : null;
-    onDates(from, t, a2 && b2 ? lostHours(a2, b2, pattern) : undefined);
+    onDates(from, t, a2 && b2 && !item.info ? lostHours(a2, b2, pattern) : undefined);
   };
-  const dateInput: React.CSSProperties = { fontFamily: 'var(--font-sans)', fontSize: '11px', color: PAUSE_COLOR, background: 'rgba(255,255,255,0.7)', border: `1px solid ${PAUSE_COLOR}55`, borderRadius: '4px', padding: '1px 4px', width: '112px' };
+  const dateInput: React.CSSProperties = { fontFamily: 'var(--font-sans)', fontSize: '11px', color: item.info ? INFO_COLOR : PAUSE_COLOR, background: 'rgba(255,255,255,0.7)', border: `1px solid ${item.info ? INFO_COLOR : PAUSE_COLOR}55`, borderRadius: '4px', padding: '1px 4px', width: '112px' };
   const headerRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState(false);
   const [label, setLabel] = useState(item.type);
@@ -469,10 +479,12 @@ function PauseRow({ item, onDragStart, onDragEnd, onRename, onHoursChange, onDat
   useEffect(() => { if (editing) inputRef.current?.select(); }, [editing]);
   const commit = () => { const t = label.trim(); if (t && t !== item.type) onRename(t); else setLabel(item.type); setEditing(false); };
   const hrs = item.hours;
+  // oznaka (informativni dan, zaključek ocenjevalnega obdobja): pouk poteka, ure ne odpadejo
+  const info = !!item.info;
   const step: React.CSSProperties = { width: '18px', height: '18px', border: `1px solid ${PAUSE_COLOR}55`, borderRadius: '4px', background: 'transparent', cursor: 'pointer', color: PAUSE_COLOR, fontSize: '12px', lineHeight: 1, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' };
   return (
-    <div ref={headerRef} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 20px', borderBottom: '1px solid var(--hairline)', color: PAUSE_COLOR,
-      background: 'repeating-linear-gradient(135deg, #fdf8ee 0 8px, #faf0dc 8px 16px)' }}>
+    <div ref={headerRef} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 20px', borderBottom: '1px solid var(--hairline)', color: info ? INFO_COLOR : PAUSE_COLOR,
+      background: info ? '#f1f5fa' : 'repeating-linear-gradient(135deg, #fdf8ee 0 8px, #faf0dc 8px 16px)' }}>
       <span draggable
         onDragStart={(e) => {
           e.dataTransfer.effectAllowed = 'move';
@@ -485,7 +497,7 @@ function PauseRow({ item, onDragStart, onDragEnd, onRename, onHoursChange, onDat
         title="Povleci za premik; v prazen prostor levo/desno izven seznama = odstrani">
         <GripIcon />
       </span>
-      <span style={{ width: '20px', display: 'flex', justifyContent: 'center' }}><SunIcon /></span>
+      <span style={{ width: '20px', display: 'flex', justifyContent: 'center' }}>{info ? <FlagIcon /> : <SunIcon />}</span>
       {editing ? (
         <input ref={inputRef} value={label} onChange={e => setLabel(e.target.value)} onBlur={commit}
           onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setLabel(item.type); setEditing(false); } }}
@@ -494,8 +506,8 @@ function PauseRow({ item, onDragStart, onDragEnd, onRename, onHoursChange, onDat
         <span onDoubleClick={() => { setLabel(item.type); setEditing(true); }} title="Dvoklik za preimenovanje (npr. Jesenske počitnice, Dan reformacije)"
           style={{ flex: 1, fontSize: '13px', fontWeight: 600, letterSpacing: '0.01em' }}>
           {item.type}
-          <span style={{ fontWeight: 400, fontSize: '11px', color: '#a0814a', marginLeft: '8px' }}>
-            {item.from ? `${shortDate(parseDay(item.from)!)}${multiDay && item.to && item.to !== item.from ? ` – ${shortDate(parseDay(item.to)!)}` : ''} · ` : ''}brez pouka · ne šteje v nabor ur
+          <span style={{ fontWeight: 400, fontSize: '11px', color: info ? '#7d8fa6' : '#a0814a', marginLeft: '8px' }}>
+            {item.from ? `${shortDate(parseDay(item.from)!)}${multiDay && item.to && item.to !== item.from ? ` – ${shortDate(parseDay(item.to)!)}` : ''} · ` : ''}{info ? 'oznaka · pouk poteka' : 'brez pouka · ne šteje v nabor ur'}
           </span>
         </span>
       )}
@@ -510,13 +522,13 @@ function PauseRow({ item, onDragStart, onDragEnd, onRename, onHoursChange, onDat
           <input type="date" value={item.from ?? ''} onChange={e => setDates(e.target.value || null, e.target.value || null)} style={dateInput} aria-label="Datum" />
         </div>
       )}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0 }}>
+      {!info && <div style={{ display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0 }}>
         <span style={{ fontSize: '10px', letterSpacing: '0.04em', marginRight: '1px' }}>odpade:</span>
         <button style={{ ...step, opacity: hrs <= 0 ? 0.35 : 1, cursor: hrs <= 0 ? 'not-allowed' : 'pointer' }} disabled={hrs <= 0} onClick={() => onHoursChange(hrs - 1)} title="Manj ur">−</button>
         <span style={{ minWidth: '16px', textAlign: 'center', fontSize: '12px', fontWeight: 700, fontFamily: 'var(--font-sans)' }}>{hrs}</span>
         <button style={step} onClick={() => onHoursChange(hrs + 1)} title="Več ur">+</button>
         <span style={{ fontSize: '10px', letterSpacing: '0.04em', marginLeft: '2px', minWidth: '22px' }}>{hoursLabel(hrs)}</span>
-      </div>
+      </div>}
     </div>
   );
 }
@@ -919,7 +931,7 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
     let off = 0;
     for (const it of items) {
       const h = it.kind === 'curriculum' ? getHours(`${predmetId}:${it.id}`) : it.hours;
-      if (it.kind === 'custom' && it.pause && it.from) datedPauses.push([off, h, it.from, it.to ?? it.from]);
+      if (it.kind === 'custom' && it.pause && !it.info && it.from) datedPauses.push([off, h, it.from, it.to ?? it.from]);
       off += h;
     }
   }
@@ -1002,7 +1014,7 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
                 return (
                   <div key={item.id} data-tl-unit
                     data-tl-hours={item.kind === 'curriculum' ? getHours(`${predmetId}:${item.id}`) : item.hours}
-                    data-tl-pause={item.kind === 'custom' && item.pause ? '1' : undefined}>
+                    data-tl-pause={item.kind === 'custom' && item.pause && !item.info ? '1' : undefined}>
                     {item.kind === 'custom' && item.pause ? (
                       <PauseRow item={item}
                         onRename={(label) => renameCustom(poglavjeKey, item.id, label)}
@@ -1242,7 +1254,14 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
       const cal = SCHOOL_CALENDARS[startYear];
       if (!cal) return;
       const flagKey = `ucni-nacrt-koledar-${classId}`;
-      try { if (localStorage.getItem(flagKey) === String(startYear)) return; } catch { return; }
+      // že vstavljeni dogodki (prejšnja različica je zapisala le leto = vsi dnevi brez pouka)
+      let done = new Set<string>();
+      try {
+        const raw = localStorage.getItem(flagKey);
+        if (raw === String(startYear)) done = new Set(cal.events.filter(e => e.kind !== 'info').map(eventKey));
+        else if (raw) { const p = JSON.parse(raw); if (p?.year === startYear && Array.isArray(p.keys)) done = new Set(p.keys); }
+      } catch { return; }
+      if (cal.events.every(e => done.has(eventKey(e)))) return;
       const { resolve: res, getHoursD: hoursOf, resolveOrder: order, addEnota: add, pattern: pat, filteredPoglavja: chapters } = calRef.current;
       for (const grade of [...new Set(chapters.map(p => p.razred ?? 0))]) {
         const inGrade = chapters.filter(p => (p.razred ?? 0) === grade);
@@ -1263,8 +1282,10 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
         const after = (si: number, i: number) => !last || si > last.si || (si === last.si && i > last.i);
         for (const ev of cal.events) {
           const f = parseDay(ev.from), t = parseDay(ev.to);
+          if (done.has(eventKey(ev)) || (ev.grades && !ev.grades.includes(grade))) continue;
           if (!f || !t || f > sy.end || existing.has(ev.from)) continue;
-          const lost = lostHours(f, t, pat);
+          const info = ev.kind === 'info';
+          const lost = info ? 0 : lostHours(f, t, pat);
           // ure pouka do dneva pred dogodkom → mesto v učnem načrtu (vključno s prej vstavljenimi dnevi brez pouka)
           const target = hoursUntil(new Date(f.getFullYear(), f.getMonth(), f.getDate() - 1), sy, pat);
           let h = 0, at: { si: number; i: number } | null = null;
@@ -1276,12 +1297,12 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
           }
           if (!at) at = { si: slots.length - 1, i: slots[slots.length - 1].items.length };
           const sl = slots[at.si];
-          add(sl.key, ev.label, PAUSE_COLOR, at.i, sl.currIds, lost, { from: ev.from, to: ev.to });
+          add(sl.key, ev.label, info ? INFO_COLOR : PAUSE_COLOR, at.i, sl.currIds, lost, { from: ev.from, to: ev.to, ...(info ? { info: true } : {}) });
           sl.items.splice(at.i, 0, { hours: lost, from: ev.from });
           last = at;
         }
       }
-      try { localStorage.setItem(flagKey, String(startYear)); } catch { /* ignore */ }
+      try { localStorage.setItem(flagKey, JSON.stringify({ year: startYear, keys: cal.events.map(eventKey) })); } catch { /* ignore */ }
       window.dispatchEvent(new Event('ucni-nacrt-changed'));
     }, 2500);
     return () => clearTimeout(timer);

@@ -22,7 +22,7 @@ export function schoolYearOf(today = new Date(), grade?: number | null): SchoolY
   const cal = SCHOOL_CALENDARS[y];
   if (cal) {
     const p = (iso: string) => parseDay(iso)!;
-    return { start: p(cal.start), end: p(grade === 9 ? cal.end9 : cal.end), holidays: cal.events.map(e => [p(e.from), p(e.to)] as [Date, Date]) };
+    return { start: p(cal.start), end: p(grade === 9 ? cal.end9 : cal.end), holidays: cal.events.filter(e => e.kind !== 'info').map(e => [p(e.from), p(e.to)] as [Date, Date]) };
   }
   const autumn = mondayOf(day(y, 9, 29));                 // teden okrog 29. 10.
   const winter = mondayOf(day(y + 1, 1, 20));             // teden okrog 20. 2. (ena od obeh skupin)

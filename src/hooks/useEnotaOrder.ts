@@ -14,7 +14,7 @@ export const PALETTE_COLORS: Record<string, string> = {
 
 type StoredItem =
   | { k: 'c'; id: string }
-  | { k: 'x'; id: string; type: string; checked: boolean; color?: string; hours?: number; pause?: boolean; from?: string; to?: string };
+  | { k: 'x'; id: string; type: string; checked: boolean; color?: string; hours?: number; pause?: boolean; from?: string; to?: string; info?: boolean };
 
 /**
  * Čas brez pouka (počitnice, praznik, dan dejavnosti): ure, ki odpadejo — ne štejejo v nabor ur učnega načrta,
@@ -31,7 +31,7 @@ type Store = Record<string, StoredItem[]>;
 
 export type ResolvedEnotaItem =
   | { kind: 'curriculum'; id: string }
-  | { kind: 'custom'; id: string; type: string; checked: boolean; color: string; hours: number; pause?: boolean; from?: string; to?: string };
+  | { kind: 'custom'; id: string; type: string; checked: boolean; color: string; hours: number; pause?: boolean; from?: string; to?: string; info?: boolean };
 
 /**
  * Sestavi poln, usklajen seznam enot za poglavje: shranjeni vrstni red
@@ -74,11 +74,11 @@ export function useEnotaOrder(storageKey = 'ucni-nacrt-enote-order') {
       item.k === 'c'
         ? { kind: 'curriculum', id: item.id }
         : item.pause
-          ? { kind: 'custom', id: item.id, type: item.type, checked: false, color: item.color ?? PAUSE_COLOR, hours: item.hours ?? 1, pause: true, ...(item.from ? { from: item.from } : {}), ...(item.to ? { to: item.to } : {}) }
+          ? { kind: 'custom', id: item.id, type: item.type, checked: false, color: item.color ?? PAUSE_COLOR, hours: item.info ? 0 : item.hours ?? 1, pause: true, ...(item.from ? { from: item.from } : {}), ...(item.to ? { to: item.to } : {}), ...(item.info ? { info: true } : {}) }
           : { kind: 'custom', id: item.id, type: item.type, checked: item.checked, color: item.color ?? PALETTE_COLORS[item.type] ?? '#666', hours: item.hours ?? 1 });
   }, [store]);
 
-  const addEnota = useCallback((poglavjeKey: string, type: string, color: string, atIndex: number, currIds: string[], hours: number = 1, pause?: boolean | { from: string; to: string }) => {
+  const addEnota = useCallback((poglavjeKey: string, type: string, color: string, atIndex: number, currIds: string[], hours: number = 1, pause?: boolean | { from: string; to: string; info?: boolean }) => {
     setStore(prev => {
       const cur = materialize(prev[poglavjeKey], currIds);
       const item: StoredItem = pause
