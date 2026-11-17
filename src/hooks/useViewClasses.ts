@@ -1,5 +1,6 @@
 'use client';
 
+import { offerUndo } from '@/lib/undoStore';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 
 export type ViewKind = 'ucni' | 'sedez';
@@ -61,7 +62,13 @@ export function useViewClasses(view: ViewKind, subjectId: string) {
   const removeFromView = useCallback((id: string) => {
     const cur = (() => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } })();
     const next = cur.filter((x: string) => x !== id);
+    const wasActive = localStorage.getItem(ACTIVE);
     persist(next);
+    // razveljavi: razred se vrne na isto mesto v zavihkih (podatki razreda se pri odstranitvi iz pogleda ne brišejo)
+    offerUndo('Razred odstranjen iz zavihkov', async () => {
+      persist(cur);
+      if (wasActive) { localStorage.setItem(ACTIVE, wasActive); setActiveIdState(wasActive); window.dispatchEvent(new Event(VIEW_SYNC)); }
+    });
     if (activeId === id) {
       const na = next[0] ?? null;
       if (na) setActive(na); else { localStorage.removeItem(ACTIVE); setActiveIdState(null); window.dispatchEvent(new Event(VIEW_SYNC)); }

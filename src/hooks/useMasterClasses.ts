@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { offerUndo } from '@/lib/undoStore';
 
 export interface MasterClass {
   id: string;
@@ -91,7 +92,15 @@ export function useMasterClasses() {
   }, []);
 
   const removeClass = useCallback((id: string) => {
-    const next = read().filter(c => c.id !== id);
+    const before = read();
+    const next = before.filter(c => c.id !== id);
+    // posnetek za razveljavitev: razred, učenci, sedežni red in vsi pogledi (zavihki)
+    const snap: Record<string, string> = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && (k === `ucni-nacrt-roster-${id}` || k === `ucni-nacrt-seating-${id}` || k.startsWith('ucni-nacrt-view-ucni-') || k.startsWith('ucni-nacrt-view-sedez-'))) snap[k] = localStorage.getItem(k)!;
+    }
+    const removed = before.find(c => c.id === id);
     setClasses(next);
     // počisti razredu vezane podatke (seznam + sedežni red)
     localStorage.removeItem(`ucni-nacrt-roster-${id}`);
@@ -107,6 +116,13 @@ export function useMasterClasses() {
       }
     }
     write(next);
+    offerUndo(`Razred ${removed?.name ?? ''} izbrisan`, async () => {
+      for (const [k, v] of Object.entries(snap)) localStorage.setItem(k, v);
+      const restored = before.filter(c => c.id === id || read().some(x => x.id === c.id));
+      setClasses(restored); write(restored);
+      window.dispatchEvent(new StorageEvent('storage', { key: `ucni-nacrt-roster-${id}` }));
+      window.dispatchEvent(new StorageEvent('storage', { key: `ucni-nacrt-seating-${id}` }));
+    });
   }, []);
 
   const sorted = useMemo(() => [...classes].sort(compareClasses), [classes]);
