@@ -335,3 +335,20 @@ html.printing-questions .print-questions.ldn, .ldn.ldn-measure { font-size: 9pt;
 .pqz-ed-hgap em, .pqz-ed-vgap em { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -130%); background: #2c4a6e; color: #fff; font: 600 11px/1 var(--font-sans); font-style: normal; padding: 4px 7px; border-radius: 4px; white-space: nowrap; pointer-events: none; z-index: 4; }
 .pqz-ed-break { position: absolute; left: 0; right: 0; z-index: 1; pointer-events: none; background: #e7e5df; border-top: 1px dashed #9a968c; border-bottom: 1px dashed #9a968c; display: flex; align-items: center; justify-content: center; }
 .pqz-ed-break span { font: 600 10px/1 var(--font-sans); letter-spacing: .08em; text-transform: uppercase; color: #77736a; }
+
+/* Časovni trak šolskega leta ob levi strani učnega načrta (YearTimeline) */
+.year-tl { position: absolute; left: -16px; width: 0; pointer-events: none; z-index: 2; font-family: var(--font-sans); }
+.year-tl-rail, .year-tl-past { position: absolute; left: -1.5px; top: 0; width: 3px; border-radius: 3px; }
+.year-tl-rail { bottom: 0; background: var(--hairline); }
+.year-tl-past { background: linear-gradient(to bottom, rgba(45,106,49,.25), rgba(45,106,49,.75)); }
+.year-tl-year { position: absolute; top: -24px; right: 1px; font-size: 9px; font-weight: 700; letter-spacing: .06em; color: var(--muted); white-space: nowrap; }
+.year-tl-mark { position: absolute; left: -5px; width: 10px; height: 0; border-top: 1px solid #b9b6ad; }
+.year-tl-mark b { position: absolute; right: 13px; top: -6px; font-size: 9px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: #9a968c; white-space: nowrap; line-height: 1; }
+.year-tl-mark.is-end { border-top: 1.5px solid var(--forest); }
+.year-tl-mark.is-end b { text-transform: none; letter-spacing: 0; color: var(--forest); }
+.year-tl-now { position: absolute; left: -8px; width: 16px; height: 0; border-top: 2.5px solid #e0392b; border-radius: 2px; pointer-events: auto; cursor: default; }
+.year-tl-now::after { content: ''; position: absolute; left: 16px; top: -1.5px; width: 70px; height: 1px; background: linear-gradient(to right, rgba(224,57,43,.55), rgba(224,57,43,0)); }
+.year-tl-now em { position: absolute; right: 22px; top: -7px; font-style: normal; font-size: 10px; font-weight: 700; color: #e0392b; white-space: nowrap; line-height: 1; background: var(--surface); padding: 0 2px; }
+@media (max-width: 1190px) { .year-tl-mark b { display: none; } .year-tl-now em { display: none; } }
+@media (max-width: 700px) { .year-tl { display: none; } }
+@media print { .year-tl { display: none !important; } }

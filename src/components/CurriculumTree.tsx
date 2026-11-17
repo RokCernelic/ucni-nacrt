@@ -24,6 +24,7 @@ import { useChapterOrder } from '@/hooks/useChapterOrder';
 import { usePalette } from '@/hooks/usePalette';
 import { useListMode } from '@/hooks/useListMode';
 import RememberSchool from '@/components/RememberSchool';
+import YearTimeline from '@/components/YearTimeline';
 import PrintLdnButton from '@/components/PrintLdn';
 import { useEnotaOrder, type ResolvedEnotaItem } from '@/hooks/useEnotaOrder';
 
@@ -808,7 +809,7 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
   };
 
   return (
-    <div style={{ borderBottom: '1px solid var(--hairline)' }}>
+    <div data-tl-chapter data-tl-hours={totalHours} style={{ borderBottom: '1px solid var(--hairline)' }}>
       <div ref={chapterHeaderRef} onDragOver={armOpen} onDragLeave={disarmOpen} onDrop={disarmOpen} style={{ display: 'flex', alignItems: 'center', background: 'transparent' }}>
         <span
           draggable
@@ -868,7 +869,7 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
               poglavje.podpoglavja.forEach((pp, i) => origSubNum.set(pp.id, i + 1));
               return items.map((item, idx) => {
                 return (
-                  <div key={item.id}>
+                  <div key={item.id} data-tl-unit data-tl-hours={item.kind === 'curriculum' ? getHours(`${predmetId}:${item.id}`) : item.hours}>
                     {item.kind === 'curriculum' ? (
                       <PodpoglavjeRow
                         podpoglavje={podpoglavjeMap.get(item.id)!}
@@ -921,6 +922,18 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Kartica razreda s časovnim trakom ob levi ─────────────
+
+function GradeCard({ children }: { children: (ref: React.RefObject<HTMLDivElement | null>) => ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  return (
+    <div style={{ position: 'relative' }}>
+      <YearTimeline cardRef={ref} />
+      {children(ref)}
     </div>
   );
 }
@@ -1176,7 +1189,7 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
                     onDragEnd={() => setPaletteDrag(null)}
                   />
                   {gi === 0 && <Legend />}
-                  <div data-list-card style={{ marginTop: '6px', background: 'var(--canvas)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
+                  <GradeCard>{cardRef => <div ref={cardRef} data-list-card style={{ marginTop: '6px', background: 'var(--canvas)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
                     <div onDragOver={(e) => e.preventDefault()}>
                       {chapterDragging && <DropZone onDrop={() => handleChapterDrop(groupKey, 0, ids)} />}
                       {poglavja.map((poglavje, ci) => {
@@ -1216,7 +1229,7 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
                         );
                       })}
                     </div>
-                  </div>
+                  </div>}</GradeCard>
                 </div>
               );
             });
