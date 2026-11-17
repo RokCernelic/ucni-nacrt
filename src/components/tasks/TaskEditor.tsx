@@ -99,7 +99,12 @@ export default function TaskEditor({ initial, fixedTopic, onSave, onCancel }: {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontFamily: 'var(--font-sans)' }}>
+    // urejevalnik je obarvan (svetlo modra podlaga, moder rob), da je jasno vidno, katera naloga se ureja
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontFamily: 'var(--font-sans)',
+      background: '#e9f1fb', border: '2px solid #6f9bd1', borderRadius: 'var(--r-md)', padding: '14px 16px 16px', boxShadow: '0 4px 18px rgba(31,79,138,0.14)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '-2px 0 2px', fontSize: '12px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#1f4f8a' }}>
+        <span style={{ fontSize: '14px' }}>✎</span>{initial?.id ? 'Urejanje naloge' : 'Nova naloga'}
+      </div>
       <Field label="Oblika odgovora">
         <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
           {ANSWER_GROUPS.map(a => (

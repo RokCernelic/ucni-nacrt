@@ -90,7 +90,7 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
         const on = selected.has(t.id);
         return (
           <div key={t.id} style={{ border: `1px solid ${on ? 'var(--forest)' : 'var(--hairline)'}`, borderRadius: 'var(--r-md)',
-            background: editingId === t.id ? 'var(--surface)' : 'var(--canvas)', padding: '10px 12px', fontSize: '13px', color: 'var(--body)', lineHeight: 1.5,
+            background: editingId === t.id ? 'transparent' : 'var(--canvas)', padding: editingId === t.id ? 0 : '10px 12px', ...(editingId === t.id ? { border: 'none' } : {}), fontSize: '13px', color: 'var(--body)', lineHeight: 1.5,
             ...(nested ? { marginLeft: '28px', borderLeft: '4px solid var(--forest)' } : {}) }}>
             {editingId === t.id ? (
               <TaskEditor initial={t} onCancel={() => setEditingId(null)} onSave={async d => { await save({ ...d, id: t.id }); setEditingId(null); }} />
