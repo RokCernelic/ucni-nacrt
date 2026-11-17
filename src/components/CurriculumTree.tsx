@@ -27,7 +27,7 @@ import { useListMode } from '@/hooks/useListMode';
 import RememberSchool from '@/components/RememberSchool';
 import YearTimeline from '@/components/YearTimeline';
 import PrintLdnButton from '@/components/PrintLdn';
-import { useEnotaOrder, PAUSE_TYPES, PAUSE_COLOR, ASSESSMENT, type ResolvedEnotaItem } from '@/hooks/useEnotaOrder';
+import { useEnotaOrder, PAUSE_TYPES, PAUSE_COLOR, ASSESSMENT, ASSESSMENT_OLD_COLOR, type ResolvedEnotaItem } from '@/hooks/useEnotaOrder';
 import { parseDay, lostHours, shortDate, weekPatternFrom, schoolYearOf, hoursUntil, uniformPattern, defaultWeekly, type WeekPattern } from '@/lib/schoolYear';
 import { lessonsFor, canonLabel } from '@/data/timetable';
 
@@ -279,7 +279,9 @@ function Palette({ onDragStart, onDragEnd }: { onDragStart: (d: PaletteDrag) => 
       <span style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted)', whiteSpace: 'nowrap', marginRight: '2px' }}>
         Dodaj:
       </span>
-      {chips.map(chip => {
+      {chips.map(chip0 => {
+        // ocenjevanja so vedno v modri barvi (enako kot v seznamu)
+        const chip = /ocenjevanj/i.test(chip0.label) ? { ...chip0, color: ASSESSMENT.color } : chip0;
         const isEditing = chip.id === editingId;
         return (
           <div
@@ -462,7 +464,7 @@ const hoursLabel = (h: number) => (h === 1 ? 'ura' : h === 2 ? 'uri' : h < 5 ? '
 
 /** Počitnice / praznik / dan dejavnosti: naslov in ure, ki odpadejo (brez učne vsebine, vprašanj in ciljev; ne šteje v nabor ur). */
 /** Ocenjevanje (Ocenjevanje, Pisno / Ustno ocenjevanje …): prikazano kot praznik, a v svoji barvi in s štetimi urami. */
-const isAssessmentItem = (item: { type: string; color: string; pause?: boolean }) => !item.pause && (/ocenjevanj/i.test(item.type) || item.color.toLowerCase() === ASSESSMENT.color);
+const isAssessmentItem = (item: { type: string; color: string; pause?: boolean }) => !item.pause && (/ocenjevanj/i.test(item.type) || [ASSESSMENT.color, ASSESSMENT_OLD_COLOR].includes(item.color.toLowerCase()));
 
 function PauseRow({ item, onDragStart, onDragEnd, onRename, onHoursChange, onDates, pattern, assessment }: {
   item: ResolvedEnotaItem & { kind: 'custom' };
@@ -494,7 +496,7 @@ function PauseRow({ item, onDragStart, onDragEnd, onRename, onHoursChange, onDat
     const a2 = from ? parseDay(from) : null, b2 = t ? parseDay(t) : null;
     onDates(from, t, a2 && b2 && !item.info && !assess ? lostHours(a2, b2, pattern) : undefined);
   };
-  const C = item.info ? INFO_COLOR : assess ? item.color : PAUSE_COLOR;
+  const C = item.info ? INFO_COLOR : assess ? ASSESSMENT.color : PAUSE_COLOR;
   const dateInput: React.CSSProperties = { fontFamily: 'var(--font-sans)', fontSize: '11px', color: C, background: 'rgba(255,255,255,0.7)', border: `1px solid ${C}55`, borderRadius: '4px', padding: '1px 4px', width: '112px' };
   const headerRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState(false);

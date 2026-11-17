@@ -29,7 +29,9 @@ export const PAUSE_TYPES = [
 export const PAUSE_COLOR = '#b7791f';
 
 /** Stalni gumb »Ocenjevanje«: zavzame eno šolsko uro (šteje v nabor ur), datum določi mesto v učnem načrtu. */
-export const ASSESSMENT = { label: 'Ocenjevanje', color: '#c0392b', hours: 1 } as const;
+export const ASSESSMENT = { label: 'Ocenjevanje', color: '#1f5fbf', hours: 1 } as const;
+/** prejšnja (rdeča) barva ocenjevanja — take enote so še vedno ocenjevanja */
+export const ASSESSMENT_OLD_COLOR = '#c0392b';
 
 type Store = Record<string, StoredItem[]>;
 
