@@ -24,8 +24,10 @@ interface QuestionBase {
 export interface McQuestion extends QuestionBase {
   kind: 'mc';
   options: QuizOption[];
-  /** id pravilne možnosti */
+  /** id pravilne možnosti; pri `multi` id-ji vseh pravilnih, urejeni in ločeni z vejico */
   correct: string | null;
+  /** več pravilnih možnosti (naloga »več možnosti« na natisnjenem listu): pravilno le, če so označene natanko vse pravilne */
+  multi?: boolean;
 }
 
 export interface NumericQuestion extends QuestionBase {

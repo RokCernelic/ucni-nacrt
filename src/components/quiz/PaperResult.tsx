@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { layoutSheet, sheetSeed, shuffleOpts } from '@/lib/quiz/printSheet';
-import { scoreAnswers } from '@/lib/quiz/scoring';
+import { scoreAnswers, isCorrect, choiceIds } from '@/lib/quiz/scoring';
 import { formatNumber, gradeColor, dateTimeLabel, ceilPct } from '@/lib/quiz/format';
 import type { PaperInfo } from '@/lib/quiz/paperSession';
 import type { Question, McQuestion } from '@/lib/quiz/types';
@@ -92,8 +92,8 @@ export default function PaperResult({ sessionId, studentId }: { sessionId: strin
               <tr>
                 {rows.map(({ c, q }) => {
                   const v = answers[q.id];
-                  const ok = !!v && v === q.correct;
-                  const right = c.options.find(o => o.id === q.correct)?.letter ?? '';
+                  const ok = !!v && isCorrect(q, v);
+                  const right = c.options.filter(o => choiceIds(q.correct).includes(o.id)).map(o => o.letter).join('');
                   return <td key={c.n} style={{ textAlign: 'center', padding: '4px 8px', fontWeight: 800, fontSize: '24px', color: !v ? 'var(--hairline)' : ok ? 'var(--green-ok)' : '#c0392b' }}>{!v ? '–' : ok ? '✓' : right}</td>;
                 })}
               </tr>
@@ -113,7 +113,7 @@ export default function PaperResult({ sessionId, studentId }: { sessionId: strin
           {rows.map(({ c, q }) => {
             const v = answers[q.id];
             const answered = cls.filter(a => a[q.id]);
-            const okPct = cls.length ? ceilPct((cls.filter(a => a[q.id] === q.correct).length / cls.length) * 100) : null;
+            const okPct = cls.length ? ceilPct((cls.filter(a => isCorrect(q, a[q.id])).length / cls.length) * 100) : null;
             return (
               <li key={c.n}>
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'baseline' }}>
@@ -125,8 +125,8 @@ export default function PaperResult({ sessionId, studentId }: { sessionId: strin
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '6px' }}>
                   {c.options.map(o => {
                     const text = q.options.find(x => x.id === o.id)?.text ?? '';
-                    const isRight = o.id === q.correct, isMine = o.id === v;
-                    const n = cls.filter(a => a[q.id] === o.id).length;
+                    const isRight = choiceIds(q.correct).includes(o.id), isMine = choiceIds(v).includes(o.id);
+                    const n = cls.filter(a => choiceIds(a[q.id]).includes(o.id)).length;
                     const share = answered.length ? (n / answered.length) * 100 : 0;
                     const bd = isRight ? 'var(--green-ok)' : isMine ? '#c0392b' : 'var(--hairline)';
                     return (

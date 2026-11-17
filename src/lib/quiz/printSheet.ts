@@ -69,7 +69,16 @@ export function itemsFromQuiz(quiz: Quiz, tasksById?: Map<string, Task>): PrintI
     const solution = hasText(sol) ? sol : undefined;
     const img = q.image ? `<p><img src="${q.image}" alt=""></p>` : '';
     const html = `<p>${plainHtml(q.prompt)}</p>${img}`;
-    if (q.kind === 'mc') return { id: q.id, choice: true, html, prompt: q.prompt, options: q.options.map(o => ({ id: o.id, text: o.text, ...(o.keepPlace ? { keepPlace: true } : {}) })), noShuffle: q.options.length === 2 && q.options[0].text === 'Drži' && q.options[1].text === 'Ne drži', correct: q.correct ? [q.correct] : [], points: q.points, space: 0, solution };
+    // naloga »več možnosti« iz banke (v kvizu odprto vprašanje): na listu dobi krogce, skener jo točkuje
+    if (q.kind === 'open' && q.taskId) {
+      const t = tasksById?.get(q.taskId);
+      const ids = t?.answer_kind === 'multi' ? (t.correct ?? '').split(',').filter(Boolean) : [];
+      if (t && t.options && t.options.length >= 2 && ids.length && ids.every(id => t.options!.some(o => o.id === id))) {
+        const prompt = q.prompt.split('\n').filter(l => !/^[A-L]\) /.test(l.trim())).join('\n').trim();
+        return { id: q.id, choice: true, multi: true, html: t.body || `<p>${plainHtml(prompt)}</p>${img}`, prompt, options: t.options.map(o => ({ id: o.id, text: o.text })), correct: ids, points: q.points, space: 0, solution };
+      }
+    }
+    if (q.kind === 'mc') return { id: q.id, choice: true, ...(q.multi ? { multi: true } : {}), html, prompt: q.prompt, options: q.options.map(o => ({ id: o.id, text: o.text, ...(o.keepPlace ? { keepPlace: true } : {}) })), noShuffle: q.options.length === 2 && q.options[0].text === 'Drži' && q.options[1].text === 'Ne drži', correct: q.multi ? (q.correct ?? '').split(',').filter(Boolean) : q.correct ? [q.correct] : [], points: q.points, space: 0, solution };
     if (q.kind === 'open') return { id: q.id, choice: false, html: openQuestionHtml(q) || html, prompt: q.prompt, options: [], correct: [], points: q.points, space: Math.min(q.space ?? 25, 25), solution, answerText: q.answer?.trim() || undefined };
     return { id: q.id, choice: false, html, prompt: q.prompt, options: [], correct: [], points: q.points, space: 15, solution, answerText: `${q.correct}${q.tolerance ? ` ± ${String(q.tolerance).replace('.', ',')}` : ''}` };
   });

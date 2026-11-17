@@ -37,8 +37,8 @@ export async function createPaperSession(opts: {
   const sb = getSupabaseBrowserClient();
   const salt = opts.salt ?? Math.random().toString(36).slice(2, 10);
   const questions: Question[] = opts.items
-    .filter(i => i.choice && !i.multi && i.correct.length === 1)
-    .map(i => ({ id: i.id, kind: 'mc', prompt: i.prompt, points: i.points, options: i.options, correct: i.correct[0] }));
+    .filter(i => i.choice && (i.multi ? i.correct.length >= 1 : i.correct.length === 1))
+    .map(i => ({ id: i.id, kind: 'mc', prompt: i.prompt, points: i.points, options: i.options, correct: i.multi ? [...i.correct].sort().join(',') : i.correct[0], ...(i.multi ? { multi: true } : {}) }));
   const paper: PaperInfo = {
     salt, shuffle: opts.shuffleQuestions || opts.shuffleOptions, shuffleQuestions: opts.shuffleQuestions, shuffleOptions: opts.shuffleOptions, ...(opts.orders ? { orders: opts.orders } : {}),
     items: opts.items.map(i => ({ id: i.id, choice: i.choice, multi: i.multi, options: i.options.map(o => ({ id: o.id, text: '', ...(o.keepPlace ? { keepPlace: true } : {}) })), noShuffle: i.noShuffle, correct: i.correct, points: i.points })),

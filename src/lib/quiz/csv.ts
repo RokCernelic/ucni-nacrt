@@ -1,5 +1,5 @@
 import type { Quiz, Question } from './types';
-import { scoreAnswers } from './scoring';
+import { scoreAnswers, choiceIds } from './scoring';
 import { formatNumber } from './format';
 
 function csvField(v: string | number): string {
@@ -16,7 +16,7 @@ export interface ResultRow {
 /** Za izbirna vprašanja pretvori id izbrane možnosti v njeno besedilo (berljiv izvoz). */
 function answerLabel(q: Question, value: string | undefined): string {
   if (!value) return '';
-  if (q.kind === 'mc') return q.options.find(o => o.id === value)?.text ?? value;
+  if (q.kind === 'mc') return q.multi ? choiceIds(value).map(id => q.options.find(o => o.id === id)?.text ?? id).join(' | ') : q.options.find(o => o.id === value)?.text ?? value;
   return value;
 }
 

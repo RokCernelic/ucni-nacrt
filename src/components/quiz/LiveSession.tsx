@@ -9,7 +9,7 @@ import {
   loadSession, updateSession, deleteSession, resetStudentResult, syncSessionScoring, resolveDevice, joinChannel, isLive, participated, TEACHER_NAME,
   type QuizSession, type SessionStudent, type SessionAnswer,
 } from '@/lib/quiz/sessionApi';
-import { isCorrect, answerStatus, scoreAnswers, parseNumber, numericValue } from '@/lib/quiz/scoring';
+import { isCorrect, answerStatus, scoreAnswers, parseNumber, numericValue, choiceIds } from '@/lib/quiz/scoring';
 import { formatNumber, pointsLabel, studentsLabel } from '@/lib/quiz/format';
 import { sessionResultsCsv, downloadCsv, safeFilename } from '@/lib/quiz/csv';
 import type { Question } from '@/lib/quiz/types';
@@ -110,8 +110,9 @@ function QuestionStats({ q, index, answers, totalStudents }: { q: Question; inde
 
   const counts = new Map<string, number>();
   for (const a of relevant) {
-    const key = q.kind === 'numeric' ? formatNumber(numericValue(q, a.value) ?? NaN).replace('NaN', a.value) : a.value;
-    counts.set(key, (counts.get(key) ?? 0) + 1);
+    // pri vprašanjih z več pravilnimi šteje vsaka izbrana možnost posebej
+    const keys = q.kind === 'mc' && q.multi ? choiceIds(a.value) : [q.kind === 'numeric' ? formatNumber(numericValue(q, a.value) ?? NaN).replace('NaN', a.value) : a.value];
+    for (const key of keys) counts.set(key, (counts.get(key) ?? 0) + 1);
   }
 
   return (
@@ -128,7 +129,7 @@ function QuestionStats({ q, index, answers, totalStudents }: { q: Question; inde
           {q.options.map((o, oi) => {
             const n = counts.get(o.id) ?? 0;
             const barPct = answeredCount ? (n / answeredCount) * 100 : 0;
-            const right = o.id === q.correct;
+            const right = q.multi ? choiceIds(q.correct).includes(o.id) : o.id === q.correct;
             return (
               <div key={o.id} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ width: '18px', fontSize: '12px', fontWeight: 700, color: right ? 'var(--green-ok)' : 'var(--muted)' }}>{LETTERS[oi]}</span>
@@ -166,7 +167,7 @@ function Mark({ q, value, top, right }: { q: Question; value: string | undefined
   const st = answerStatus(q, value);
   const sym = st === 'correct' ? '✓' : st === 'wrong' ? (right ?? '✗') : '–';
   const color = st === 'correct' ? 'var(--green-ok)' : st === 'wrong' ? '#c0392b' : 'var(--hairline)';
-  const label = q.kind === 'mc' ? q.options.find(o => o.id === value)?.text : value;
+  const label = q.kind === 'mc' ? (q.multi ? choiceIds(value).map(id => q.options.find(o => o.id === id)?.text).filter(Boolean).join(' · ') : q.options.find(o => o.id === value)?.text) : value;
   return (
     <td title={`${label ?? ''}${st === 'wrong' && right ? ` — pravilno: ${right}` : ''}`} style={{ textAlign: 'center', padding: '4px 8px', [top ? 'borderTop' : 'borderBottom']: top ? '2px solid var(--hairline)' : '1px solid var(--hairline)', color, fontWeight: 800, fontSize: sym.length > 2 ? '15px' : '24px', lineHeight: 1 }}>{sym}</td>
   );
@@ -278,7 +279,11 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
     if (q.kind === 'numeric') return q.correct || undefined;
     if (q.kind !== 'mc' || !q.correct) return undefined;
     const ss = sessOf(sid);
-    if (ss.paper) return lettersBy.get(sid)?.get(q.id)?.get(q.correct);
+    if (ss.paper) {
+      const letters = lettersBy.get(sid)?.get(q.id);
+      if (q.multi) { const ls = choiceIds(q.correct).map(id => letters?.get(id)).filter(Boolean); return ls.length ? ls.sort().join('') : undefined; }
+      return letters?.get(q.correct);
+    }
     if (ss.shuffle) return undefined;
     const i = q.options.findIndex(o => o.id === q.correct);
     return i >= 0 ? LETTERS[i] : undefined;

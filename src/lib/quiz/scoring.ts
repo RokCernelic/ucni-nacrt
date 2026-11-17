@@ -58,9 +58,19 @@ export const NUMERIC_REL_TOLERANCE = 0.05;
  * Številsko: enota je lahko zapisana ali ne (s presledkom ali brez, z drugo predpono se pretvori; napačna enota ni pravilna); priznano je tudi
  * nenatančno ali napačno zaokroževanje — do 5 % odstopanja ali do ene enote zadnjega zapisanega mesta.
  */
+/** Izbrane / pravilne možnosti (pri vprašanjih z več pravilnimi so id-ji ločeni z vejico). */
+export const choiceIds = (v: string | null | undefined) => (v ?? '').split(',').map(x => x.trim()).filter(Boolean);
+/** Zapis več izbranih možnosti v en odgovor (urejeno, da je primerjava enolična). */
+export const joinChoiceIds = (ids: string[]) => [...new Set(ids)].sort().join(',');
+
 export function isCorrect(q: Question, value: string | null | undefined): boolean {
   if (value == null || value === '') return false;
-  if (q.kind === 'mc') return q.correct !== null && value === q.correct;
+  if (q.kind === 'mc') {
+    if (q.correct === null) return false;
+    if (!q.multi) return value === q.correct;
+    const a = new Set(choiceIds(value)), b = choiceIds(q.correct);
+    return a.size === b.length && b.every(id => a.has(id));
+  }
   if (q.kind === 'open') return false; // ročni pregled
   const given = readAnswer(value, q.unit);
   const expected = parseNumber(q.correct);

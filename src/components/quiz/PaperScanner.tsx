@@ -1,5 +1,6 @@
 'use client';
 
+import { joinChoiceIds } from '@/lib/quiz/scoring';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
@@ -221,7 +222,7 @@ export default function PaperScanner() {
         if (!scored.has(c.item.id)) return [];
         const ids = hit.chosen[i].map(k => c.options[k]?.id).filter(Boolean) as string[];
         if (!ids.length) return [];
-        return [{ questionId: c.item.id, value: ids.length === 1 ? ids[0] : 'X' }];
+        return [{ questionId: c.item.id, value: c.item.multi ? joinChoiceIds(ids) : ids.length === 1 ? ids[0] : 'X' }];
       });
       await savePaperAnswers(hit.sessionId, hit.studentId, answers);
       s.channel.send('answers');

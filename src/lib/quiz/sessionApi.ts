@@ -277,6 +277,10 @@ export async function syncSessionScoring(quizId: string, questions: Question[]):
     let changed = false;
     const qs = row.quiz.questions.map(sq => {
       const q = byId.get(sq.id);
+      if (q && sq.kind === 'mc' && sq.multi && q.kind === 'open') { // »več možnosti«: v kvizu odprto, v izvedbi izbirno
+        if (q.points !== sq.points) { changed = true; return { ...sq, points: q.points }; }
+        return sq;
+      }
       if (!q || q.kind !== sq.kind) return sq;
       const next = { ...sq, points: q.points } as Question;
       if (next.kind === 'mc' && q.kind === 'mc' && q.correct && next.options.some(o => o.id === q.correct)) next.correct = q.correct;
