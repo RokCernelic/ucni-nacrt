@@ -157,7 +157,7 @@ export default function StartSessionDialog({ quiz, onClose }: { quiz: Quiz; onCl
         {error && <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: '#c0392b', margin: '0 0 12px' }}>{error}</p>}
 
         {printWay ? (
-          <PrintPanel items={printItems} title={quiz.title} quizId={quiz.id} cls={cls} students={students} onCancel={onClose} />
+          <PrintPanel items={printItems} title={quiz.title} quizId={quiz.id} cls={cls} students={students} onCancel={onClose} colGap={quiz.sheet?.colGap} />
         ) : (
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
             <button onClick={onClose} style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', padding: '9px 16px', borderRadius: 'var(--r-sm)', border: '1px solid var(--hairline)', background: 'transparent', color: 'var(--ink)', cursor: 'pointer' }}>Prekliči</button>

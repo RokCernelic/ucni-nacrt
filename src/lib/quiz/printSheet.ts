@@ -1,5 +1,7 @@
 import type { Task } from '@/lib/tasks/types';
 import type { Quiz } from './types';
+import { questionMatchesTask } from '@/lib/tasks/fromQuestion';
+import { stripDuplicateChoices } from '@/lib/tasks/choices';
 
 /** Vprašanje na tiskanem kvizu: izbirno (krogci A–F na vrhu) ali prosto (račun / zapis odgovora). */
 export interface PrintItem {
@@ -24,6 +26,8 @@ export interface PrintItem {
   solution?: string;
   /** pravilni odgovor kot besedilo (številska in odprta vprašanja) */
   answerText?: string;
+  /** razmik pod nalogo (mm), če ga je učitelj nastavil v urejevalniku A4 */
+  gapAfter?: number;
 }
 
 const hasText = (h?: string) => !!h && h.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim() !== '';
@@ -64,25 +68,34 @@ export function openQuestionHtml(q: { prompt: string; html?: string }): string |
 }
 
 export function itemsFromQuiz(quiz: Quiz, tasksById?: Map<string, Task>): PrintItem[] {
-  return quiz.questions.map(q => {
-    const sol = (q.taskId ? tasksById?.get(q.taskId)?.solution : null) ?? undefined;
+  return quiz.questions.map((q): PrintItem => {
+    const t = q.taskId ? tasksById?.get(q.taskId) : undefined;
+    const sol = t?.solution ?? undefined;
     const solution = hasText(sol) ? sol : undefined;
     const img = q.image ? `<p><img src="${q.image}" alt=""></p>` : '';
-    const html = `<p>${plainHtml(q.prompt)}</p>${img}`;
+    // vprašanje je enako nalogi v bazi → natisne se obogateno besedilo naloge (formule, oblikovanje), sicer navadno besedilo
+    const fromBank = !!t && q.kind !== 'open' && questionMatchesTask(q, t);
+    const bankHtml = fromBank ? (stripDuplicateChoices(t!)?.body ?? t!.body) : null;
+    const unitNote = q.kind === 'numeric' && q.unit && q.prompt.includes(`(odgovor v ${q.unit})`) ? `<p>(odgovor v ${esc(q.unit)})</p>` : '';
+    const html = bankHtml != null && hasText(bankHtml) ? bankHtml + unitNote : `<p>${plainHtml(q.prompt)}</p>${img}`;
+    const gap = q.gapAfter != null ? { gapAfter: q.gapAfter } : {};
     // naloga »več možnosti« iz banke (v kvizu odprto vprašanje): na listu dobi krogce, skener jo točkuje
-    if (q.kind === 'open' && q.taskId) {
-      const t = tasksById?.get(q.taskId);
-      const ids = t?.answer_kind === 'multi' ? (t.correct ?? '').split(',').filter(Boolean) : [];
-      if (t && t.options && t.options.length >= 2 && ids.length && ids.every(id => t.options!.some(o => o.id === id))) {
+    if (q.kind === 'open' && t) {
+      const ids = t.answer_kind === 'multi' ? (t.correct ?? '').split(',').filter(Boolean) : [];
+      if (t.options && t.options.length >= 2 && ids.length && ids.every(id => t.options!.some(o => o.id === id))) {
         const prompt = q.prompt.split('\n').filter(l => !/^[A-L]\) /.test(l.trim())).join('\n').trim();
-        return { id: q.id, choice: true, multi: true, html: t.body || `<p>${plainHtml(prompt)}</p>${img}`, prompt, options: t.options.map(o => ({ id: o.id, text: o.text })), correct: ids, points: q.points, space: 0, solution };
+        const body = stripDuplicateChoices(t)?.body ?? t.body;
+        return { id: q.id, choice: true, multi: true, html: body || `<p>${plainHtml(prompt)}</p>${img}`, prompt, options: t.options.map(o => ({ id: o.id, text: o.text })), correct: ids, points: q.points, space: 0, solution, ...gap };
       }
     }
-    if (q.kind === 'mc') return { id: q.id, choice: true, ...(q.multi ? { multi: true } : {}), html, prompt: q.prompt, options: q.options.map(o => ({ id: o.id, text: o.text, ...(o.keepPlace ? { keepPlace: true } : {}) })), noShuffle: q.options.length === 2 && q.options[0].text === 'Drži' && q.options[1].text === 'Ne drži', correct: q.multi ? (q.correct ?? '').split(',').filter(Boolean) : q.correct ? [q.correct] : [], points: q.points, space: 0, solution };
-    if (q.kind === 'open') return { id: q.id, choice: false, html: openQuestionHtml(q) || html, prompt: q.prompt, options: [], correct: [], points: q.points, space: Math.min(q.space ?? 25, 25), solution, answerText: q.answer?.trim() || undefined };
-    return { id: q.id, choice: false, html, prompt: q.prompt, options: [], correct: [], points: q.points, space: 15, solution, answerText: `${q.correct}${q.tolerance ? ` ± ${String(q.tolerance).replace('.', ',')}` : ''}` };
+    if (q.kind === 'mc') return { id: q.id, choice: true, ...(q.multi ? { multi: true } : {}), html, prompt: q.prompt, options: q.options.map(o => ({ id: o.id, text: o.text, ...(o.keepPlace ? { keepPlace: true } : {}) })), noShuffle: q.options.length === 2 && q.options[0].text === 'Drži' && q.options[1].text === 'Ne drži', correct: q.multi ? (q.correct ?? '').split(',').filter(Boolean) : q.correct ? [q.correct] : [], points: q.points, space: 0, solution, ...gap };
+    if (q.kind === 'open') return { id: q.id, choice: false, html: openQuestionHtml(q) || `<p>${plainHtml(q.prompt)}</p>${img}`, prompt: q.prompt, options: [], correct: [], points: q.points, space: clampSpace(q.space ?? 25), solution, answerText: q.answer?.trim() || undefined, ...gap };
+    return { id: q.id, choice: false, html, prompt: q.prompt, options: [], correct: [], points: q.points, space: clampSpace(q.space ?? 15), solution, answerText: `${q.correct}${q.tolerance ? ` ± ${String(q.tolerance).replace('.', ',')}` : ''}${q.unit ? ` ${q.unit}` : ''}`, ...gap };
   });
 }
+
+/** Prostor za odgovor (mm): od 0 do skoraj cele strani. */
+export const clampSpace = (mm: number) => Math.max(0, Math.min(240, Math.round(mm)));
 
 /** Deterministični generator (mulberry32) iz besedilnega semena — enak kot v sedežnem redu. */
 function makeRng(seed: string): () => number {

@@ -19,6 +19,8 @@ interface QuestionBase {
   points: number;
   /** naloga v bazi, iz katere je vprašanje nastalo (za oznake: težavnost, Bloom, poglavje) */
   taskId?: string;
+  /** dodaten razmik pod nalogo na natisnjenem listu (mm; privzeto po slogu lista) */
+  gapAfter?: number;
 }
 
 export interface McQuestion extends QuestionBase {
@@ -38,6 +40,8 @@ export interface NumericQuestion extends QuestionBase {
   tolerance: number;
   /** pričakovana enota (učenec jo lahko zapiše ali ne; z drugo predpono se pretvori) */
   unit?: string;
+  /** prostor za odgovor na natisnjenem listu (mm; privzeto 15) */
+  space?: number;
 }
 
 /** Odprto vprašanje (račun, zapis odgovora): se ne točkuje samodejno — učitelj pregleda ročno. */
@@ -61,6 +65,13 @@ export interface Quiz {
   createdAt: number;
   updatedAt: number;
   lastUsedAt?: number;
+  /** razpored natisnjenega lista (urejevalnik A4) */
+  sheet?: QuizSheetLayout;
+}
+
+export interface QuizSheetLayout {
+  /** razmik med stolpcema izbirnih nalog (mm; privzeto 8) */
+  colGap?: number;
 }
 
 export interface QuizFolder {

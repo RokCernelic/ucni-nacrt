@@ -36,11 +36,15 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 /** Urejevalnik naloge iz baze. `fixedTopic` = odprto iz podpoglavja učnega načrta (že povezano). */
-export default function TaskEditor({ initial, fixedTopic, onSave, onCancel }: {
+export default function TaskEditor({ initial, fixedTopic, onSave, onCancel, saveLabel, altSave }: {
   initial?: TaskDraft;
   fixedTopic?: string;
   onSave: (draft: TaskDraft) => Promise<unknown>;
   onCancel: () => void;
+  /** besedilo glavnega gumba (privzeto »Shrani« / »Dodaj nalogo«) */
+  saveLabel?: string;
+  /** drug način shranjevanja (npr. »Shrani kot novo različico«) */
+  altSave?: { label: string; title?: string; onSave: (draft: TaskDraft) => Promise<unknown> };
 }) {
   const [t, setT] = useState<TaskDraft>(() => {
     const base = initial ?? emptyTask(fixedTopic ? { topics: [fixedTopic], curriculum: fixedTopic.split(':')[0] } : {});
@@ -85,13 +89,13 @@ export default function TaskEditor({ initial, fixedTopic, onSave, onCancel }: {
   const topicOptions = useMemo(() => topicsOf(pickCurr).filter(tp => tp.chapterKey === pickChapter), [pickCurr, pickChapter]);
   const topicStandards = t.topics.flatMap(k => (topicInfo(k)?.standards ?? []).map(s => ({ ...s, topic: k })));
 
-  const save = async () => {
+  const save = async (handler: (draft: TaskDraft) => Promise<unknown> = onSave) => {
     if (problems.length || busy) return;
     setBusy(true); setError(null);
     try {
       const tags = tagText.split(',').map(s => s.trim()).filter(Boolean);
       const clean = (h: string | null) => (h && !isRichEmpty(h) ? sanitizeRichHtml(h).html : null);
-      await onSave({ ...t, tags, body: sanitizeRichHtml(t.body).html, answer: clean(t.answer), solution: clean(t.solution) });
+      await handler({ ...t, tags, body: sanitizeRichHtml(t.body).html, answer: clean(t.answer), solution: clean(t.solution) });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setBusy(false);
@@ -280,8 +284,14 @@ export default function TaskEditor({ initial, fixedTopic, onSave, onCancel }: {
       <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', borderTop: '1px solid var(--hairline)', paddingTop: '10px' }}>
         <button type="button" onClick={() => void save()} disabled={!!problems.length || busy}
           style={{ ...btn(true), opacity: problems.length || busy ? 0.5 : 1, cursor: problems.length || busy ? 'not-allowed' : 'pointer' }}>
-          {busy ? 'Shranjujem …' : initial?.id ? 'Shrani' : 'Dodaj nalogo'}
+          {busy ? 'Shranjujem …' : saveLabel ?? (initial?.id ? 'Shrani' : 'Dodaj nalogo')}
         </button>
+        {altSave && (
+          <button type="button" onClick={() => void save(altSave.onSave)} disabled={!!problems.length || busy} title={altSave.title}
+            style={{ ...btn(), opacity: problems.length || busy ? 0.5 : 1, cursor: problems.length || busy ? 'not-allowed' : 'pointer' }}>
+            {altSave.label}
+          </button>
+        )}
         <button type="button" onClick={onCancel} style={btn()}>Prekliči</button>
         {problems.length > 0 && <span style={{ fontSize: '12px', color: '#b7791f' }}>⚠ {problems.join(' · ')}</span>}
         {error && <span style={{ fontSize: '12px', color: '#c0392b' }}>{error}</span>}

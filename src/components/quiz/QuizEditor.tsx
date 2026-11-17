@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Link from 'next/link';
-import { openQuestionHtml } from '@/lib/quiz/printSheet';
+import { openQuestionHtml, itemsFromQuiz } from '@/lib/quiz/printSheet';
+import QuizPaper from '@/components/quiz/QuizPaper';
+import QuestionTaskDrawer, { questionFromTask } from '@/components/quiz/QuestionTaskDrawer';
 import { useAuth } from '@/hooks/useAuth';
 import {
   useQuizLibrary, folderPath, cloneQuestion, QuizStorageFullError,
@@ -280,6 +282,15 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
   const { user, loading } = useAuth();
   const lib = useQuizLibrary();
   const { tasks, save: saveTask, loaded: tasksLoaded } = useTasks();
+  const taskById = useMemo(() => new Map(tasks.map(t => [t.id, t])), [tasks]);
+  /** pogled: list A4 (privzeto) ali seznam vprašanj */
+  const [view, setView] = useState<'a4' | 'list'>(() => { try { return localStorage.getItem('kviz-pogled') === 'list' ? 'list' : 'a4'; } catch { return 'a4'; } });
+  const switchView = (v: 'a4' | 'list') => { setView(v); try { localStorage.setItem('kviz-pogled', v); } catch { /* ignore */ } };
+  /** naloga, odprta v stranskem urejevalniku (id vprašanja ali '__new') */
+  const [active, setActive] = useState<string | null>(null);
+  /** vprašanja, posodobljena iz baze nalog ob odprtju kviza (z možnostjo razveljavitve) */
+  const [bankSync, setBankSync] = useState<{ n: number; prev: Question[] } | null>(null);
+  const synced = useRef(false);
   const [picking, setPicking] = useState(false);
   const [bankBusy, setBankBusy] = useState(false);
   /** vprašanja, ki so odprta za urejanje (ostala so v pogledu kot v bazi nalog) */
@@ -319,7 +330,7 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
     if (!q) return;
     pending.current = null;
     try {
-      updateQuiz(q.id, { title: q.title, folderId: q.folderId, questions: q.questions });
+      updateQuiz(q.id, { title: q.title, folderId: q.folderId, questions: q.questions, sheet: q.sheet });
       setStatus('saved'); setError(null);
       // spremenjeno točkovanje (točke, pravilni odgovor, toleranca) → posodobi tudi vse izvedbe tega kviza
       const sig = scoringSignature(q.questions);
@@ -341,7 +352,30 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
     return () => { window.removeEventListener('beforeunload', onUnload); flush(); };
   }, [flush]);
 
+  // ob odprtju: naloge, ki so bile medtem spremenjene v bazi nalog, se posodobijo tudi v kvizu
+  useEffect(() => {
+    if (synced.current || !draft || !tasksLoaded) return;
+    synced.current = true;
+    const map = new Map(tasks.map(t => [t.id, t]));
+    let n = 0;
+    const questions = draft.questions.map(q => {
+      const t = q.taskId ? map.get(q.taskId) : undefined;
+      if (!t || questionMatchesTask(q, t)) return q;
+      n++;
+      return questionFromTask(t, q);
+    });
+    if (n) {
+      // enkratna uskladitev z bazo nalog (zunanji vir), ko sta kviz in baza naložena
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setBankSync({ n, prev: draft.questions });
+      const next = { ...draft, questions };
+      setDraft(next); pending.current = next; setStatus('saving');
+      saveTimer.current = setTimeout(flush, 500);
+    }
+  }, [draft, tasksLoaded, tasks, flush]);
+
   const update = (next: Quiz) => {
+    draftRef.current = next; // zaporedne spremembe (npr. vlečenje razmika) gradijo na zadnjem stanju
     setDraft(next);
     pending.current = next;
     setStatus('saving');
@@ -360,7 +394,6 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
 
   const setQuestions = (questions: Question[]) => update({ ...draft, questions });
   const addQuestion = (q: Question) => { setQuestions([...draft.questions, q]); toggleEditing(q.id, true); };
-  const taskById = new Map(tasks.map(t => [t.id, t]));
   const replaceQ = (i: number, q: Question) => setQuestions(draft.questions.map((x, j) => j === i ? q : x));
   /** Spremeni eno vprašanje glede na najnovejše stanje kviza (varno tudi po asinhronem shranjevanju v bazo). */
   const patchQ = (id: string, patch: Partial<Question>) => {
@@ -393,6 +426,59 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
     } catch (e) { setError(`V bazo nalog ni bilo mogoče shraniti: ${e instanceof Error ? e.message : String(e)}`); }
     finally { setBankBusy(false); }
   };
+
+  // ── list A4 ──
+  const replaceQById = (id: string, nq: Question) => {
+    const d = draftRef.current;
+    if (d) update({ ...d, questions: d.questions.map(x => (x.id === id ? nq : x)) });
+  };
+  /** premik naloge na listu: znotraj iste skupine (izbirne zgoraj / ostale spodaj) */
+  const moveOnSheet = (id: string, dir: -1 | 1) => {
+    const d = draftRef.current;
+    if (!d) return;
+    const choice = new Set(itemsFromQuiz(d, taskById).filter(i => i.choice).map(i => i.id));
+    const same = d.questions.filter(q => choice.has(q.id) === choice.has(id));
+    const other = same[same.findIndex(q => q.id === id) + dir];
+    if (!other) return;
+    const qs = [...d.questions];
+    const a = qs.findIndex(q => q.id === id), b = qs.findIndex(q => q.id === other.id);
+    [qs[a], qs[b]] = [qs[b], qs[a]];
+    update({ ...d, questions: qs });
+  };
+  const setSpacing = (id: string, kind: 'gap' | 'space', mm: number | null) => {
+    const d = draftRef.current;
+    if (!d) return;
+    update({ ...d, questions: d.questions.map(x => (x.id !== id ? x : ({ ...x, [kind === 'gap' ? 'gapAfter' : 'space']: mm ?? undefined } as Question))) });
+  };
+  const setColGap = (mm: number | null) => {
+    const d = draftRef.current;
+    if (d) update({ ...d, sheet: { ...d.sheet, colGap: mm ?? undefined } });
+  };
+  const deleteById = (id: string) => {
+    const d = draftRef.current;
+    const i = d ? d.questions.findIndex(q => q.id === id) : -1;
+    if (!d || i < 0) return;
+    if (confirm(`Odstranim vprašanje ${i + 1} iz kviza? (Naloga v bazi ostane.)`)) { update({ ...d, questions: d.questions.filter(q => q.id !== id) }); if (active === id) setActive(null); }
+  };
+  const duplicateById = (id: string) => {
+    const d = draftRef.current;
+    const i = d ? d.questions.findIndex(q => q.id === id) : -1;
+    if (d && i >= 0) update({ ...d, questions: [...d.questions.slice(0, i + 1), cloneQuestion(d.questions[i]), ...d.questions.slice(i + 1)] });
+  };
+  const onTaskSaved = (saved: Task) => {
+    const d = draftRef.current;
+    if (!d) return;
+    if (active === '__new') update({ ...d, questions: [...d.questions, questionFromTask(saved)] });
+    else if (active) { const q = d.questions.find(x => x.id === active); if (q) replaceQById(active, questionFromTask(saved, q)); }
+    setActive(null);
+  };
+  /** številka naloge na listu (izbirne najprej) */
+  const sheetNumber = (id: string) => {
+    const items = itemsFromQuiz(draft, taskById);
+    const order = [...items.filter(i => i.choice), ...items.filter(i => !i.choice)];
+    return order.findIndex(i => i.id === id) + 1;
+  };
+  const activeQ = active && active !== '__new' ? draft.questions.find(q => q.id === active) ?? null : null;
 
   const addFromBank = (picked: Task[]) => {
     const { questions } = tasksToQuestions(picked);
@@ -467,11 +553,37 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
         </div>
       </div>
 
-      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px 32px 80px' }}>
+      <div style={{ maxWidth: '900px', margin: active && view === 'a4' ? '0 max(min(600px, 46vw), 360px) 0 auto' : '0 auto', padding: '24px 32px 80px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px', fontFamily: 'var(--font-sans)' }}>
+          <div style={{ display: 'inline-flex', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', overflow: 'hidden' }}>
+            {([['a4', '📄 List A4'], ['list', '☰ Seznam vprašanj']] as const).map(([v, l]) => (
+              <button key={v} onClick={() => { switchView(v); setActive(null); }}
+                style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: view === v ? 600 : 500, padding: '6px 12px', border: 'none', cursor: 'pointer',
+                  background: view === v ? 'var(--forest)' : 'transparent', color: view === v ? '#fff' : 'var(--forest)' }}>{l}</button>
+            ))}
+          </div>
+          <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
+            {view === 'a4' ? 'Kot natisnjen list: klik na nalogo jo odpre, črtkane ločilne črte povlečeš za razmik.' : 'Vprašanja za kviz v živo (tablice) in podrobne nastavitve.'}
+          </span>
+        </div>
+        {bankSync && (
+          <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: '#2c4a6e', background: '#e9f1fb', border: '1px solid #c8d6e8', borderRadius: 'var(--r-sm)', padding: '8px 12px', margin: '0 0 14px', display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <span style={{ flex: 1 }}>Iz baze nalog posodobljeno: {questionsLabel(bankSync.n)} (naloge so bile medtem spremenjene v bazi).</span>
+            <button style={btn()} onClick={() => { const d = draftRef.current; if (d) update({ ...d, questions: bankSync.prev }); setBankSync(null); }}>Razveljavi</button>
+            <button style={{ ...iconBtn, width: '24px', height: '24px' }} title="Zapri" onClick={() => setBankSync(null)}>×</button>
+          </p>
+        )}
         {error && <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: '#c0392b', margin: '0 0 14px' }}>{error}</p>}
         {scoringNote && <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: '#8a5a00', background: '#fdf6e3', border: '1px solid #ecd9a8', borderRadius: 'var(--r-sm)', padding: '8px 12px', margin: '0 0 14px' }}>{scoringNote}</p>}
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {view === 'a4' && (
+          <div style={{ overflowX: 'auto', margin: '0 -32px', padding: '4px 0 8px' }}>
+            <QuizPaper quiz={draft} tasksById={taskById} activeId={active}
+              onOpen={id => { flush(); setActive(id); }} onMove={moveOnSheet} onDuplicate={duplicateById} onDelete={deleteById}
+              onSpacing={setSpacing} onColGap={setColGap} />
+          </div>
+        )}
+        {view === 'list' && <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {draft.questions.map((q, i) => {
             const dup = () => setQuestions([...draft.questions.slice(0, i + 1), cloneQuestion(q), ...draft.questions.slice(i + 1)]);
             const del = () => { if (confirm(`Odstranim vprašanje ${i + 1} iz kviza? (Naloga v bazi ostane.)`)) setQuestions(draft.questions.filter((_, j) => j !== i)); };
@@ -484,14 +596,20 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
                 onEdit={() => toggleEditing(q.id, true)} onMove={dir => moveQ(i, dir)} onDuplicate={dup} onDelete={del} />
             );
           })}
-        </div>
+        </div>}
 
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '16px', padding: '14px', border: '1px dashed var(--hairline)', borderRadius: 'var(--r-md)', alignItems: 'center' }}>
           <span style={{ ...label, marginRight: '4px' }}>Dodaj vprašanje</span>
-          <button style={btn(true)} onClick={() => addQuestion(newMcQuestion())}>+ ABCD</button>
-          <button style={btn()} onClick={() => addQuestion(newTrueFalseQuestion())}>+ Drži / ne drži</button>
-          <button style={btn()} onClick={() => addQuestion(newNumericQuestion())}>+ Kratek odgovor (število)</button>
-          <button style={btn()} onClick={() => addQuestion(newOpenQuestion())}>+ Odprto</button>
+          {view === 'a4' ? (
+            <button style={btn(true)} onClick={() => { flush(); setActive('__new'); }} title="Odpre urejevalnik naloge (kot v bazi nalog); naloga se shrani v bazo in doda v kviz">+ Nova naloga</button>
+          ) : (
+            <>
+              <button style={btn(true)} onClick={() => addQuestion(newMcQuestion())}>+ ABCD</button>
+              <button style={btn()} onClick={() => addQuestion(newTrueFalseQuestion())}>+ Drži / ne drži</button>
+              <button style={btn()} onClick={() => addQuestion(newNumericQuestion())}>+ Kratek odgovor (število)</button>
+              <button style={btn()} onClick={() => addQuestion(newOpenQuestion())}>+ Odprto</button>
+            </>
+          )}
           <button style={{ ...btn(), borderColor: 'var(--forest)', fontWeight: 600 }} onClick={() => { flush(); setPicking(true); }}
             title="Odpre bazo nalog: obkljukaš eno ali več nalog in jih dodaš v kviz">+ Iz baze nalog</button>
           <span style={{ flex: 1 }} />
@@ -523,6 +641,11 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
       </div>
       {starting && <StartSessionDialog quiz={draft} onClose={() => setStarting(false)} />}
       {picking && <BankPickerShell title={draft.title} onAdd={addFromBank} onClose={() => setPicking(false)} />}
+      {active && view === 'a4' && (
+        <QuestionTaskDrawer key={active} question={activeQ} number={activeQ ? sheetNumber(activeQ.id) : null}
+          task={activeQ?.taskId ? taskById.get(activeQ.taskId) : undefined} quizId={draft.id}
+          save={saveTask} onSaved={onTaskSaved} onClose={() => setActive(null)} />
+      )}
       {bankBusy && <div style={{ position: 'fixed', right: '16px', bottom: '16px', background: 'var(--forest)', color: '#fff', fontFamily: 'var(--font-sans)', fontSize: '12px', padding: '8px 12px', borderRadius: 'var(--r-sm)' }}>Shranjujem v bazo nalog …</div>}
     </div>
   );

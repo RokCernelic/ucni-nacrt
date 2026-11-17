@@ -314,3 +314,24 @@ html.printing-questions .print-questions.ldn, .ldn.ldn-measure { font-size: 9pt;
 .pqz-preview .pqz-sol { break-before: auto; page-break-before: auto; background: #fff; margin: 12px auto 0; padding-top: 10mm; padding-bottom: 10mm; box-shadow: 0 2px 14px rgba(0,0,0,.18); }
 .pqz-solopts { margin: .5mm 0 0 5mm; }
 .pqz-solright { font-weight: 700; }
+
+/* Urejevalnik kviza kot list A4 (QuizPaper): poudarek naloge, orodja, ročice za razmike, meje strani — samo na zaslonu. */
+.pqz-ed .pqz-sheet { overflow: visible; }
+.pqz-ed-item { position: relative; cursor: pointer; border-radius: 1mm; outline: 1.5px solid transparent; outline-offset: 1.2mm; transition: outline-color .12s, background .12s; }
+.pqz-ed-item:hover { outline-color: #b9cfe9; }
+.pqz-ed-item.is-active { outline: 2px solid #6f9bd1; background: #f3f8fe; }
+.pqz-ed-tools { position: absolute; top: -3.2mm; right: -1mm; display: none; gap: 2px; z-index: 3; background: #fff; border: 1px solid #c8d6e8; border-radius: 6px; padding: 2px; box-shadow: 0 2px 8px rgba(0,0,0,.12); font-family: var(--font-sans); }
+.pqz-ed-item:hover .pqz-ed-tools, .pqz-ed-item.is-active .pqz-ed-tools { display: inline-flex; }
+.pqz-ed-tools button { width: 24px; height: 22px; border: none; background: transparent; border-radius: 4px; cursor: pointer; font-size: 12px; color: #2c4a6e; padding: 0; }
+.pqz-ed-tools button:hover:not(:disabled) { background: #e9f1fb; }
+.pqz-ed-tools button:disabled { opacity: .3; cursor: default; }
+.pqz-ed-tools button.del { color: #c0392b; }
+.pqz-ed-hgap { position: absolute; left: -2mm; right: -2mm; height: 10px; transform: translateY(50%); cursor: row-resize; z-index: 2; }
+.pqz-ed-hgap::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; border-top: 1.5px dashed transparent; }
+.pqz-ed-hgap:hover::after, .pqz-ed-hgap.is-drag::after { border-top-color: #6f9bd1; }
+.pqz-ed-vgap { position: absolute; top: 0; bottom: 0; left: 50%; transform: translateX(-50%); min-width: 8px; cursor: col-resize; z-index: 2; }
+.pqz-ed-vgap::after { content: ''; position: absolute; top: 0; bottom: 0; left: 50%; border-left: 1.5px dashed transparent; }
+.pqz-ed-vgap:hover::after, .pqz-ed-vgap.is-drag::after { border-left-color: #6f9bd1; }
+.pqz-ed-hgap em, .pqz-ed-vgap em { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -130%); background: #2c4a6e; color: #fff; font: 600 11px/1 var(--font-sans); font-style: normal; padding: 4px 7px; border-radius: 4px; white-space: nowrap; pointer-events: none; z-index: 4; }
+.pqz-ed-break { position: absolute; left: 0; right: 0; z-index: 1; pointer-events: none; background: #e7e5df; border-top: 1px dashed #9a968c; border-bottom: 1px dashed #9a968c; display: flex; align-items: center; justify-content: center; }
+.pqz-ed-break span { font: 600 10px/1 var(--font-sans); letter-spacing: .08em; text-transform: uppercase; color: #77736a; }

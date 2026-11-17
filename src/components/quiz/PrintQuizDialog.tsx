@@ -31,8 +31,8 @@ async function imagesReady(timeoutMs = 5000) {
  * Možnosti in gumb za tisk kviza: enak list za vse (črta za ime) ali svoj test za vsakega učenca (ime, QR, skener);
  * premešanje vprašanj in/ali odgovorov. Uporabljata ga okno »Zaženi kviz« (način Natisnjeno) in samostojno okno za tisk.
  */
-export function PrintPanel({ items, title, quizId, cls, students, classPicker, onCancel }: {
-  items: PrintItem[]; title: string; quizId: string | null;
+export function PrintPanel({ items, title, quizId, cls, students, classPicker, onCancel, colGap }: {
+  items: PrintItem[]; title: string; quizId: string | null; colGap?: number;
   cls?: { id: string; name: string }; students: { id: string; name: string; pin?: string }[];
   classPicker?: React.ReactNode; onCancel: () => void;
 }) {
@@ -266,7 +266,7 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
               </div>
             ) : (
               <div className="pqz-preview" style={{ width: 'fit-content', margin: '0 auto' }}>
-                <QuizSheet sheet={preview.sheets[preview.idx]} title={title} placeholder />
+                <QuizSheet sheet={preview.sheets[preview.idx]} title={title} placeholder colGap={colGap} />
               </div>
             )}
             {withSolutions && hasSolutions && (
@@ -283,7 +283,7 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
         <div className="print-questions pqz" aria-hidden>
           {printPlan
             ? <HalvesPages sheets={sheets} plan={printPlan} title={title} className={cls?.name} duplicate={!perStudent} />
-            : sheets.map(sh => <QuizSheet key={sh.key} sheet={sh} title={title} className={cls?.name} />)}
+            : sheets.map(sh => <QuizSheet key={sh.key} sheet={sh} title={title} className={cls?.name} colGap={colGap} />)}
           {solItems && <SolutionsPage items={solItems} title={title} halves={!!printPlan} />}
         </div>,
         document.body,
@@ -330,19 +330,22 @@ export default function PrintQuizDialog({ items, title, quizId, defaultClassId, 
   );
 }
 
-/** En natisnjen list (glava, okvir z odgovori, vprašanja). */
-export function QuizSheet({ sheet: sh, title, className, placeholder }: { sheet: Sheet; title: string; className?: string; placeholder?: boolean }) {
+/** En natisnjen list (glava, okvir z odgovori, vprašanja). `colGap` = razmik med stolpcema izbirnih nalog (mm). */
+export function QuizSheet({ sheet: sh, title, className, placeholder, colGap }: { sheet: Sheet; title: string; className?: string; placeholder?: boolean; colGap?: number }) {
   return (
     <section className="pqz-sheet">
       <SheetHead sheet={sh} title={title} className={className} placeholder={placeholder} />
       <FrameView sheet={sh} />
       {(['choice', 'free'] as const).map(g => sh.layout[g].length > 0 && (
-        <ol className={`pqz-list${g === 'choice' ? ' pqz-cols2' : ''}`} key={g} style={{ listStyle: 'none', padding: 0 }}>
+        <ol className={`pqz-list${g === 'choice' ? ' pqz-cols2' : ''}`} key={g} style={{ listStyle: 'none', padding: 0, ...(g === 'choice' && colGap != null ? { columnGap: `${colGap}mm` } : {}) }}>
           {sh.layout[g].map(c => (
-            <li className={`pqz-item${g === 'choice' ? ' pqz-c' : ''}`} key={c.n}><ItemBody c={c} /></li>
+            <li className={`pqz-item${g === 'choice' ? ' pqz-c' : ''}`} key={c.n} style={itemGapStyle(c.item.gapAfter)}><ItemBody c={c} /></li>
           ))}
         </ol>
       ))}
     </section>
   );
 }
+
+/** Razmik pod nalogo, ki ga je učitelj nastavil v urejevalniku A4 (sicer privzeti iz sloga lista). */
+export const itemGapStyle = (gap?: number): React.CSSProperties | undefined => (gap != null ? { marginBottom: `${gap}mm` } : undefined);
