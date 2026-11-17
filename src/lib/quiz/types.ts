@@ -74,6 +74,8 @@ export interface Quiz {
 export interface QuizSheetLayout {
   /** razmik med stolpcema izbirnih nalog (mm; privzeto 8) */
   colGap?: number;
+  /** skrij okvirček za točke ob nalogah (besedilo naloge dobi več prostora) */
+  hidePoints?: boolean;
 }
 
 export interface QuizFolder {

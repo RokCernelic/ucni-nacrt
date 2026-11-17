@@ -30,6 +30,8 @@ export interface PrintItem {
   gapAfter?: number;
   /** razmik pod nalogo pri dveh testih na en list (mm) */
   gapHalf?: number;
+  /** brez okvirčka za točke (nastavitev kviza) */
+  hidePoints?: boolean;
 }
 
 const hasText = (h?: string) => !!h && h.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim() !== '';
@@ -80,7 +82,7 @@ export function itemsFromQuiz(quiz: Quiz, tasksById?: Map<string, Task>): PrintI
     const bankHtml = fromBank ? (stripDuplicateChoices(t!)?.body ?? t!.body) : null;
     const unitNote = q.kind === 'numeric' && q.unit && q.prompt.includes(`(odgovor v ${q.unit})`) ? `<p>(odgovor v ${esc(q.unit)})</p>` : '';
     const html = bankHtml != null && hasText(bankHtml) ? bankHtml + unitNote : `<p>${plainHtml(q.prompt)}</p>${img}`;
-    const gap = { ...(q.gapAfter != null ? { gapAfter: q.gapAfter } : {}), ...(q.gapHalf != null ? { gapHalf: q.gapHalf } : {}) };
+    const gap = { ...(q.gapAfter != null ? { gapAfter: q.gapAfter } : {}), ...(q.gapHalf != null ? { gapHalf: q.gapHalf } : {}), ...(quiz.sheet?.hidePoints ? { hidePoints: true } : {}) };
     // naloga »več možnosti« iz banke (v kvizu odprto vprašanje): na listu dobi krogce, skener jo točkuje
     if (q.kind === 'open' && t) {
       const ids = t.answer_kind === 'multi' ? (t.correct ?? '').split(',').filter(Boolean) : [];

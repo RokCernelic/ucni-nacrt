@@ -576,6 +576,14 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
                   background: view === v ? 'var(--forest)' : 'transparent', color: view === v ? '#fff' : 'var(--forest)' }}>{l}</button>
             ))}
           </div>
+          {view !== 'list' && (
+            <button onClick={() => { const d = draftRef.current; if (d) update({ ...d, sheet: { ...d.sheet, hidePoints: !d.sheet?.hidePoints || undefined } }); }}
+              title={draft.sheet?.hidePoints ? 'Pokaži okvirčke za točke ob nalogah' : 'Skrij okvirčke za točke — naloge dobijo več prostora'}
+              style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500, padding: '6px 12px', borderRadius: 'var(--r-sm)', cursor: 'pointer', whiteSpace: 'nowrap',
+                border: '1px solid var(--hairline)', background: draft.sheet?.hidePoints ? 'transparent' : '#eef6ee', color: 'var(--forest)' }}>
+              {draft.sheet?.hidePoints ? '☐ Točke skrite' : '☑ Točke prikazane'}
+            </button>
+          )}
           <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
             {view === 'a4' ? 'Kot natisnjen list: klik na nalogo jo odpre, črtkane ločilne črte povlečeš za razmik.'
               : view === 'halves' ? 'Kot natisnjena dva testa na en list A4 (zgoraj in spodaj): klik na nalogo jo odpre, črtkane ločilne črte povlečeš za razmik.'

@@ -47,7 +47,7 @@ export function ItemBody({ c }: { c: SheetItem }) {
     <>
       <div className="pqz-q">
         {/* pri nalogah, ki jih učitelj popravi ročno: levo prazno polje za dosežene točke, desno vse točke naloge */}
-        {!c.item.choice && <span className="pqz-pts" title="Dosežene / vse točke"><i /><i>{String(c.item.points).replace('.', ',')}</i></span>}
+        {!c.item.choice && !c.item.hidePoints && <span className="pqz-pts" title="Dosežene / vse točke"><i /><i>{String(c.item.points).replace('.', ',')}</i></span>}
         <b>{c.n}.</b><Rich html={c.item.html} />
       </div>
       {c.item.choice
