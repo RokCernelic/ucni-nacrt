@@ -28,6 +28,9 @@ export const PAUSE_TYPES = [
 ] as const;
 export const PAUSE_COLOR = '#b7791f';
 
+/** Stalni gumb »Ocenjevanje«: zavzame eno šolsko uro (šteje v nabor ur), datum določi mesto v učnem načrtu. */
+export const ASSESSMENT = { label: 'Ocenjevanje', color: '#c0392b', hours: 1 } as const;
+
 type Store = Record<string, StoredItem[]>;
 
 export type ResolvedEnotaItem =
@@ -76,7 +79,7 @@ export function useEnotaOrder(storageKey = 'ucni-nacrt-enote-order') {
         ? { kind: 'curriculum', id: item.id }
         : item.pause
           ? { kind: 'custom', id: item.id, type: item.type, checked: false, color: item.color ?? PAUSE_COLOR, hours: item.info ? 0 : item.hours ?? 1, pause: true, ...(item.from ? { from: item.from } : {}), ...(item.to ? { to: item.to } : {}), ...(item.info ? { info: true } : {}) }
-          : { kind: 'custom', id: item.id, type: item.type, checked: item.checked, color: item.color ?? PALETTE_COLORS[item.type] ?? '#666', hours: item.hours ?? 1 });
+          : { kind: 'custom', id: item.id, type: item.type, checked: item.checked, color: item.color ?? PALETTE_COLORS[item.type] ?? '#666', hours: item.hours ?? 1, ...(item.from ? { from: item.from, to: item.to ?? item.from } : {}) });
   }, [store]);
 
   const addEnota = useCallback((poglavjeKey: string, type: string, color: string, atIndex: number, currIds: string[], hours: number = 1, pause?: boolean | { from: string; to: string; info?: boolean }) => {
@@ -181,7 +184,7 @@ export function useEnotaOrder(storageKey = 'ucni-nacrt-enote-order') {
           return { ...rest, ...(patch.from ? { from: patch.from } : {}), ...(patch.to ? { to: patch.to } : {}), ...(patch.hours != null ? { hours: patch.hours } : {}) };
         });
       }
-      if (!patch && !lists.some(l => l.some(i => i.k === 'x' && i.pause && i.from))) return prev;
+      if (!patch && !lists.some(l => l.some(i => i.k === 'x' && i.from))) return prev;
       const rest = relayoutDated(lists, (ci, i) => (i.k === 'c' ? curriculumHours(chapters[ci].key, i.id) : customHours(i)), targetOf);
       const s = { ...prev };
       chapters.forEach((c, ci) => { s[c.key] = rest[ci]; });

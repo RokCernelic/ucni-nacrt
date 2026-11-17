@@ -14,13 +14,14 @@ import { schoolYearOf, hoursUntil, parseDay, lostHours, weekPatternFrom, uniform
 export const INFO_COLOR = '#4a6b8f';
 
 /**
- * Elemente z datumom v poglavjih enega razreda (`lists`, v vrstnem redu poglavij) razvrsti po datumu: vsak gre na mesto,
+ * Elemente z datumom (počitnice, prazniki, oznake, ocenjevanja) v poglavjih enega razreda (`lists`, v vrstnem redu poglavij) razvrsti po datumu: vsak gre na mesto,
  * do katerega razred po urah pride do dneva pred datumom (`targetOf`), in vedno za prejšnjim po datumu.
  */
 export function relayoutDated(lists: StoredItem[][], hoursOf: (ci: number, item: StoredItem) => number, targetOf: (from: string) => number): StoredItem[][] {
   type X = Extract<StoredItem, { k: 'x' }>;
   const dated: X[] = [];
-  const rest = lists.map(l => l.filter(i => { if (i.k === 'x' && i.pause && i.from) { dated.push(i); return false; } return true; }));
+  // vsi elementi z datumom: počitnice, prazniki, oznake in lastne enote z datumom (npr. ocenjevanje)
+  const rest = lists.map(l => l.filter(i => { if (i.k === 'x' && i.from) { dated.push(i); return false; } return true; }));
   if (!dated.length || !rest.length) return lists;
   dated.sort((a, b) => a.from!.localeCompare(b.from!));
   let last: { ci: number; i: number } | null = null;

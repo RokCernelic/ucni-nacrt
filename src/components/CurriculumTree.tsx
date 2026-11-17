@@ -27,7 +27,7 @@ import { useListMode } from '@/hooks/useListMode';
 import RememberSchool from '@/components/RememberSchool';
 import YearTimeline from '@/components/YearTimeline';
 import PrintLdnButton from '@/components/PrintLdn';
-import { useEnotaOrder, PAUSE_TYPES, PAUSE_COLOR, type ResolvedEnotaItem } from '@/hooks/useEnotaOrder';
+import { useEnotaOrder, PAUSE_TYPES, PAUSE_COLOR, ASSESSMENT, type ResolvedEnotaItem } from '@/hooks/useEnotaOrder';
 import { parseDay, lostHours, shortDate, weekPatternFrom, schoolYearOf, hoursUntil, uniformPattern, defaultWeekly, type WeekPattern } from '@/lib/schoolYear';
 import { lessonsFor, canonLabel } from '@/data/timetable';
 
@@ -331,6 +331,18 @@ function Palette({ onDragStart, onDragEnd }: { onDragStart: (d: PaletteDrag) => 
         );
       })}
 
+      {/* stalni gumb: ocenjevanje (1 šolska ura, z datumom) */}
+      <div draggable
+        onDragStart={(e) => {
+          e.dataTransfer.setData('text/plain', ASSESSMENT.label);
+          e.dataTransfer.effectAllowed = 'copy';
+          onDragStart({ type: ASSESSMENT.label, color: ASSESSMENT.color, hours: ASSESSMENT.hours });
+        }}
+        onDragEnd={onDragEnd}
+        title="Povleci v seznam: ocenjevanje — zavzame 1 šolsko uro; z datumom se samo uvrsti na pravo mesto"
+        style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', borderRadius: 'var(--r-sm)', border: `1.5px solid ${ASSESSMENT.color}`, color: '#fff', background: ASSESSMENT.color, fontSize: '11px', fontWeight: 700, cursor: 'grab', userSelect: 'none', whiteSpace: 'nowrap' }}>
+        ✎ {ASSESSMENT.label}
+      </div>
       {/* stalni gumbi: čas brez pouka (počitnice, praznik, dan dejavnosti) — ure ne štejejo v nabor */}
       {PAUSE_TYPES.map(pt => (
         <div key={pt.label} draggable
@@ -538,7 +550,7 @@ function PauseRow({ item, onDragStart, onDragEnd, onRename, onHoursChange, onDat
   );
 }
 
-function CustomEnotaRow({ item, onToggle, onDragStart, onDragEnd, onRename, onHourChange, remaining, noteValue, onNoteChange, topicKey }: {
+function CustomEnotaRow({ item, onToggle, onDragStart, onDragEnd, onRename, onHourChange, remaining, noteValue, onNoteChange, topicKey, onDate }: {
   item: ResolvedEnotaItem & { kind: 'custom' };
   onToggle: () => void;
   onDragStart: () => void;
@@ -549,7 +561,10 @@ function CustomEnotaRow({ item, onToggle, onDragStart, onDragEnd, onRename, onHo
   noteValue: string;
   onNoteChange: (v: string) => void;
   topicKey: string;
+  /** datum (YYYY-MM-DD ali null): enota se uvrsti na pravo mesto po datumu */
+  onDate?: (date: string | null) => void;
 }) {
+  const isAssessment = item.color.toLowerCase() === ASSESSMENT.color || /ocenjevanj/i.test(item.type);
   const [openVsebina, setOpenVsebina] = useState(false);
   const [openVprasanja, setOpenVprasanja] = useState(false);
   const questionCount = useTasks().tasks.filter(t => t.topics.includes(topicKey)).length;
@@ -560,7 +575,8 @@ function CustomEnotaRow({ item, onToggle, onDragStart, onDragEnd, onRename, onHo
   useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
   const commit = () => { const t = label.trim(); if (t && t !== item.type) onRename(t); else setLabel(item.type); setEditing(false); };
   return (
-    <div style={{ borderBottom: '1px solid var(--hairline)', background: item.checked ? '#f4fbf4' : 'var(--canvas)', transition: 'background 0.2s' }}>
+    // ocenjevanje (rdeča enota) je rdečkasto obarvano, da izstopa
+    <div style={{ borderBottom: '1px solid var(--hairline)', background: item.checked ? '#f4fbf4' : isAssessment ? '#fcefed' : 'var(--canvas)', boxShadow: isAssessment ? `inset 3px 0 0 ${ASSESSMENT.color}` : undefined, transition: 'background 0.2s' }}>
       <div ref={headerRef} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '11px 20px' }}>
         <span
           draggable
@@ -609,7 +625,13 @@ function CustomEnotaRow({ item, onToggle, onDragStart, onDragEnd, onRename, onHo
               opacity: item.checked ? 0.7 : 1,
             }}>
             {item.type}
+            {item.from && <span style={{ fontStyle: 'normal', fontSize: '11px', color: 'var(--muted)', marginLeft: '8px' }}>{shortDate(parseDay(item.from)!)}</span>}
           </span>
+        )}
+        {onDate && (
+          <input type="date" value={item.from ?? ''} onChange={e => onDate(e.target.value || null)}
+            title="Datum (npr. ocenjevanja) — enota se samodejno uvrsti na pravo mesto po datumu" aria-label="Datum"
+            style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: item.from ? item.color : 'var(--muted)', background: 'transparent', border: `1px solid ${item.from ? `${item.color}66` : 'var(--hairline)'}`, borderRadius: '4px', padding: '1px 4px', width: '112px', flexShrink: 0 }} />
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0 }}>
           <span style={{ fontSize: '10px', color: 'var(--muted)', letterSpacing: '0.04em', marginRight: '1px' }}>ur:</span>
@@ -936,7 +958,7 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
     let off = 0;
     for (const it of items) {
       const h = it.kind === 'curriculum' ? getHours(`${predmetId}:${it.id}`) : it.hours;
-      if (it.kind === 'custom' && it.pause && !it.info && it.from) datedPauses.push([off, h, it.from, it.to ?? it.from]);
+      if (it.kind === 'custom' && !it.info && it.from) datedPauses.push([off, h, it.from, it.to ?? it.from]);
       off += h;
     }
   }
@@ -1065,6 +1087,7 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
                         noteValue={getNote(`${predmetId}:${item.id}`)}
                         onNoteChange={(v) => onNoteChange(`${predmetId}:${item.id}`, v)}
                         topicKey={`${predmetId}:${item.id}`}
+                        onDate={d => setCustomDates(poglavjeKey, item.id, d, d)}
                         onDragStart={() => { dragDroppedRef.current = false; dragFromRef.current = idx; setIsDraggingCustom(true); setCustomDrag({ fromKey: poglavjeKey, id: item.id }); }}
                         onDragEnd={(e) => {
                           // izbris samo ob spustu v prazen prostor levo/desno izven seznama
