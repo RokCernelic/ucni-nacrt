@@ -90,7 +90,7 @@ function Ldn({ predmet, classId, razredFilter, school, classLabel, target, onClo
           const pp = ppById.get(it.id); if (!pp) continue;
           const h = getHours(`${predmet.id}:${pp.id}`, pp.privzeteUre ?? 1);
           if (h > 0) rows.push({ num: `${num}.${orig.get(pp.id)}`, title: pp.naslov, hours: h, custom: false, pp });
-        } else if (it.hours > 0) {
+        } else if (it.hours > 0 && !it.pause) {
           rows.push({ num: '', title: it.type, hours: it.hours, custom: true, color: it.color });
         }
       }

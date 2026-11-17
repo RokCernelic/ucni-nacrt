@@ -352,3 +352,4 @@ html.printing-questions .print-questions.ldn, .ldn.ldn-measure { font-size: 9pt;
 @media (max-width: 1190px) { .year-tl-mark b { display: none; } .year-tl-now em { display: none; } }
 @media (max-width: 700px) { .year-tl { display: none; } }
 @media print { .year-tl { display: none !important; } }
+.year-tl-pause { position: absolute; left: -2.5px; width: 5px; border-radius: 3px; background: repeating-linear-gradient(to bottom, #d9a441 0 3px, #f3dfb4 3px 6px); }

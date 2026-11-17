@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable react-hooks/set-state-in-effect -- trak meri DOM po vsakem izrisu; stanje se spremeni le ob dejanski razliki */
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { schoolYearOf, hoursUntil, monthMarks, shortDate, HOURS_PER_WEEK } from '@/lib/schoolYear';
@@ -14,6 +15,9 @@ export default function YearTimeline({ cardRef }: { cardRef: React.RefObject<HTM
   const [anchors, setAnchors] = useState<Anchor[]>([]);
   const [height, setHeight] = useState(0);
   const [top, setTop] = useState(0);
+  /** odseki počitnic / praznikov na traku (y od–do) in ali jih je učitelj sploh vnesel */
+  const [pauses, setPauses] = useState<[number, number][]>([]);
+  const [ownPauses, setOwnPauses] = useState(false);
   const [today, setToday] = useState<Date | null>(null);
   useEffect(() => {
     const tick = () => setToday(new Date());
@@ -27,6 +31,7 @@ export default function YearTimeline({ cardRef }: { cardRef: React.RefObject<HTM
     if (!card) return;
     const cr = card.getBoundingClientRect();
     const a: Anchor[] = [[0, 0]];
+    const ps: [number, number][] = [];
     let h = 0;
     const y = (r: DOMRect, edge: 'top' | 'bottom') => r[edge] - cr.top;
     for (const ch of Array.from(card.querySelectorAll<HTMLElement>('[data-tl-chapter]'))) {
@@ -41,6 +46,7 @@ export default function YearTimeline({ cardRef }: { cardRef: React.RefObject<HTM
           a.push([y(ur, 'top'), h]);
           h += Number(u.dataset.tlHours) || 0;
           a.push([y(ur, 'bottom'), h]);
+          if (u.dataset.tlPause) ps.push([y(ur, 'top'), y(ur, 'bottom')]);
         }
       }
       a.push([y(r, 'bottom'), h]);
@@ -49,11 +55,13 @@ export default function YearTimeline({ cardRef }: { cardRef: React.RefObject<HTM
     const same = a.length === anchors.length && a.every((p, i) => Math.abs(p[0] - anchors[i][0]) < 0.5 && p[1] === anchors[i][1]);
     if (!same) setAnchors(a);
     if (Math.abs(cr.height - height) > 0.5) setHeight(cr.height);
+    if (JSON.stringify(ps.map(p => p.map(Math.round))) !== JSON.stringify(pauses.map(p => p.map(Math.round)))) setPauses(ps);
+    const own = !!card.querySelector('[data-tl-pause]');
+    if (own !== ownPauses) setOwnPauses(own);
     if (card.offsetTop !== top) setTop(card.offsetTop);
   };
   const measureRef = useRef(measure);
   // meritev DOM-a po vsakem izrisu (odprta/zaprta poglavja, spremenjene ure); stanje se spremeni le ob razliki
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useLayoutEffect(() => { measureRef.current = measure; measure(); });
   useEffect(() => {
     const card = cardRef.current;
@@ -80,7 +88,9 @@ export default function YearTimeline({ cardRef }: { cardRef: React.RefObject<HTM
     return height;
   };
 
-  const sy = schoolYearOf(today);
+  // učitelj je vnesel lastne počitnice/praznike → vgrajenih (približnih) počitnic ne upoštevamo, sicer bi jih šteli dvakrat
+  const sy0 = schoolYearOf(today);
+  const sy = ownPauses ? { ...sy0, holidays: [] } : sy0;
   const inYear = today >= sy.start && today <= sy.end;
   const nowH = hoursUntil(today, sy);
   const nowY = inYear ? yOf(Math.min(nowH, total)) : null;
@@ -94,6 +104,7 @@ export default function YearTimeline({ cardRef }: { cardRef: React.RefObject<HTM
       <span className="year-tl-year">{yearLabel}</span>
       <i className="year-tl-rail" />
       {nowY != null && <i className="year-tl-past" style={{ height: nowY }} />}
+      {pauses.map(([y0, y1], i) => <i key={i} className="year-tl-pause" style={{ top: y0, height: Math.max(3, y1 - y0) }} />)}
       {marks.map(m => {
         const y = yOf(m.hours);
         return (

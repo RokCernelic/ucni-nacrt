@@ -26,7 +26,7 @@ import { useListMode } from '@/hooks/useListMode';
 import RememberSchool from '@/components/RememberSchool';
 import YearTimeline from '@/components/YearTimeline';
 import PrintLdnButton from '@/components/PrintLdn';
-import { useEnotaOrder, type ResolvedEnotaItem } from '@/hooks/useEnotaOrder';
+import { useEnotaOrder, PAUSE_TYPES, PAUSE_COLOR, type ResolvedEnotaItem } from '@/hooks/useEnotaOrder';
 
 // ── Icons ──────────────────────────────────────────────────
 
@@ -71,7 +71,7 @@ function GripIcon() {
 
 // ── Palette drag context ───────────────────────────────────
 
-type PaletteDrag = { type: string; color: string; hours: number };
+type PaletteDrag = { type: string; color: string; hours: number; pause?: boolean };
 const PaletteDragCtx = createContext<PaletteDrag | null>(null);
 
 /** Lastna enota, ki jo trenutno vlečemo (za premik v drugo poglavje). */
@@ -323,6 +323,20 @@ function Palette({ onDragStart, onDragEnd }: { onDragStart: (d: PaletteDrag) => 
         );
       })}
 
+      {/* stalni gumbi: čas brez pouka (počitnice, praznik, dan dejavnosti) — ure ne štejejo v nabor */}
+      {PAUSE_TYPES.map(pt => (
+        <div key={pt.label} draggable
+          onDragStart={(e) => {
+            e.dataTransfer.setData('text/plain', pt.label);
+            e.dataTransfer.effectAllowed = 'copy';
+            onDragStart({ type: pt.label, color: PAUSE_COLOR, hours: pt.hours, pause: true });
+          }}
+          onDragEnd={onDragEnd}
+          title={`Povleci v seznam: ${pt.label.toLowerCase()} — ${pt.hours} ${pt.hours === 1 ? 'ura' : 'uri'} brez pouka (ne šteje v nabor ur; časovni trak jo upošteva)`}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', borderRadius: 'var(--r-sm)', border: `1px dashed ${PAUSE_COLOR}88`, color: PAUSE_COLOR, background: 'repeating-linear-gradient(135deg, #fbf3e4 0 6px, #f7ead2 6px 12px)', fontSize: '11px', fontWeight: 600, cursor: 'grab', userSelect: 'none', whiteSpace: 'nowrap' }}>
+          <SunIcon /> {pt.label}
+        </div>
+      ))}
       {adding ? (
         <div
           onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) commitAdd(); }}
@@ -404,6 +418,71 @@ function CiljRow({ tip, text }: { tip: 'O' | 'I'; text: string }) {
 }
 
 // ── Custom enota row ───────────────────────────────────────
+
+function SunIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ flexShrink: 0 }}>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+    </svg>
+  );
+}
+
+const hoursLabel = (h: number) => (h === 1 ? 'ura' : h === 2 ? 'uri' : h < 5 ? 'ure' : 'ur');
+
+/** Počitnice / praznik / dan dejavnosti: naslov in ure, ki odpadejo (brez učne vsebine, vprašanj in ciljev; ne šteje v nabor ur). */
+function PauseRow({ item, onDragStart, onDragEnd, onRename, onHoursChange }: {
+  item: ResolvedEnotaItem & { kind: 'custom' };
+  onDragStart: () => void;
+  onDragEnd: (e: React.DragEvent) => void;
+  onRename: (label: string) => void;
+  onHoursChange: (hours: number) => void;
+}) {
+  const headerRef = useRef<HTMLDivElement>(null);
+  const [editing, setEditing] = useState(false);
+  const [label, setLabel] = useState(item.type);
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { if (editing) inputRef.current?.select(); }, [editing]);
+  const commit = () => { const t = label.trim(); if (t && t !== item.type) onRename(t); else setLabel(item.type); setEditing(false); };
+  const hrs = item.hours;
+  const step: React.CSSProperties = { width: '18px', height: '18px', border: `1px solid ${PAUSE_COLOR}55`, borderRadius: '4px', background: 'transparent', cursor: 'pointer', color: PAUSE_COLOR, fontSize: '12px', lineHeight: 1, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' };
+  return (
+    <div ref={headerRef} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 20px', borderBottom: '1px solid var(--hairline)', color: PAUSE_COLOR,
+      background: 'repeating-linear-gradient(135deg, #fdf8ee 0 8px, #faf0dc 8px 16px)' }}>
+      <span draggable
+        onDragStart={(e) => {
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', 'enota');
+          if (headerRef.current) e.dataTransfer.setDragImage(headerRef.current, 0, 16);
+          onDragStart();
+        }}
+        onDragEnd={onDragEnd}
+        style={{ cursor: 'grab', color: 'var(--muted)', flexShrink: 0 }}
+        title="Povleci za premik; v prazen prostor levo/desno izven seznama = odstrani">
+        <GripIcon />
+      </span>
+      <span style={{ width: '20px', display: 'flex', justifyContent: 'center' }}><SunIcon /></span>
+      {editing ? (
+        <input ref={inputRef} value={label} onChange={e => setLabel(e.target.value)} onBlur={commit}
+          onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setLabel(item.type); setEditing(false); } }}
+          style={{ flex: 1, fontSize: '13px', fontWeight: 600, color: PAUSE_COLOR, background: 'transparent', border: 'none', borderBottom: `1px solid ${PAUSE_COLOR}`, outline: 'none', padding: '1px 0' }} />
+      ) : (
+        <span onDoubleClick={() => { setLabel(item.type); setEditing(true); }} title="Dvoklik za preimenovanje (npr. Jesenske počitnice, Dan reformacije)"
+          style={{ flex: 1, fontSize: '13px', fontWeight: 600, letterSpacing: '0.01em' }}>
+          {item.type}
+          <span style={{ fontWeight: 400, fontSize: '11px', color: '#a0814a', marginLeft: '8px' }}>brez pouka · ne šteje v nabor ur</span>
+        </span>
+      )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0 }}>
+        <span style={{ fontSize: '10px', letterSpacing: '0.04em', marginRight: '1px' }}>odpade:</span>
+        <button style={{ ...step, opacity: hrs <= 1 ? 0.35 : 1, cursor: hrs <= 1 ? 'not-allowed' : 'pointer' }} disabled={hrs <= 1} onClick={() => onHoursChange(hrs - 1)} title="Manj ur">−</button>
+        <span style={{ minWidth: '16px', textAlign: 'center', fontSize: '12px', fontWeight: 700, fontFamily: 'var(--font-sans)' }}>{hrs}</span>
+        <button style={step} onClick={() => onHoursChange(hrs + 1)} title="Več ur">+</button>
+        <span style={{ fontSize: '10px', letterSpacing: '0.04em', marginLeft: '2px', minWidth: '22px' }}>{hoursLabel(hrs)}</span>
+      </div>
+    </div>
+  );
+}
 
 function CustomEnotaRow({ item, onToggle, onDragStart, onDragEnd, onRename, onHourChange, remaining, noteValue, onNoteChange, topicKey }: {
   item: ResolvedEnotaItem & { kind: 'custom' };
@@ -745,7 +824,7 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
   onHourChange: (key: string, delta: number) => void;
   remaining: number;
   resolve: (key: string, currIds: string[]) => ResolvedEnotaItem[];
-  addEnota: (key: string, type: string, color: string, at: number, currIds: string[], hours?: number) => void;
+  addEnota: (key: string, type: string, color: string, at: number, currIds: string[], hours?: number, pause?: boolean) => void;
   moveEnota: (fromKey: string, toKey: string, id: string, at: number, toCurrIds: string[]) => void;
   reorder: (key: string, from: number, to: number, currIds: string[]) => void;
   removeEnota: (key: string, id: string) => void;
@@ -784,18 +863,21 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
   const items = resolve(poglavjeKey, podpoglavjeIds);
 
   const customItems = items.filter((i): i is ResolvedEnotaItem & { kind: 'custom' } => i.kind === 'custom');
-  const customCount = customItems.reduce((s, i) => s + i.hours, 0);
-  const checkedCustomCount = customItems.filter(i => i.checked).reduce((s, i) => s + i.hours, 0);
+  // počitnice / prazniki / dnevi dejavnosti ne štejejo v nabor ur
+  const customCount = customItems.filter(i => !i.pause).reduce((s, i) => s + i.hours, 0);
+  const checkedCustomCount = customItems.filter(i => i.checked && !i.pause).reduce((s, i) => s + i.hours, 0);
 
   const totalHours = poglavje.podpoglavja.reduce((s, pp) => s + getHours(`${predmetId}:${pp.id}`), 0) + customCount;
   const doneHours = poglavje.podpoglavja
     .filter(pp => checked[`${predmetId}:${pp.id}`])
     .reduce((s, pp) => s + getHours(`${predmetId}:${pp.id}`), 0) + checkedCustomCount;
   const allDone = totalHours > 0 && doneHours === totalHours;
+  // počitnice / prazniki v poglavju: čas brez pouka (za časovni trak, ko je poglavje zaprto)
+  const pauseHours = customItems.filter(i => i.pause).reduce((s, i) => s + i.hours, 0);
 
   const handleDrop = (toIndex: number) => {
     if (paletteType !== null) {
-      addEnota(poglavjeKey, paletteType.type, paletteType.color, toIndex, podpoglavjeIds, paletteType.hours);
+      addEnota(poglavjeKey, paletteType.type, paletteType.color, toIndex, podpoglavjeIds, paletteType.hours, paletteType.pause);
     } else if (customDrag && customDrag.fromKey !== poglavjeKey) {
       // lastna enota iz drugega poglavja
       moveEnota(customDrag.fromKey, poglavjeKey, customDrag.id, toIndex, podpoglavjeIds);
@@ -809,7 +891,7 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
   };
 
   return (
-    <div data-tl-chapter data-tl-hours={totalHours} style={{ borderBottom: '1px solid var(--hairline)' }}>
+    <div data-tl-chapter data-tl-hours={totalHours + pauseHours} data-tl-pause={pauseHours > 0 ? '1' : undefined} style={{ borderBottom: '1px solid var(--hairline)' }}>
       <div ref={chapterHeaderRef} onDragOver={armOpen} onDragLeave={disarmOpen} onDrop={disarmOpen} style={{ display: 'flex', alignItems: 'center', background: 'transparent' }}>
         <span
           draggable
@@ -869,8 +951,23 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
               poglavje.podpoglavja.forEach((pp, i) => origSubNum.set(pp.id, i + 1));
               return items.map((item, idx) => {
                 return (
-                  <div key={item.id} data-tl-unit data-tl-hours={item.kind === 'curriculum' ? getHours(`${predmetId}:${item.id}`) : item.hours}>
-                    {item.kind === 'curriculum' ? (
+                  <div key={item.id} data-tl-unit
+                    data-tl-hours={item.kind === 'curriculum' ? getHours(`${predmetId}:${item.id}`) : item.hours}
+                    data-tl-pause={item.kind === 'custom' && item.pause ? '1' : undefined}>
+                    {item.kind === 'custom' && item.pause ? (
+                      <PauseRow item={item}
+                        onRename={(label) => renameCustom(poglavjeKey, item.id, label)}
+                        onHoursChange={(h) => setCustomHours(poglavjeKey, item.id, Math.max(1, h))}
+                        onDragStart={() => { dragDroppedRef.current = false; dragFromRef.current = idx; setIsDraggingCustom(true); setCustomDrag({ fromKey: poglavjeKey, id: item.id }); }}
+                        onDragEnd={(e) => {
+                          if (!dragDroppedRef.current && dragFromRef.current !== null && droppedOutsideList(e)) {
+                            const dragged = items[dragFromRef.current];
+                            if (dragged?.kind === 'custom') removeEnota(poglavjeKey, dragged.id);
+                          }
+                          dragDroppedRef.current = false; dragFromRef.current = null;
+                          setIsDraggingCustom(false); setCustomDrag(null);
+                        }} />
+                    ) : item.kind === 'curriculum' ? (
                       <PodpoglavjeRow
                         podpoglavje={podpoglavjeMap.get(item.id)!}
                         predmetId={predmetId}
