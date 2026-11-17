@@ -195,7 +195,7 @@ export function useHalvesPlan(items: PrintItem[], enabled: boolean, withQr: bool
       <div data-h style={{ display: 'flow-root' }}><SheetHead sheet={sample} title={title} placeholder /></div>
       {seq.map(c => (
         <div data-i={c.item.id} key={c.item.id} style={{ display: 'flow-root', width: `${COL_W}mm` }}>
-          <div className="pqz-hitem"><ItemBody c={c} /></div>
+          <div className="pqz-hitem" style={hGap(c.item)}><ItemBody c={c} /></div>
         </div>
       ))}
     </div>,
@@ -207,7 +207,54 @@ export function useHalvesPlan(items: PrintItem[], enabled: boolean, withQr: bool
 // ───────────────────────── izris ─────────────────────────
 
 /** urejanje na zaslonu: klik na nalogo jo odpre (`activeId` je poudarjena) */
-export interface HalvesEdit { onOpen: (questionId: string) => void; activeId: string | null }
+export interface HalvesEdit {
+  onOpen: (questionId: string) => void; activeId: string | null;
+  /** vlečenje razmika: `gap` = razmik pod nalogo (dva testa na list), `space` = prostor za odgovor; null = privzeto */
+  onSpacing?: (questionId: string, kind: 'gap' | 'space', mm: number | null) => void;
+}
+
+/** privzeti razmik pod nalogo pri dveh testih na list (globals.css: .pqz-hitem) */
+const HALF_GAP = 3.5;
+const hGap = (item: { gapHalf?: number }): React.CSSProperties | undefined => (item.gapHalf != null ? { marginBottom: `${item.gapHalf}mm` } : undefined);
+const fmtMm = (mm: number) => `${String(Math.round(mm * 10) / 10).replace('.', ',')} mm`;
+
+/** Vlečenje ročice (navpično) v milimetrih; merilo iz širine strani (210 mm). */
+function dragMm(e: React.PointerEvent, start: number, set: (mm: number) => void, show: (label: string | null) => void, label: (mm: number) => string, min: number, max: number) {
+  e.preventDefault(); e.stopPropagation();
+  const page = (e.currentTarget as HTMLElement).closest('.pqz-page') as HTMLElement | null;
+  const pxPerMm = (page?.getBoundingClientRect().width ?? 794) / 210;
+  const y0 = e.clientY;
+  const target = e.currentTarget as HTMLElement;
+  target.setPointerCapture(e.pointerId);
+  const move = (ev: PointerEvent) => {
+    const mm = Math.max(min, Math.min(max, Math.round((start + (ev.clientY - y0) / pxPerMm) * 2) / 2));
+    set(mm); show(label(mm));
+  };
+  const up = () => { target.removeEventListener('pointermove', move); target.removeEventListener('pointerup', up); target.removeEventListener('pointercancel', up); show(null); };
+  target.addEventListener('pointermove', move);
+  target.addEventListener('pointerup', up);
+  target.addEventListener('pointercancel', up);
+  show(label(start));
+}
+
+/** Ločilna črta pod nalogo (dva testa na list): pri izbirnih razmik, pri ostalih prostor za odgovor. */
+function HalfGapHandle({ c, edit }: { c: SheetItem; edit: HalvesEdit }) {
+  const [label, setLabel] = useState<string | null>(null);
+  if (!edit.onSpacing) return null;
+  const free = !c.item.choice;
+  const gap = c.item.gapHalf ?? HALF_GAP;
+  return (
+    <span className={`pqz-ed-hgap${label ? ' is-drag' : ''}`} style={{ bottom: free ? `-${gap / 2}mm` : `-${gap}mm` }}
+      title={free ? 'Povleci: prostor za odgovor · dvoklik: privzeto' : 'Povleci: razmik do naslednje naloge · dvoklik: privzeto'}
+      onClick={e => e.stopPropagation()}
+      onDoubleClick={e => { e.stopPropagation(); edit.onSpacing!(c.item.id, free ? 'space' : 'gap', null); }}
+      onPointerDown={e => free
+        ? dragMm(e, c.item.space, mm => edit.onSpacing!(c.item.id, 'space', mm), setLabel, mm => `prostor za odgovor ${fmtMm(mm)}`, 0, 120)
+        : dragMm(e, gap, mm => edit.onSpacing!(c.item.id, 'gap', mm), setLabel, mm => `razmik ${fmtMm(mm)}`, 0, 40)}>
+      {label && <em>{label}</em>}
+    </span>
+  );
+}
 
 function HalfView({ sheet, part, plan, title, className, placeholder, edit }: {
   sheet: Sheet; part: 1 | 2; plan: HalvesPlan; title: string; className?: string; placeholder?: boolean; edit?: HalvesEdit;
@@ -219,10 +266,11 @@ function HalfView({ sheet, part, plan, title, className, placeholder, edit }: {
   const col = (items: SheetItem[]) => (
     <div className="pqz-hcol">
       {items.map(c => edit ? (
-        <div className={`pqz-hitem pqz-ed-item${edit.activeId === c.item.id ? ' is-active' : ''}`} key={c.n} onClick={() => edit.onOpen(c.item.id)} title="Klikni za urejanje naloge">
+        <div className={`pqz-hitem pqz-ed-item${edit.activeId === c.item.id ? ' is-active' : ''}`} key={c.n} style={hGap(c.item)} onClick={() => edit.onOpen(c.item.id)} title="Klikni za urejanje naloge">
           <ItemBody c={c} />
+          <HalfGapHandle c={c} edit={edit} />
         </div>
-      ) : <div className="pqz-hitem" key={c.n}><ItemBody c={c} /></div>)}
+      ) : <div className="pqz-hitem" key={c.n} style={hGap(c.item)}><ItemBody c={c} /></div>)}
     </div>
   );
   return (

@@ -21,6 +21,8 @@ interface QuestionBase {
   taskId?: string;
   /** dodaten razmik pod nalogo na natisnjenem listu (mm; privzeto po slogu lista) */
   gapAfter?: number;
+  /** razmik pod nalogo pri tisku dveh testov na en list (mm; privzeto 3,5) */
+  gapHalf?: number;
 }
 
 export interface McQuestion extends QuestionBase {

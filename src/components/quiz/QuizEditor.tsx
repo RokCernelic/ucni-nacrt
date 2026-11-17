@@ -452,10 +452,11 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
     [qs[a], qs[b]] = [qs[b], qs[a]];
     update({ ...d, questions: qs });
   };
-  const setSpacing = (id: string, kind: 'gap' | 'space', mm: number | null) => {
+  const setSpacing = (id: string, kind: 'gap' | 'gapHalf' | 'space', mm: number | null) => {
     const d = draftRef.current;
     if (!d) return;
-    update({ ...d, questions: d.questions.map(x => (x.id !== id ? x : ({ ...x, [kind === 'gap' ? 'gapAfter' : 'space']: mm ?? undefined } as Question))) });
+    const field = kind === 'gap' ? 'gapAfter' : kind === 'gapHalf' ? 'gapHalf' : 'space';
+    update({ ...d, questions: d.questions.map(x => (x.id !== id ? x : ({ ...x, [field]: mm ?? undefined } as Question))) });
   };
   const setColGap = (mm: number | null) => {
     const d = draftRef.current;
@@ -577,7 +578,7 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
           </div>
           <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
             {view === 'a4' ? 'Kot natisnjen list: klik na nalogo jo odpre, črtkane ločilne črte povlečeš za razmik.'
-              : view === 'halves' ? 'Kot natisnjena dva testa na en list A4 (zgoraj in spodaj): klik na nalogo jo odpre.'
+              : view === 'halves' ? 'Kot natisnjena dva testa na en list A4 (zgoraj in spodaj): klik na nalogo jo odpre, črtkane ločilne črte povlečeš za razmik.'
               : 'Vprašanja za kviz v živo (tablice) in podrobne nastavitve.'}
           </span>
         </div>
@@ -598,7 +599,8 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
               onSpacing={setSpacing} onColGap={setColGap} />
           </div>
         )}
-        {view === 'halves' && <QuizHalvesPreview quiz={draft} tasksById={taskById} activeId={drawerOpen ? active : null} onOpen={id => { flush(); setActive(id); }} />}
+        {view === 'halves' && <QuizHalvesPreview quiz={draft} tasksById={taskById} activeId={drawerOpen ? active : null} onOpen={id => { flush(); setActive(id); }}
+          onSpacing={(id, kind, mm) => setSpacing(id, kind === 'gap' ? 'gapHalf' : 'space', mm)} />}
         {view === 'list' && <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {draft.questions.map((q, i) => {
             const dup = () => setQuestions([...draft.questions.slice(0, i + 1), cloneQuestion(q), ...draft.questions.slice(i + 1)]);
