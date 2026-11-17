@@ -461,7 +461,10 @@ function FlagIcon() {
 const hoursLabel = (h: number) => (h === 1 ? 'ura' : h === 2 ? 'uri' : h < 5 ? 'ure' : 'ur');
 
 /** Počitnice / praznik / dan dejavnosti: naslov in ure, ki odpadejo (brez učne vsebine, vprašanj in ciljev; ne šteje v nabor ur). */
-function PauseRow({ item, onDragStart, onDragEnd, onRename, onHoursChange, onDates, pattern }: {
+/** Ocenjevanje (Ocenjevanje, Pisno / Ustno ocenjevanje …): prikazano kot praznik, a v svoji barvi in s štetimi urami. */
+const isAssessmentItem = (item: { type: string; color: string; pause?: boolean }) => !item.pause && (/ocenjevanj/i.test(item.type) || item.color.toLowerCase() === ASSESSMENT.color);
+
+function PauseRow({ item, onDragStart, onDragEnd, onRename, onHoursChange, onDates, pattern, assessment }: {
   item: ResolvedEnotaItem & { kind: 'custom' };
   onDragStart: () => void;
   onDragEnd: (e: React.DragEvent) => void;
@@ -471,9 +474,12 @@ function PauseRow({ item, onDragStart, onDragEnd, onRename, onHoursChange, onDat
   onDates: (from: string | null, to: string | null, hours?: number) => void;
   /** ure predmeta po dnevih v tednu iz urnika razreda (null = enakomerno 2 na teden) */
   pattern?: WeekPattern | null;
+  /** ocenjevanje: enak videz, a v barvi enote, ure štejejo v nabor, s kljukico »opravljeno« */
+  assessment?: { onToggle: () => void };
 }) {
+  const assess = !!assessment;
   // počitnice trajajo več dni (od–do); praznik, dan dejavnosti, pouka prost dan so en dan
-  const multiDay = (/počitnic/i.test(item.type) && !item.info) || (!!item.to && item.to !== item.from);
+  const multiDay = !assess && ((/počitnic/i.test(item.type) && !item.info) || (!!item.to && item.to !== item.from));
   const setDates = (from: string | null, to: string | null) => {
     // prazen »do« ob vnosu »od« → en dan (praznik) ali do petka (počitnice)
     let t = to;
@@ -486,9 +492,10 @@ function PauseRow({ item, onDragStart, onDragEnd, onRename, onHoursChange, onDat
     const a = from ? parseDay(from) : null, b = t ? parseDay(t) : null;
     if (a && b && b < a) t = from;
     const a2 = from ? parseDay(from) : null, b2 = t ? parseDay(t) : null;
-    onDates(from, t, a2 && b2 && !item.info ? lostHours(a2, b2, pattern) : undefined);
+    onDates(from, t, a2 && b2 && !item.info && !assess ? lostHours(a2, b2, pattern) : undefined);
   };
-  const dateInput: React.CSSProperties = { fontFamily: 'var(--font-sans)', fontSize: '11px', color: item.info ? INFO_COLOR : PAUSE_COLOR, background: 'rgba(255,255,255,0.7)', border: `1px solid ${item.info ? INFO_COLOR : PAUSE_COLOR}55`, borderRadius: '4px', padding: '1px 4px', width: '112px' };
+  const C = item.info ? INFO_COLOR : assess ? item.color : PAUSE_COLOR;
+  const dateInput: React.CSSProperties = { fontFamily: 'var(--font-sans)', fontSize: '11px', color: C, background: 'rgba(255,255,255,0.7)', border: `1px solid ${C}55`, borderRadius: '4px', padding: '1px 4px', width: '112px' };
   const headerRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState(false);
   const [label, setLabel] = useState(item.type);
@@ -498,10 +505,10 @@ function PauseRow({ item, onDragStart, onDragEnd, onRename, onHoursChange, onDat
   const hrs = item.hours;
   // oznaka (informativni dan, zaključek ocenjevalnega obdobja): pouk poteka, ure ne odpadejo
   const info = !!item.info;
-  const step: React.CSSProperties = { width: '18px', height: '18px', border: `1px solid ${PAUSE_COLOR}55`, borderRadius: '4px', background: 'transparent', cursor: 'pointer', color: PAUSE_COLOR, fontSize: '12px', lineHeight: 1, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' };
+  const step: React.CSSProperties = { width: '18px', height: '18px', border: `1px solid ${C}55`, borderRadius: '4px', background: 'transparent', cursor: 'pointer', color: C, fontSize: '12px', lineHeight: 1, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' };
   return (
-    <div ref={headerRef} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 20px', borderBottom: '1px solid var(--hairline)', color: info ? INFO_COLOR : PAUSE_COLOR,
-      background: info ? '#f1f5fa' : 'repeating-linear-gradient(135deg, #fdf8ee 0 8px, #faf0dc 8px 16px)' }}>
+    <div ref={headerRef} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 20px', borderBottom: '1px solid var(--hairline)', color: C,
+      background: info ? '#f1f5fa' : assess ? (item.checked ? '#f4fbf4' : `repeating-linear-gradient(135deg, ${C}0c 0 8px, ${C}1c 8px 16px)`) : 'repeating-linear-gradient(135deg, #fdf8ee 0 8px, #faf0dc 8px 16px)' }}>
       <span draggable
         onDragStart={(e) => {
           e.dataTransfer.effectAllowed = 'move';
@@ -514,17 +521,22 @@ function PauseRow({ item, onDragStart, onDragEnd, onRename, onHoursChange, onDat
         title="Povleci za premik; v prazen prostor levo/desno izven seznama = odstrani">
         <GripIcon />
       </span>
-      <span style={{ width: '20px', display: 'flex', justifyContent: 'center' }}>{info ? <FlagIcon /> : <SunIcon />}</span>
+      {assess ? (
+        <button onClick={assessment!.onToggle} title={item.checked ? 'Opravljeno' : 'Označi kot opravljeno'}
+          style={{ width: '20px', height: '20px', flexShrink: 0, border: `2px solid ${item.checked ? 'var(--green-ok)' : C}`, borderRadius: '4px', background: item.checked ? 'var(--green-ok)' : 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', padding: 0 }}>
+          {item.checked && <CheckIcon />}
+        </button>
+      ) : <span style={{ width: '20px', display: 'flex', justifyContent: 'center' }}>{info ? <FlagIcon /> : <SunIcon />}</span>}
       {editing ? (
         <input ref={inputRef} value={label} onChange={e => setLabel(e.target.value)} onBlur={commit}
           onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setLabel(item.type); setEditing(false); } }}
-          style={{ flex: 1, fontSize: '13px', fontWeight: 600, color: PAUSE_COLOR, background: 'transparent', border: 'none', borderBottom: `1px solid ${PAUSE_COLOR}`, outline: 'none', padding: '1px 0' }} />
+          style={{ flex: 1, fontSize: '13px', fontWeight: 600, color: C, background: 'transparent', border: 'none', borderBottom: `1px solid ${C}`, outline: 'none', padding: '1px 0' }} />
       ) : (
         <span onDoubleClick={() => { setLabel(item.type); setEditing(true); }} title="Dvoklik za preimenovanje (npr. Jesenske počitnice, Dan reformacije)"
           style={{ flex: 1, fontSize: '13px', fontWeight: 600, letterSpacing: '0.01em' }}>
           {item.type}
-          <span style={{ fontWeight: 400, fontSize: '11px', color: info ? '#7d8fa6' : '#a0814a', marginLeft: '8px' }}>
-            {item.from ? `${shortDate(parseDay(item.from)!)}${multiDay && item.to && item.to !== item.from ? ` – ${shortDate(parseDay(item.to)!)}` : ''} · ` : ''}{info ? 'oznaka · pouk poteka' : 'brez pouka · ne šteje v nabor ur'}
+          <span style={{ fontWeight: 400, fontSize: '11px', color: info ? '#7d8fa6' : assess ? `${C}aa` : '#a0814a', marginLeft: '8px' }}>
+            {item.from ? `${shortDate(parseDay(item.from)!)}${multiDay && item.to && item.to !== item.from ? ` – ${shortDate(parseDay(item.to)!)}` : ''} · ` : ''}{info ? 'oznaka · pouk poteka' : assess ? 'ocenjevanje · šteje v nabor ur' : 'brez pouka · ne šteje v nabor ur'}
           </span>
         </span>
       )}
@@ -540,7 +552,7 @@ function PauseRow({ item, onDragStart, onDragEnd, onRename, onHoursChange, onDat
         </div>
       )}
       {!info && <div style={{ display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0 }}>
-        <span style={{ fontSize: '10px', letterSpacing: '0.04em', marginRight: '1px' }}>odpade:</span>
+        <span style={{ fontSize: '10px', letterSpacing: '0.04em', marginRight: '1px' }}>{assess ? 'ur:' : 'odpade:'}</span>
         <button style={{ ...step, opacity: hrs <= 0 ? 0.35 : 1, cursor: hrs <= 0 ? 'not-allowed' : 'pointer' }} disabled={hrs <= 0} onClick={() => onHoursChange(hrs - 1)} title="Manj ur">−</button>
         <span style={{ minWidth: '16px', textAlign: 'center', fontSize: '12px', fontWeight: 700, fontFamily: 'var(--font-sans)' }}>{hrs}</span>
         <button style={step} onClick={() => onHoursChange(hrs + 1)} title="Več ur">+</button>
@@ -564,7 +576,6 @@ function CustomEnotaRow({ item, onToggle, onDragStart, onDragEnd, onRename, onHo
   /** datum (YYYY-MM-DD ali null): enota se uvrsti na pravo mesto po datumu */
   onDate?: (date: string | null) => void;
 }) {
-  const isAssessment = item.color.toLowerCase() === ASSESSMENT.color || /ocenjevanj/i.test(item.type);
   const [openVsebina, setOpenVsebina] = useState(false);
   const [openVprasanja, setOpenVprasanja] = useState(false);
   const questionCount = useTasks().tasks.filter(t => t.topics.includes(topicKey)).length;
@@ -575,8 +586,7 @@ function CustomEnotaRow({ item, onToggle, onDragStart, onDragEnd, onRename, onHo
   useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
   const commit = () => { const t = label.trim(); if (t && t !== item.type) onRename(t); else setLabel(item.type); setEditing(false); };
   return (
-    // ocenjevanje (rdeča enota) je rdečkasto obarvano, da izstopa
-    <div style={{ borderBottom: '1px solid var(--hairline)', background: item.checked ? '#f4fbf4' : isAssessment ? '#fcefed' : 'var(--canvas)', boxShadow: isAssessment ? `inset 3px 0 0 ${ASSESSMENT.color}` : undefined, transition: 'background 0.2s' }}>
+    <div style={{ borderBottom: '1px solid var(--hairline)', background: item.checked ? '#f4fbf4' : 'var(--canvas)', transition: 'background 0.2s' }}>
       <div ref={headerRef} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '11px 20px' }}>
         <span
           draggable
@@ -1048,6 +1058,21 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
                         pattern={pattern}
                         onHoursChange={(h) => setCustomHours(poglavjeKey, item.id, Math.max(0, h))}
                         onDates={(f, t, h) => setCustomDates(poglavjeKey, item.id, f, t, h)}
+                        onDragStart={() => { dragDroppedRef.current = false; dragFromRef.current = idx; setIsDraggingCustom(true); setCustomDrag({ fromKey: poglavjeKey, id: item.id }); }}
+                        onDragEnd={(e) => {
+                          if (!dragDroppedRef.current && dragFromRef.current !== null && droppedOutsideList(e)) {
+                            const dragged = items[dragFromRef.current];
+                            if (dragged?.kind === 'custom') removeEnota(poglavjeKey, dragged.id);
+                          }
+                          dragDroppedRef.current = false; dragFromRef.current = null;
+                          setIsDraggingCustom(false); setCustomDrag(null);
+                        }} />
+                    ) : item.kind === 'custom' && isAssessmentItem(item) ? (
+                      <PauseRow item={item} pattern={pattern}
+                        assessment={{ onToggle: () => toggleCustom(poglavjeKey, item.id) }}
+                        onRename={(label) => renameCustom(poglavjeKey, item.id, label)}
+                        onHoursChange={(h) => setCustomHours(poglavjeKey, item.id, Math.max(0, h))}
+                        onDates={(f) => setCustomDates(poglavjeKey, item.id, f, f)}
                         onDragStart={() => { dragDroppedRef.current = false; dragFromRef.current = idx; setIsDraggingCustom(true); setCustomDrag({ fromKey: poglavjeKey, id: item.id }); }}
                         onDragEnd={(e) => {
                           if (!dragDroppedRef.current && dragFromRef.current !== null && droppedOutsideList(e)) {
