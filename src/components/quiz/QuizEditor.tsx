@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
+import { openQuestionHtml } from '@/lib/quiz/printSheet';
 import { useAuth } from '@/hooks/useAuth';
 import {
   useQuizLibrary, folderPath, cloneQuestion, QuizStorageFullError,
@@ -219,7 +220,7 @@ function QuestionView({ q, index, total, task, onEdit, onMove, onDuplicate, onDe
       <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
         <span style={{ color: 'var(--muted)', minWidth: '22px', fontVariantNumeric: 'tabular-nums' }}>{index + 1}.</span>
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          {q.kind === 'open' && q.html ? <Rich html={q.html} /> : <div style={{ whiteSpace: 'pre-wrap' }}>{q.prompt || <i style={{ color: 'var(--muted)' }}>(brez besedila)</i>}</div>}
+          {q.kind === 'open' && q.html ? <Rich html={openQuestionHtml(q) ?? q.html} /> : <div style={{ whiteSpace: 'pre-wrap' }}>{q.prompt || <i style={{ color: 'var(--muted)' }}>(brez besedila)</i>}</div>}
           {q.image && (/* eslint-disable-next-line @next/next/no-img-element */
             <img src={q.image} alt="" style={{ maxWidth: '280px', maxHeight: '180px', borderRadius: 'var(--r-sm)', border: '1px solid var(--hairline)' }} />)}
           {q.kind === 'mc' && (

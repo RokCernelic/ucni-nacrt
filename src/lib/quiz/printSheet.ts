@@ -49,6 +49,20 @@ export function itemsFromTasks(tasks: Task[], toPlain: (html: string) => string)
   });
 }
 
+/**
+ * HTML odprtega vprašanja z možnostmi: naloge »več možnosti« so v kvizu odprta vprašanja; možnosti so v besedilu
+ * (vrstice »A) …«), v obogatenem HTML-ju naloge pa jih ni — dodaj jih, da se vidijo in natisnejo.
+ */
+export function openQuestionHtml(q: { prompt: string; html?: string }): string | undefined {
+  if (!q.html) return undefined;
+  const opts = q.prompt.split('\n').filter(l => /^[A-L]\) /.test(l.trim()));
+  if (!opts.length) return q.html;
+  const plainHtml2 = q.html.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ');
+  const first = opts[0].trim().slice(3).trim();
+  if (first && plainHtml2.includes(first)) return q.html; // možnosti so že v HTML-ju
+  return `${q.html}<p class="opts-multi">${opts.map(l => esc(l.trim())).join('<br>')}</p>`;
+}
+
 export function itemsFromQuiz(quiz: Quiz, tasksById?: Map<string, Task>): PrintItem[] {
   return quiz.questions.map(q => {
     const sol = (q.taskId ? tasksById?.get(q.taskId)?.solution : null) ?? undefined;
@@ -56,7 +70,7 @@ export function itemsFromQuiz(quiz: Quiz, tasksById?: Map<string, Task>): PrintI
     const img = q.image ? `<p><img src="${q.image}" alt=""></p>` : '';
     const html = `<p>${plainHtml(q.prompt)}</p>${img}`;
     if (q.kind === 'mc') return { id: q.id, choice: true, html, prompt: q.prompt, options: q.options.map(o => ({ id: o.id, text: o.text, ...(o.keepPlace ? { keepPlace: true } : {}) })), noShuffle: q.options.length === 2 && q.options[0].text === 'Drži' && q.options[1].text === 'Ne drži', correct: q.correct ? [q.correct] : [], points: q.points, space: 0, solution };
-    if (q.kind === 'open') return { id: q.id, choice: false, html: q.html || html, prompt: q.prompt, options: [], correct: [], points: q.points, space: Math.min(q.space ?? 25, 25), solution, answerText: q.answer?.trim() || undefined };
+    if (q.kind === 'open') return { id: q.id, choice: false, html: openQuestionHtml(q) || html, prompt: q.prompt, options: [], correct: [], points: q.points, space: Math.min(q.space ?? 25, 25), solution, answerText: q.answer?.trim() || undefined };
     return { id: q.id, choice: false, html, prompt: q.prompt, options: [], correct: [], points: q.points, space: 15, solution, answerText: `${q.correct}${q.tolerance ? ` ± ${String(q.tolerance).replace('.', ',')}` : ''}` };
   });
 }
