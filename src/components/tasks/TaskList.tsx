@@ -46,7 +46,6 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
   const setAdding = (on: boolean) => setEditingId(on ? '__new' : null);
   const [error, setError] = useState<string | null>(null);
   /** naloga, ki ima odprto okno ✨ Generiraj */
-  const [genOpen, setGenOpen] = useState<string | null>(null);
   const [mods, setMods] = useState<Record<string, string>>({});   // skupina → izbrana možnost
   const [kindMode, setKindMode] = useState<'similar' | 'variant' | 'complete'>('similar');
   const variant = kindMode === 'variant';
@@ -56,7 +55,7 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
   /** generiran osnutek, prikazan pod nalogo `forId`, preden ga shraniš */
   const [gen, setGen] = useState<{ forId: string; draft: TaskDraft; note: string; mode: 'similar' | 'variant' | 'complete' } | null>(null);
 
-  const openGen = (t: Task) => { setGenOpen(genOpen === t.id ? null : t.id); setMods({}); setKindMode('similar'); setExtra(''); setGen(null); setEditingId(null); setAdding(false); };
+  const openGen = (t: Task) => { setMods({}); setKindMode('similar'); setExtra(''); setGen(null); setEditingId(`gen:${t.id}`); };
 
   const generate = async (t: Task) => {
     setGenBusy(t.id); setError(null);
@@ -67,7 +66,6 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? `Napaka ${res.status}`);
       setGen({ forId: t.id, draft: data.draft, note: data.note ?? '', mode: kindMode });
-      setGenOpen(null);
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     finally { setGenBusy(null); }
   };
@@ -97,7 +95,7 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
         const on = selected.has(t.id);
         return (
           <div key={t.id} style={{ border: `1px solid ${on ? 'var(--forest)' : 'var(--hairline)'}`, borderRadius: 'var(--r-md)',
-            background: drawerOpen && editingId === t.id ? '#f3f8fe' : 'var(--canvas)', padding: '10px 12px', ...(drawerOpen && editingId === t.id ? { borderColor: '#6f9bd1', boxShadow: '0 0 0 1px #6f9bd1' } : {}), fontSize: '13px', color: 'var(--body)', lineHeight: 1.5,
+            background: drawerOpen && (editingId === t.id || editingId === `gen:${t.id}`) ? '#f3f8fe' : 'var(--canvas)', padding: '10px 12px', ...(drawerOpen && (editingId === t.id || editingId === `gen:${t.id}`) ? { borderColor: '#6f9bd1', boxShadow: '0 0 0 1px #6f9bd1' } : {}), fontSize: '13px', color: 'var(--body)', lineHeight: 1.5,
             ...(nested ? { marginLeft: '28px', borderLeft: '4px solid var(--forest)' } : {}) }}>
             {(
 
@@ -133,14 +131,48 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
                   <button onClick={() => { setEditingId(t.id); setAdding(false); }} style={{ ...btn(), padding: '3px 9px', fontSize: '11px' }}>✎ Uredi</button>
                   <button onClick={() => openGen(t)} disabled={genBusy !== null}
                     title="Z umetno inteligenco (Claude) ustvari novo nalogo iz te: podobno, težjo, lažjo, drugačne oblike …"
-                    style={{ ...btn(genOpen === t.id), padding: '3px 9px', fontSize: '11px', opacity: genBusy !== null ? 0.5 : 1 }}>
+                    style={{ ...btn(drawerOpen && editingId === `gen:${t.id}`), padding: '3px 9px', fontSize: '11px', opacity: genBusy !== null ? 0.5 : 1 }}>
                     ✨ Generiraj
                   </button>
                   <button onClick={() => void del(t)} style={{ ...btn(), padding: '3px 9px', fontSize: '11px', color: '#c0392b', borderColor: '#e0b4ae' }}>× Izbriši</button>
                 </div>
               </div>
             )}
-            {genOpen === t.id && (
+          </div>
+        );
+        });
+      })()}
+
+      {showAdd && (
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+          {leading}
+          {!adding && (
+            <button onClick={() => setAdding(true)} style={{ ...btn(), borderStyle: 'dashed', padding: '7px 14px' }}>
+              + Nova naloga
+            </button>
+          )}
+          {extraAction}
+        </div>
+      )}
+      <SideDrawer open={drawerOpen} onClose={() => setEditingId(null)}
+        title={editingId?.startsWith('gen:') ? '✨ Generiraj iz naloge' : editingId === '__new' ? 'Nova naloga' : 'Urejanje naloge'}
+        subtitle={editingId?.startsWith('gen:') ? (gen ? 'preveri, popravi in shrani' : 'izberi možnosti in generiraj') : editingId === '__new' ? undefined : 'sprememba se shrani v bazo nalog in povsod, kjer je naloga uporabljena'}>
+        {editingId?.startsWith('gen:') ? (() => {
+          const t = tasks.find(x => `gen:${x.id}` === editingId);
+          if (!t) return null;
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ fontSize: '12px', color: 'var(--muted)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', padding: '8px 10px', background: 'var(--canvas)', maxHeight: '160px', overflow: 'auto' }}>
+                <div style={{ ...tinyLabel, marginBottom: '4px' }}>Izhodiščna naloga</div>
+                <Rich html={t.body} />
+              </div>
+              {gen?.forId === t.id ? (
+              <div style={{ marginTop: '10px' }}>
+                <div style={{ fontSize: '12px', color: '#1f4f8a', fontWeight: 600, marginBottom: '6px' }}>{gen.mode === 'complete' ? '✨ Dopolnjena naloga (preveri in shrani — prepiše to nalogo)' : '✨ Predlagana naloga (osnutek — preveri, popravi in shrani)'}</div>
+                {gen.note && <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '8px' }}>{gen.note}</div>}
+                <TaskEditor key={`gen-${drawerSeq}-${gen.note.length}`} initial={gen.draft} onCancel={() => setEditingId(null)} onSave={async d => { await save(gen.mode === 'complete' ? { ...d, id: t.id, parent_id: t.parent_id } : { ...d, parent_id: t.parent_id ?? t.id }); setEditingId(null); }} />
+              </div>
+              ) : (
               <div style={{ marginTop: '10px', border: '2px solid #6f9bd1', borderRadius: 'var(--r-md)', padding: '14px 16px', background: '#e9f1fb', boxShadow: '0 4px 18px rgba(31,79,138,0.14)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <div style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#1f4f8a' }}>✨ Generiraj iz te naloge</div>
                 <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -173,37 +205,13 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
                   <button onClick={() => void generate(t)} disabled={genBusy !== null} style={{ ...btn(true), padding: '5px 14px', opacity: genBusy !== null ? 0.6 : 1 }}>
                     {genBusy === t.id ? '… generiram' : complete ? 'Dopolni' : 'Generiraj'}
                   </button>
-                  <button onClick={() => setGenOpen(null)} disabled={genBusy !== null} style={{ ...btn(), padding: '5px 12px' }}>Prekliči</button>
+                  <button onClick={() => setEditingId(null)} disabled={genBusy !== null} style={{ ...btn(), padding: '5px 12px' }}>Prekliči</button>
                 </div>
               </div>
-            )}
-            {gen?.forId === t.id && (
-              <div style={{ marginTop: '10px' }}>
-                <div style={{ fontSize: '12px', color: '#1f4f8a', fontWeight: 600, marginBottom: '6px' }}>{gen.mode === 'complete' ? '✨ Dopolnjena naloga (preveri in shrani — prepiše to nalogo)' : '✨ Predlagana naloga (osnutek — preveri, popravi in shrani)'}</div>
-                {gen.note && <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '8px' }}>{gen.note}</div>}
-                <TaskEditor initial={gen.draft} onCancel={() => setGen(null)} onSave={async d => { await save(gen.mode === 'complete' ? { ...d, id: t.id, parent_id: t.parent_id } : { ...d, parent_id: t.parent_id ?? t.id }); setGen(null); }} />
-              </div>
-            )}
-          </div>
-        );
-        });
-      })()}
-
-      {showAdd && (
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-          {leading}
-          {!adding && (
-            <button onClick={() => setAdding(true)} style={{ ...btn(), borderStyle: 'dashed', padding: '7px 14px' }}>
-              + Nova naloga
-            </button>
-          )}
-          {extraAction}
-        </div>
-      )}
-      <SideDrawer open={drawerOpen} onClose={() => setEditingId(null)}
-        title={editingId === '__new' ? 'Nova naloga' : 'Urejanje naloge'}
-        subtitle={editingId === '__new' ? undefined : 'sprememba se shrani v bazo nalog in povsod, kjer je naloga uporabljena'}>
-        {editingId === '__new' ? (
+              )}
+            </div>
+          );
+        })() : editingId === '__new' ? (
           <TaskEditor key={`nova-${drawerSeq}`} fixedTopic={fixedTopic} onCancel={() => setAdding(false)} onSave={async d => { await save(d); setAdding(false); }} />
         ) : (() => {
           const t = tasks.find(x => x.id === editingId);
