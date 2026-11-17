@@ -5,6 +5,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { openQuestionHtml, itemsFromQuiz } from '@/lib/quiz/printSheet';
 import QuizPaper from '@/components/quiz/QuizPaper';
+import QuizHalvesPreview from '@/components/quiz/QuizHalvesPreview';
 import QuestionTaskDrawer, { questionFromTask } from '@/components/quiz/QuestionTaskDrawer';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -285,8 +286,8 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
   const { tasks, save: saveTask, loaded: tasksLoaded } = useTasks();
   const taskById = useMemo(() => new Map(tasks.map(t => [t.id, t])), [tasks]);
   /** pogled: list A4 (privzeto) ali seznam vprašanj */
-  const [view, setView] = useState<'a4' | 'list'>(() => { try { return localStorage.getItem('kviz-pogled') === 'list' ? 'list' : 'a4'; } catch { return 'a4'; } });
-  const switchView = (v: 'a4' | 'list') => { setView(v); try { localStorage.setItem('kviz-pogled', v); } catch { /* ignore */ } };
+  const [view, setView] = useState<'a4' | 'list' | 'halves'>(() => { try { const v = localStorage.getItem('kviz-pogled'); return v === 'list' || v === 'halves' ? v : 'a4'; } catch { return 'a4'; } });
+  const switchView = (v: 'a4' | 'list' | 'halves') => { setView(v); try { localStorage.setItem('kviz-pogled', v); } catch { /* ignore */ } };
   /** naloga, odprta v stranskem urejevalniku (id vprašanja ali '__new') */
   const [active, setActiveId] = useState<string | null>(null);
   /** stransko okno z urejevalnikom: ob zaprtju ostane vsebina (animacija), zato je odprtost ločena od izbrane naloge */
@@ -568,14 +569,16 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px 32px 80px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px', fontFamily: 'var(--font-sans)' }}>
           <div style={{ display: 'inline-flex', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', overflow: 'hidden' }}>
-            {([['a4', '📄 List A4'], ['list', '☰ Seznam vprašanj']] as const).map(([v, l]) => (
+            {([['a4', '📄 List A4'], ['halves', '▤ Dva testa na en A4'], ['list', '☰ Seznam vprašanj']] as const).map(([v, l]) => (
               <button key={v} onClick={() => { switchView(v); setActive(null); }}
                 style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: view === v ? 600 : 500, padding: '6px 12px', border: 'none', cursor: 'pointer',
                   background: view === v ? 'var(--forest)' : 'transparent', color: view === v ? '#fff' : 'var(--forest)' }}>{l}</button>
             ))}
           </div>
           <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
-            {view === 'a4' ? 'Kot natisnjen list: klik na nalogo jo odpre, črtkane ločilne črte povlečeš za razmik.' : 'Vprašanja za kviz v živo (tablice) in podrobne nastavitve.'}
+            {view === 'a4' ? 'Kot natisnjen list: klik na nalogo jo odpre, črtkane ločilne črte povlečeš za razmik.'
+              : view === 'halves' ? 'Predogled tiska dveh testov na en list A4 (zgoraj in spodaj). Naloge urejaš v pogledu List A4.'
+              : 'Vprašanja za kviz v živo (tablice) in podrobne nastavitve.'}
           </span>
         </div>
         {bankSync && (
@@ -595,6 +598,7 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
               onSpacing={setSpacing} onColGap={setColGap} />
           </div>
         )}
+        {view === 'halves' && <QuizHalvesPreview quiz={draft} tasksById={taskById} />}
         {view === 'list' && <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {draft.questions.map((q, i) => {
             const dup = () => setQuestions([...draft.questions.slice(0, i + 1), cloneQuestion(q), ...draft.questions.slice(i + 1)]);
@@ -617,7 +621,7 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
 
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '16px', padding: '14px', border: '1px dashed var(--hairline)', borderRadius: 'var(--r-md)', alignItems: 'center' }}>
           <span style={{ ...label, marginRight: '4px' }}>Dodaj vprašanje</span>
-          {view === 'a4' ? (
+          {view !== 'list' ? (
             <button style={btn(true)} onClick={() => { flush(); setActive('__new'); }} title="Odpre urejevalnik naloge (kot v bazi nalog); naloga se shrani v bazo in doda v kviz">+ Nova naloga</button>
           ) : (
             <>
@@ -658,7 +662,7 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
       </div>
       {starting && <StartSessionDialog quiz={draft} onClose={() => setStarting(false)} />}
       {picking && <BankPickerShell title={draft.title} onAdd={addFromBank} onClose={() => setPicking(false)} />}
-      {active && view === 'a4' && (
+      {active && view !== 'list' && (
         <QuestionTaskDrawer open={drawerOpen} editorKey={`${active}-${openSeq}`} question={activeQ} number={activeQ ? sheetNumber(activeQ.id) : null}
           task={activeQ?.taskId ? taskById.get(activeQ.taskId) : undefined} quizId={draft.id}
           save={saveTask} onSaved={onTaskSaved} onClose={() => setActive(null)} />
