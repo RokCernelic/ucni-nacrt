@@ -40,10 +40,14 @@ export async function saveTask(draft: TaskDraft): Promise<Task> {
     answer: await uploadInlineImages(draft.answer),
     solution: await uploadInlineImages(draft.solution),
   };
-  const q = draft.id
-    ? sb.from('tasks').update(row).eq('id', draft.id).select().single()
-    : sb.from('tasks').insert(row).select().single();
-  const { data, error } = await q;
+  const run = (r: typeof row) => draft.id
+    ? sb.from('tasks').update(r).eq('id', draft.id).select().single()
+    : sb.from('tasks').insert(r).select().single();
+  let { data, error } = await run(row);
+  // izvirna naloga (parent_id) je bila medtem izbrisana → shrani kot samostojno nalogo
+  if (error && (error.code === '23503' || error.message.includes('tasks_parent_id_fkey')) && row.parent_id) {
+    ({ data, error } = await run({ ...row, parent_id: null }));
+  }
   if (error) throw new Error(error.message);
   return data as Task;
 }
