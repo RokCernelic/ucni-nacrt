@@ -6,9 +6,10 @@ import QRCode from 'qrcode';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuizLibrary } from '@/hooks/useQuizLibrary';
 import {
-  loadSession, updateSession, deleteSession, resetStudentResult, syncSessionScoring, resolveDevice, joinChannel, isLive, participated, TEACHER_NAME,
+  loadSession, updateSession, deleteSession, resetStudentResult, snapshotSession, restoreSessionSnapshot, syncSessionScoring, resolveDevice, joinChannel, isLive, participated, TEACHER_NAME,
   type QuizSession, type SessionStudent, type SessionAnswer,
 } from '@/lib/quiz/sessionApi';
+import { offerPersistentUndo } from '@/lib/undoStore';
 import { isCorrect, answerStatus, scoreAnswers, parseNumber, numericValue, choiceIds } from '@/lib/quiz/scoring';
 import { formatNumber, pointsLabel, studentsLabel } from '@/lib/quiz/format';
 import { sessionResultsCsv, downloadCsv, safeFilename } from '@/lib/quiz/csv';
@@ -195,16 +196,25 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
   };
   /** Pobriše vrstico enega učenca (njegove odgovore v tej izvedbi) — s potrditvijo. */
   const resetRow = async (studentId: string, name: string) => {
-    if (!confirm(`Pobrišem rezultat učenca ${name} v tej izvedbi?\n\nIzbrisani bodo njegovi odgovori; list lahko nato znova skeniraš. Tega ni mogoče razveljaviti.`)) return;
-    try { await resetStudentResult(session.id, studentId); window.location.reload(); }
+    if (!confirm(`Pobrišem rezultat učenca ${name} v tej izvedbi?\n\nIzbrisani bodo njegovi odgovori; list lahko nato znova skeniraš.`)) return;
+    try {
+      const snap = await snapshotSession(session.id, studentId);
+      await resetStudentResult(session.id, studentId);
+      offerPersistentUndo('session', `Rezultat učenca ${name} pobrisan`, snap, async () => { await restoreSessionSnapshot(snap); window.location.reload(); });
+      window.location.reload();
+    }
     catch (e) { alert(`Brisanje ni uspelo: ${e instanceof Error ? e.message : String(e)}`); }
   };
   /** Trajno izbriše to izvedbo (z vsemi odgovori) — vedno s potrditvijo. */
   const removeResult = async () => {
     const n = students.filter(participated).length;
-    if (!confirm(`Trajno izbrišem rezultat »${quizTitle}« (${session.class_name}, ${new Date(session.created_at).toLocaleString('sl-SI', { day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })})?\n\nIzbrisani bodo odgovori ${n} ${n === 1 ? 'učenca' : 'učencev'}. Tega ni mogoče razveljaviti.`)) return;
+    if (!confirm(`Trajno izbrišem rezultat »${quizTitle}« (${session.class_name}, ${new Date(session.created_at).toLocaleString('sl-SI', { day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })})?\n\nIzbrisani bodo odgovori ${n} ${n === 1 ? 'učenca' : 'učencev'}.`)) return;
     setDeleting(true);
-    try { await deleteSession(session.id); window.location.assign(back?.href ?? '/kvizi/statistika'); } // polno nalaganje: seznam rezultatov brez izbrisane izvedbe
+    try {
+      const snap = await snapshotSession(session.id);
+      await deleteSession(session.id);
+      offerPersistentUndo('session', `Rezultat »${quizTitle}« (${session.class_name}) izbrisan`, snap, async () => { await restoreSessionSnapshot(snap); window.location.reload(); });
+      window.location.assign(back?.href ?? '/kvizi/statistika'); } // polno nalaganje: seznam rezultatov brez izbrisane izvedbe
     catch (e) { alert(`Brisanje ni uspelo: ${e instanceof Error ? e.message : String(e)}`); setDeleting(false); }
   };
   // trenutno ime kviza (preimenovanje se pozna tudi v rezultatih), sicer ime ob izvedbi

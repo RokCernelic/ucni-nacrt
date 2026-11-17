@@ -1,5 +1,6 @@
 'use client';
 
+import { offerUndo, snapshotStorage } from '@/lib/undoStore';
 import { useState, useEffect, useMemo, useCallback, createContext, useContext, useRef, type ReactNode, type CSSProperties } from 'react';
 import Link from 'next/link';
 import type { Predmet, Standard } from '@/types/curriculum';
@@ -318,7 +319,12 @@ function Palette({ onDragStart, onDragEnd }: { onDragStart: (d: PaletteDrag) => 
               </span>
             )}
             <button
-              onClick={() => removeChip(chip.id)}
+              onClick={() => {
+                if (!confirm(`Odstranim gumb »${chip.label}« iz vrstice Dodaj? (Že dodane enote v učnem načrtu ostanejo.)`)) return;
+                const undo = snapshotStorage(['ucni-nacrt-palette']);
+                removeChip(chip.id);
+                offerUndo(`Gumb »${chip.label}« odstranjen`, async () => { await undo(); window.dispatchEvent(new Event('ucni-nacrt-palette-changed')); });
+              }}
               title="Odstrani gumb"
               style={{ background: 'transparent', border: 'none', color: chip.color, opacity: 0.6, cursor: 'pointer', fontSize: '13px', lineHeight: 1, padding: '0 1px' }}
             >×</button>
@@ -1144,13 +1150,23 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
   const { checked, toggle } = useProgress(classId ? `ucni-nacrt-progress-${classId}` : undefined);
   const { getHours, change } = useHours(classId ? `ucni-nacrt-hours-${classId}` : undefined);
   const { getNote, setNote } = useNotes(classId ? `ucni-nacrt-notes-${classId}` : undefined);
-  const { resolve, addEnota, moveEnota, reorder, removeEnota, toggleCustom, renameCustom, setCustomHours, setCustomDates, countCustom, countCheckedCustom } = useEnotaOrder(classId ? `ucni-nacrt-enote-order-${classId}` : undefined);
+  const enoteKey = classId ? `ucni-nacrt-enote-order-${classId}` : 'ucni-nacrt-enote-order';
+  const { resolve, addEnota, moveEnota, reorder, removeEnota: removeEnotaNow, toggleCustom, renameCustom, setCustomHours, setCustomDates, countCustom, countCheckedCustom } = useEnotaOrder(classId ? `ucni-nacrt-enote-order-${classId}` : undefined);
   const { openChapters, toggle: toggleChapter, expandAll, collapseAll } = useOpenChapters(classId ? `ucni-nacrt-open-chapters-${classId}` : undefined);
   // Klik na naslov podpoglavja strne/razširi cilje, standarde, pojme in učno vsebino ZANJ POSEBEJ
   // (v nasprotju z gumbom "Strnjen seznam", ki to naredi globalno za vsa podpoglavja).
   const { openChapters: collapsedPodpoglavja, toggle: toggleCollapsedPodpoglavje } = useOpenChapters(classId ? `ucni-nacrt-collapsed-podpoglavja-${classId}` : undefined);
   const { resolveOrder, reorderChapters } = useChapterOrder(classId ? `ucni-nacrt-chapter-order-${classId}` : undefined);
   const [paletteDrag, setPaletteDrag] = useState<PaletteDrag | null>(null);
+  /** odstranitev lastne enote (povlečeš izven seznama): s potrditvijo in »Razveljavi« */
+  const removeEnota = useCallback((key: string, id: string) => {
+    const it = resolve(key, []).find(x => x.id === id);
+    const name = it && it.kind === 'custom' ? it.type : 'enoto';
+    if (!confirm(`Odstranim »${name}« iz učnega načrta?`)) return;
+    const undo = snapshotStorage([enoteKey]);
+    removeEnotaNow(key, id);
+    offerUndo(`»${name}« odstranjeno`, undo);
+  }, [resolve, removeEnotaNow, enoteKey]);
   // ure predmeta po dnevih v tednu iz urnika tega razreda (za odpadle ure in časovni trak)
   const pattern = useMemo(() => (classLabel ? weekPatternFrom(lessonsFor(canonLabel(classLabel), subtitle), predmet.id) : null), [classLabel, subtitle, predmet.id]);
   const [customDrag, setCustomDrag] = useState<CustomDrag | null>(null);

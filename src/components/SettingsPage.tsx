@@ -1,5 +1,6 @@
 'use client';
 
+import { offerUndo } from '@/lib/undoStore';
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
@@ -78,7 +79,13 @@ export default function SettingsPage() {
     setRows(prev => [...prev, { name: '', start: last?.end ?? '08:00', end: '' }]);
     setSavedMsg(false);
   };
-  const removeRow = (i: number) => { setRows(prev => prev.filter((_, j) => j !== i)); setSavedMsg(false); };
+  const removeRow = (i: number) => {
+    const r = rows[i];
+    if (!confirm(`Odstranim uro${r?.name ? ` »${r.name}«` : ''}${r?.start ? ` (${r.start}–${r.end})` : ''} iz urnika?`)) return;
+    const prev = rows;
+    setRows(p => p.filter((_, j) => j !== i)); setSavedMsg(false);
+    offerUndo('Ura odstranjena', async () => { setRows(prev); });
+  };
   const byStart = (a: Lesson, b: Lesson) => (a.start ? toMinutes(a.start) : 1e9) - (b.start ? toMinutes(b.start) : 1e9);
   const sortRows = () => setRows(prev => [...prev].sort(byStart));
   const saveSchedule = () => {

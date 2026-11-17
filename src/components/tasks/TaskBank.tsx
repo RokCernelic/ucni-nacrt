@@ -122,7 +122,7 @@ export default function TaskBank({ picker }: { picker?: BankPicker } = {}) {
   const [delBusy, setDelBusy] = useState(false);
   const deleteSelected = async (ids: string[]) => {
     if (!ids.length) return;
-    if (!confirm(`Trajno izbrišem ${ids.length} ${plural(ids.length, 'izbrano nalogo', 'izbrani nalogi', 'izbrane naloge', 'izbranih nalog')}? Tega ni mogoče razveljaviti.`)) return;
+    if (!confirm(`Trajno izbrišem ${ids.length} ${plural(ids.length, 'izbrano nalogo', 'izbrani nalogi', 'izbrane naloge', 'izbranih nalog')}?`)) return;
     setDelBusy(true);
     try {
       const snap = await removeMany(ids); setMany(ids, false);

@@ -1,5 +1,6 @@
 'use client';
 
+import { offerUndo } from '@/lib/undoStore';
 import { useState, useEffect } from 'react';
 import { getTeacherPin, TEACHER_PIN_KEY } from '@/lib/quiz/sessionApi';
 
@@ -24,6 +25,11 @@ export default function TeacherPinSection() {
     setSaved(pin);
   };
   const remove = () => {
+    if (!confirm('Odstranim PIN učitelja?')) return;
+    const old = localStorage.getItem(TEACHER_PIN_KEY);
+    offerUndo('PIN učitelja odstranjen', async () => {
+      if (old != null) { localStorage.setItem(TEACHER_PIN_KEY, old); window.dispatchEvent(new Event('ucni-nacrt-changed')); setSaved(old); setPin(old); }
+    });
     localStorage.removeItem(TEACHER_PIN_KEY);
     window.dispatchEvent(new Event('ucni-nacrt-changed'));
     setSaved(null); setPin('');

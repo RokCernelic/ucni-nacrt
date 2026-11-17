@@ -1,5 +1,6 @@
 'use client';
 
+import { offerUndo } from '@/lib/undoStore';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { openQuestionHtml, itemsFromQuiz } from '@/lib/quiz/printSheet';
@@ -458,7 +459,11 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
     const d = draftRef.current;
     const i = d ? d.questions.findIndex(q => q.id === id) : -1;
     if (!d || i < 0) return;
-    if (confirm(`Odstranim vprašanje ${i + 1} iz kviza? (Naloga v bazi ostane.)`)) { update({ ...d, questions: d.questions.filter(q => q.id !== id) }); if (active === id) setActive(null); }
+    if (confirm(`Odstranim vprašanje ${i + 1} iz kviza? (Naloga v bazi ostane.)`)) {
+      const prev = d.questions;
+      update({ ...d, questions: d.questions.filter(q => q.id !== id) }); if (active === id) setActive(null);
+      offerUndo(`Vprašanje ${i + 1} odstranjeno`, async () => { const cur = draftRef.current; if (cur) update({ ...cur, questions: prev }); });
+    }
   };
   const duplicateById = (id: string) => {
     const d = draftRef.current;
@@ -506,7 +511,9 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
     if (mode === 'replace' && existing.length > 0
       && !confirm(`Zamenjam vseh ${existing.length} obstoječih vprašanj z ${res.questions.length} iz datoteke? Obstoječa vprašanja bodo izbrisana.`)) return;
     const title = res.title && (mode === 'replace' || !draft.title.trim() || draft.title === 'Nov kviz') ? res.title : draft.title;
+    const before = draft;
     update({ ...draft, title, questions: mode === 'replace' ? res.questions : [...existing, ...res.questions] });
+    if (mode === 'replace' && existing.length) offerUndo(`Zamenjanih ${existing.length} vprašanj`, async () => { const cur = draftRef.current; if (cur) update({ ...cur, title: before.title, questions: before.questions }); });
     setImportResult({ ...res, file: file.name, mode });
   };
   const pickImport = (mode: 'replace' | 'merge') => { importMode.current = mode; importRef.current?.click(); };
@@ -586,7 +593,12 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
         {view === 'list' && <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {draft.questions.map((q, i) => {
             const dup = () => setQuestions([...draft.questions.slice(0, i + 1), cloneQuestion(q), ...draft.questions.slice(i + 1)]);
-            const del = () => { if (confirm(`Odstranim vprašanje ${i + 1} iz kviza? (Naloga v bazi ostane.)`)) setQuestions(draft.questions.filter((_, j) => j !== i)); };
+            const del = () => {
+              if (!confirm(`Odstranim vprašanje ${i + 1} iz kviza? (Naloga v bazi ostane.)`)) return;
+              const prev = draft.questions;
+              setQuestions(draft.questions.filter((_, j) => j !== i));
+              offerUndo(`Vprašanje ${i + 1} odstranjeno`, async () => { const cur = draftRef.current; if (cur) update({ ...cur, questions: prev }); });
+            };
             return editing.has(q.id) ? (
               <QuestionCard key={q.id} q={q} index={i} total={draft.questions.length}
                 onChange={nq => replaceQ(i, nq)} onMove={dir => moveQ(i, dir)} onDuplicate={dup} onDelete={del}

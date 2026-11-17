@@ -1,5 +1,6 @@
 'use client';
 
+import { offerUndo } from '@/lib/undoStore';
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useRoster, apartPairs, type Student } from '@/hooks/useRoster';
 import { studentsLabel } from '@/lib/quiz/format';
@@ -246,8 +247,18 @@ export default function SeatingChart({ classId, className, contextLabel, lessons
     commitAssign(shuffleInto(layoutS, allIds, frontIds, Math.random, { ...shuffleOpts, history }));
   };
   const clearAssign = () => commitAssign({});
-  const resetToAuto = () => { if (lesson) setDay(lesson.d, null); };
-  const resetDayLayout = () => { if (lesson) setDayLayout(lesson.d, null); };
+  const resetToAuto = () => {
+    if (!lesson || !confirm('Odstranim ročni razpored za ta dan (nazaj na samodejnega)?')) return;
+    const prev = dayMap[lesson.d] ?? null, d = lesson.d;
+    setDay(d, null);
+    offerUndo('Ročni razpored odstranjen', async () => { setDay(d, prev); });
+  };
+  const resetDayLayout = () => {
+    if (!lesson || !confirm('Odstranim ročni tloris za ta dan (nazaj na tloris iz nastavitev)?')) return;
+    const prev = dayLayoutMap[lesson.d] ?? null, d = lesson.d;
+    setDayLayout(d, null);
+    offerUndo('Ročni tloris odstranjen', async () => { setDayLayout(d, prev); });
+  };
 
   const toggleFix = (studentId: string, cell: string) => {
     if (hasDays && lesson && !dayMap[lesson.d]) setDay(lesson.d, assign);

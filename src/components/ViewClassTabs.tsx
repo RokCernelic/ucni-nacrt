@@ -35,7 +35,7 @@ export default function ViewClassTabs({ master, ids, activeId, onSelect, onAdd, 
               {m.name}
               {m.school && <span style={{ fontSize: '11px', opacity: 0.55, fontWeight: 400 }}>{m.school}</span>}
             </button>
-            <button onClick={() => onRemove(m.id)} title="Odstrani iz tega pogleda (ne izbriše razreda)"
+            <button onClick={() => { if (confirm(`Odstranim razred ${m.name}${m.school ? ` (${m.school})` : ''} iz teh zavihkov?\n\nRazred, učenci in sedežni red ostanejo shranjeni — vrneš ga z gumbom +.`)) onRemove(m.id); }} title="Odstrani iz tega pogleda (ne izbriše razreda)"
               style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: '15px', lineHeight: 1, padding: '0 2px' }}>×</button>
           </div>
         );

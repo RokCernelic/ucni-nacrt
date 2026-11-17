@@ -1,5 +1,6 @@
 'use client';
 
+import { offerUndo, snapshotStorage } from '@/lib/undoStore';
 import { useState } from 'react';
 import { useRooms, DEFAULT_ROOM_PLAN, type RoomPlan } from '@/hooks/useRooms';
 import { ALL_ROOMS } from '@/data/timetable';
@@ -62,7 +63,12 @@ export default function RoomPlansSection() {
         </span>
         <span style={{ fontSize: '12px', color: 'var(--muted)' }}>{seatCount} sedežev</span>
         {hasPlan && (
-          <button onClick={() => removePlan(room)} style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500, color: 'var(--forest)', background: 'transparent', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', padding: '6px 12px', cursor: 'pointer', marginLeft: 'auto' }}>
+          <button onClick={() => {
+            if (!confirm(`Ponastavim tloris učilnice ${room} na privzetega? Tvoje spremembe tlorisa se izbrišejo.`)) return;
+            const undo = snapshotStorage(['ucni-nacrt-rooms']);
+            removePlan(room);
+            offerUndo(`Tloris ${room} ponastavljen`, undo);
+          }} style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500, color: 'var(--forest)', background: 'transparent', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', padding: '6px 12px', cursor: 'pointer', marginLeft: 'auto' }}>
             Ponastavi na privzeto
           </button>
         )}

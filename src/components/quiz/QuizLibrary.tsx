@@ -1,5 +1,6 @@
 'use client';
 
+import { offerUndo, snapshotStorage } from '@/lib/undoStore';
 import { useState, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -132,7 +133,15 @@ export default function QuizLibrary() {
                         <Link href={`/kvizi/statistika?k=${encodeURIComponent(q.id)}`} style={{ ...btn(), padding: '7px 10px', textDecoration: 'none' }} title="Rezultati izvedb tega kviza">Rezultati</Link>
                         <button style={{ ...btn(), padding: '7px 10px' }} onClick={() => guard(() => lib.duplicateQuiz(q.id))}>Podvoji</button>
                         <button style={{ ...btn(), padding: '7px 10px', color: '#c0392b', borderColor: '#e0b4ae' }}
-                          onClick={() => { if (confirm(`Izbrišem kviz »${q.title}«? Izvedbe brez rezultatov se izbrišejo, rezultati izvedb, pri katerih so učenci sodelovali, pa ostanejo v Rezultatih.`)) { guard(() => lib.deleteQuiz(q.id)); void deleteEmptySessionsOfQuiz(q.id).catch(() => { /* statistika ostane, kviz je izbrisan */ }); } }}>Izbriši</button>
+                          onClick={() => {
+                            if (!confirm(`Izbrišem kviz »${q.title}«? Izvedbe brez rezultatov se izbrišejo, rezultati izvedb, pri katerih so učenci sodelovali, pa ostanejo v Rezultatih.`)) return;
+                            const undo = snapshotStorage(['ucni-nacrt-quizzes', 'ucni-nacrt-quiz-folders']);
+                            guard(() => lib.deleteQuiz(q.id));
+                            // prazne izvedbe se izbrišejo šele, ko mine čas za razveljavitev
+                            let undone = false;
+                            const t = setTimeout(() => { if (!undone) void deleteEmptySessionsOfQuiz(q.id).catch(() => { /* statistika ostane, kviz je izbrisan */ }); }, 10000);
+                            offerUndo(`Kviz »${q.title}« izbrisan`, async () => { undone = true; clearTimeout(t); await undo(); });
+                          }}>Izbriši</button>
                       </div>
                     </div>
                   );
@@ -163,7 +172,12 @@ export default function QuizLibrary() {
           <span onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: '2px' }}>
             <button title="Preimenuj" style={smallBtn} onClick={() => setRenaming(f.id)}>✎</button>
             <button title="Izbriši mapo (vsebina gre v nadrejeno mapo)" style={smallBtn}
-              onClick={() => { if (confirm(`Izbrišem mapo »${f.name}«? Kvizi in podmape se premaknejo eno raven višje.`)) guard(() => lib.deleteFolder(f.id)); }}>×</button>
+              onClick={() => {
+                if (!confirm(`Izbrišem mapo »${f.name}«? Kvizi in podmape se premaknejo eno raven višje.`)) return;
+                const undo = snapshotStorage(['ucni-nacrt-quizzes', 'ucni-nacrt-quiz-folders']);
+                guard(() => lib.deleteFolder(f.id));
+                offerUndo(`Mapa »${f.name}« izbrisana`, undo);
+              }}>×</button>
           </span>
         </div>
         {isOpen && (

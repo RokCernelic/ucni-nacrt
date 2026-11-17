@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import { subscribeUndo, getUndo, dismissUndo } from '@/lib/undoStore';
+import { subscribeUndo, getUndo, dismissUndo, offerUndo, takePendingUndo, clearPendingUndo } from '@/lib/undoStore';
 
 const SHOW_MS = 8000;
 
@@ -10,10 +10,24 @@ export default function UndoToast() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<{ id: number; msg: string } | null>(null);
 
+  // razveljavitev, ponujena tik pred ponovnim nalaganjem strani (npr. po brisanju izvedbe)
+  useEffect(() => {
+    const p = takePendingUndo();
+    if (!p) return;
+    offerUndo(p.label, async () => {
+      clearPendingUndo();
+      if (p.kind === 'session') {
+        const { restoreSessionSnapshot } = await import('@/lib/quiz/sessionApi');
+        await restoreSessionSnapshot(p.payload as Parameters<typeof restoreSessionSnapshot>[0]);
+        window.location.reload();
+      }
+    });
+  }, []);
+
   useEffect(() => {
     if (!item) return;
     const id = item.id;
-    const t = setTimeout(() => dismissUndo(id), SHOW_MS);
+    const t = setTimeout(() => { dismissUndo(id); clearPendingUndo(); }, SHOW_MS);
     return () => clearTimeout(t);
   }, [item]);
 

@@ -485,3 +485,47 @@ function openChannel(name: string, onPing: (payload: { type: string }) => void) 
     isLive: () => connected,
   };
 }
+
+/** Posnetek izvedbe (cele ali enega učenca) pred brisanjem — za »Razveljavi«. */
+export interface SessionSnapshot {
+  session: Record<string, unknown> | null;
+  students: Record<string, unknown>[];
+  answers: Record<string, unknown>[];
+}
+
+export async function snapshotSession(sessionId: string, studentId?: string): Promise<SessionSnapshot> {
+  const sb = getSupabaseBrowserClient();
+  if (studentId) {
+    const [st, an] = await Promise.all([
+      sb.from('quiz_session_students').select('*').eq('session_id', sessionId).eq('student_id', studentId),
+      sb.from('quiz_answers').select('*').eq('session_id', sessionId).eq('student_id', studentId),
+    ]);
+    if (st.error) throw new Error(st.error.message);
+    if (an.error) throw new Error(an.error.message);
+    return { session: null, students: st.data ?? [], answers: an.data ?? [] };
+  }
+  const { data, error } = await sb.from('quiz_sessions').select('*').eq('id', sessionId).single();
+  if (error) throw new Error(error.message);
+  const [students, answers] = await Promise.all([
+    fetchAllBySession<Record<string, unknown>>('quiz_session_students', [sessionId]),
+    fetchAllBySession<Record<string, unknown>>('quiz_answers', [sessionId]),
+  ]);
+  return { session: data, students, answers };
+}
+
+/** Povrne posnetek (izvedbo, učence in odgovore). */
+export async function restoreSessionSnapshot(s: SessionSnapshot): Promise<void> {
+  const sb = getSupabaseBrowserClient();
+  if (s.session) {
+    const { error } = await sb.from('quiz_sessions').upsert(s.session);
+    if (error) throw new Error(error.message);
+  }
+  for (let i = 0; i < s.students.length; i += 500) {
+    const { error } = await sb.from('quiz_session_students').upsert(s.students.slice(i, i + 500), { onConflict: 'session_id,student_id' });
+    if (error) throw new Error(error.message);
+  }
+  for (let i = 0; i < s.answers.length; i += 500) {
+    const { error } = await sb.from('quiz_answers').upsert(s.answers.slice(i, i + 500), { onConflict: 'session_id,student_id,question_id' });
+    if (error) throw new Error(error.message);
+  }
+}

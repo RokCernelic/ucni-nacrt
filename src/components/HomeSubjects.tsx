@@ -1,5 +1,6 @@
 'use client';
 
+import { offerUndo, snapshotStorage } from '@/lib/undoStore';
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import SubjectCard from '@/components/SubjectCard';
@@ -71,7 +72,9 @@ export default function HomeSubjects() {
                 enote={podpoglavjaOf(entry.predmet)}
                 onDelete={() => {
                   if (confirm(`Odstranim predmet »${entry.predmet.naslov}«${s.subtitle ? ` (${s.subtitle})` : ''} in vse njegove oddelke?`)) {
+                    const undo = snapshotStorage(k => k.startsWith('ucni-nacrt-'));
                     removeSubject(s.id);
+                    offerUndo(`Predmet »${entry.predmet.naslov}« odstranjen`, undo);
                   }
                 }}
                 onGripDragStart={(e) => {

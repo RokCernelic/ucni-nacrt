@@ -1,5 +1,6 @@
 'use client';
 
+import { offerUndo } from '@/lib/undoStore';
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useRoster, parseRoster, rosterToText } from '@/hooks/useRoster';
@@ -107,7 +108,9 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
   const removeManual = (id: string) => {
     const m = cfg.manual.find(x => x.id === id); if (!m) return;
     const n = Object.values(m.values).filter(v => v.trim()).length;
-    if (!confirm(`Izbrišem stolpec »${m.name}«${n ? ` z ${n} vpisanimi vrednostmi` : ''}?\n\nTega ni mogoče razveljaviti.`)) return;
+    if (!confirm(`Izbrišem stolpec »${m.name}«${n ? ` z ${n} vpisanimi vrednostmi` : ''}?`)) return;
+    const prev = cfg;
+    offerUndo(`Stolpec »${m.name}« izbrisan`, async () => { saveCfg(prev); });
     saveCfg({ ...cfg, manual: cfg.manual.filter(x => x.id !== id), order: cfg.order.filter(k => k !== `m:${id}`), hidden: (cfg.hidden ?? []).filter(k => k !== `m:${id}`) });
   };
   const setManualValue = (id: string, studentId: string, value: string) => {
