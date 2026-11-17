@@ -577,7 +577,7 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
           </div>
           <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
             {view === 'a4' ? 'Kot natisnjen list: klik na nalogo jo odpre, črtkane ločilne črte povlečeš za razmik.'
-              : view === 'halves' ? 'Predogled tiska dveh testov na en list A4 (zgoraj in spodaj). Naloge urejaš v pogledu List A4.'
+              : view === 'halves' ? 'Kot natisnjena dva testa na en list A4 (zgoraj in spodaj): klik na nalogo jo odpre.'
               : 'Vprašanja za kviz v živo (tablice) in podrobne nastavitve.'}
           </span>
         </div>
@@ -598,7 +598,7 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
               onSpacing={setSpacing} onColGap={setColGap} />
           </div>
         )}
-        {view === 'halves' && <QuizHalvesPreview quiz={draft} tasksById={taskById} />}
+        {view === 'halves' && <QuizHalvesPreview quiz={draft} tasksById={taskById} activeId={drawerOpen ? active : null} onOpen={id => { flush(); setActive(id); }} />}
         {view === 'list' && <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {draft.questions.map((q, i) => {
             const dup = () => setQuestions([...draft.questions.slice(0, i + 1), cloneQuestion(q), ...draft.questions.slice(i + 1)]);

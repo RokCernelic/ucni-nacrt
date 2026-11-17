@@ -13,7 +13,7 @@ import type { Task } from '@/lib/tasks/types';
  * Pogled »Dva testa na en A4« v urejevalniku kviza: tako bo videti natis dveh testov na list (zgoraj in spodaj,
  * sprednja in hrbtna stran), z vzorčnim imenom in QR kodo. Vprašanja, ki se ne prilegajo, so našteta spodaj.
  */
-export default function QuizHalvesPreview({ quiz, tasksById }: { quiz: Quiz; tasksById: Map<string, Task> }) {
+export default function QuizHalvesPreview({ quiz, tasksById, onOpen, activeId }: { quiz: Quiz; tasksById: Map<string, Task>; onOpen: (questionId: string) => void; activeId: string | null }) {
   const items = useMemo(() => itemsFromQuiz(quiz, tasksById), [quiz, tasksById]);
   const { plan, node } = useHalvesPlan(items, true, true, quiz.title);
   const [qr, setQr] = useState<string | null>(null);
@@ -47,11 +47,11 @@ export default function QuizHalvesPreview({ quiz, tasksById }: { quiz: Quiz; tas
             </p>
           )}
           <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--muted)', margin: '0 0 10px' }}>
-            Levo sprednja, desno hrbtna stran lista; zgoraj en test, spodaj drug. Ime, datum in QR koda so vzorec.
+            Merilo 1 : 1. Prva stran je sprednja, druga hrbtna stran lista; zgoraj en test, spodaj drug. Ime, datum in QR koda so vzorec. Klik na nalogo jo odpre.
           </p>
           <div style={{ overflowX: 'auto', margin: '0 -32px', padding: '4px 0 8px' }}>
-            <div className="pqz-preview" style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap', zoom: 0.62 }}>
-              <HalvesPages sheets={[sheet, sheet]} plan={plan} title={quiz.title} placeholder />
+            <div className="pqz-preview pqz-ed pqz-halves-ed" style={{ display: 'flex', flexDirection: 'column', gap: '20px', alignItems: 'center' }}>
+              <HalvesPages sheets={[sheet, sheet]} plan={plan} title={quiz.title} placeholder edit={{ onOpen, activeId }} />
             </div>
           </div>
         </>

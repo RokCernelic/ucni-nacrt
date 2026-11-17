@@ -361,3 +361,4 @@ html.printing-questions .print-questions.ldn, .ldn.ldn-measure { font-size: 9pt;
 body { transition: padding-right 260ms cubic-bezier(.2,.8,.2,1); }
 html.has-drawer body { padding-right: var(--drawer-w, 0px); }
 @media print { html.has-drawer body { padding-right: 0; } }
+.pqz-halves-ed .pqz-page { box-shadow: 0 2px 14px rgba(0,0,0,.18); }

@@ -206,14 +206,25 @@ export function useHalvesPlan(items: PrintItem[], enabled: boolean, withQr: bool
 
 // ───────────────────────── izris ─────────────────────────
 
-function HalfView({ sheet, part, plan, title, className, placeholder }: {
-  sheet: Sheet; part: 1 | 2; plan: HalvesPlan; title: string; className?: string; placeholder?: boolean;
+/** urejanje na zaslonu: klik na nalogo jo odpre (`activeId` je poudarjena) */
+export interface HalvesEdit { onOpen: (questionId: string) => void; activeId: string | null }
+
+function HalfView({ sheet, part, plan, title, className, placeholder, edit }: {
+  sheet: Sheet; part: 1 | 2; plan: HalvesPlan; title: string; className?: string; placeholder?: boolean; edit?: HalvesEdit;
 }) {
   // številke so po vrsti v bralnem redu: levi stolpec navzdol, nato desni, nato hrbtna stran
   const seq = [...sheet.layout.choice, ...sheet.layout.free];
   const cols = nextFit(seq, c => plan.m.heights[c.item.id] ?? 0, capsFor(sheet.layout, plan.m, !!sheet.qr)) ?? [seq, [], [], []];
   const [left, right] = part === 1 ? [cols[0], cols[1]] : [cols[2], cols[3]];
-  const col = (items: SheetItem[]) => <div className="pqz-hcol">{items.map(c => <div className="pqz-hitem" key={c.n}><ItemBody c={c} /></div>)}</div>;
+  const col = (items: SheetItem[]) => (
+    <div className="pqz-hcol">
+      {items.map(c => edit ? (
+        <div className={`pqz-hitem pqz-ed-item${edit.activeId === c.item.id ? ' is-active' : ''}`} key={c.n} onClick={() => edit.onOpen(c.item.id)} title="Klikni za urejanje naloge">
+          <ItemBody c={c} />
+        </div>
+      ) : <div className="pqz-hitem" key={c.n}><ItemBody c={c} /></div>)}
+    </div>
+  );
   return (
     <>
       {part === 1 && (
@@ -231,8 +242,8 @@ function HalfView({ sheet, part, plan, title, className, placeholder }: {
  * Strani za tisk: po dva lista (učenca) na list A4; sprednja in hrbtna stran vsakega para.
  * `duplicate`: en sam enak list (brez imen) se natisne zgoraj in spodaj.
  */
-export function HalvesPages({ sheets, plan, title, className, placeholder, duplicate }: {
-  sheets: Sheet[]; plan: HalvesPlan; title: string; className?: string; placeholder?: boolean; duplicate?: boolean;
+export function HalvesPages({ sheets, plan, title, className, placeholder, duplicate, edit }: {
+  sheets: Sheet[]; plan: HalvesPlan; title: string; className?: string; placeholder?: boolean; duplicate?: boolean; edit?: HalvesEdit;
 }) {
   const pairs: [Sheet, Sheet | undefined][] = [];
   if (duplicate && sheets[0]) pairs.push([sheets[0], sheets[0]]);
@@ -241,8 +252,8 @@ export function HalvesPages({ sheets, plan, title, className, placeholder, dupli
     <>
       {pairs.flatMap(([a, b], pi) => ([1, 2] as const).map(part => (
         <div className="pqz-page" key={`${pi}-${part}`}>
-          <div className="pqz-half"><HalfView sheet={a} part={part} plan={plan} title={title} className={className} placeholder={placeholder} /></div>
-          <div className="pqz-half">{b && <HalfView sheet={b} part={part} plan={plan} title={title} className={className} placeholder={placeholder} />}</div>
+          <div className="pqz-half"><HalfView sheet={a} part={part} plan={plan} title={title} className={className} placeholder={placeholder} edit={edit} /></div>
+          <div className="pqz-half">{b && <HalfView sheet={b} part={part} plan={plan} title={title} className={className} placeholder={placeholder} edit={edit} />}</div>
         </div>
       )))}
     </>
