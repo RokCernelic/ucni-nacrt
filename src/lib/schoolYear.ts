@@ -73,13 +73,14 @@ export const parseDay = (iso: string): Date | null => {
 
 /**
  * Ure predmeta, ki odpadejo v obdobju od–do: cel dan brez pouka → odpadejo vse ure predmeta tisti dan
- * (po urniku razreda; brez urnika enakomerno 2 / 5 na delovni dan).
+ * (po urniku razreda; brez urnika enakomerno po delovnih dneh).
  */
 export function lostHours(from: Date, to: Date, pattern?: WeekPattern | null): number {
   let h = 0, weekdays = 0;
   for (let d = from; d <= to; d = addDays(d, 1)) { h += hoursOnDay(d, pattern); if (d.getDay() % 6 !== 0) weekdays++; }
-  // brez urnika ne vemo, ali je bil predmet tisti dan: en dan (praznik, dan dejavnosti) = 1 ura
-  return pattern ? Math.round(h) : weekdays ? Math.max(1, Math.round(h)) : 0;
+  // brez urnika (enakomerna razporeditev) ne vemo, ali je bil predmet tisti dan: en dan (praznik, dan dejavnosti) = 1 ura
+  const fromTimetable = !!pattern && pattern.every(n => Number.isInteger(n));
+  return fromTimetable ? Math.round(h) : weekdays ? Math.max(1, Math.round(h)) : 0;
 }
 
 export const nextDay = (d: Date) => addDays(d, 1);
@@ -100,10 +101,10 @@ export function weekStarts(sy: SchoolYear): { n: number; date: Date }[] {
 
 /**
  * Ure predmeta po dnevih v tednu (0 = nedelja … 6 = sobota) iz urnika razreda: običajno število ur na tisti dan.
- * null, če razreda v urniku ni ali urnik nima 2 ur na teden (takrat velja enakomerno 2 uri na teden).
+ * null, če razreda v urniku ni ali se urnik ne ujema s številom ur na teden (takrat velja enakomerna razporeditev).
  */
 export type WeekPattern = number[];
-export function weekPatternFrom(lessons: { d: string; u: string | null }[], subject: string): WeekPattern | null {
+export function weekPatternFrom(lessons: { d: string; u: string | null }[], subject: string, weekly: number = HOURS_PER_WEEK): WeekPattern | null {
   const own = lessons.filter(l => l.u === subject);
   if (!own.length) return null;
   const perDate = new Map<string, number>();
@@ -118,9 +119,15 @@ export function weekPatternFrom(lessons: { d: string; u: string | null }[], subj
     for (const d of dates) { const n = perDate.get(d) ?? 0; counts.set(n, (counts.get(n) ?? 0) + 1); }
     pat[wd] = [...counts.entries()].sort((a, b) => b[1] - a[1] || b[0] - a[0])[0][0];
   }
-  // urnik upoštevamo le, če se ujema z 2 urama na teden (sicer je v njem verjetno kaj manjkalo)
-  return pat.reduce((x, n) => x + n, 0) === HOURS_PER_WEEK ? pat : null;
+  // urnik upoštevamo le, če se ujema s številom ur na teden (sicer je v njem verjetno kaj manjkalo)
+  return pat.reduce((x, n) => x + n, 0) === weekly ? pat : null;
 }
+
+/** Enakomerna razporeditev `weekly` ur na teden po delovnih dneh (ko urnika razreda ni). */
+export const uniformPattern = (weekly: number): WeekPattern => [0, weekly / 5, weekly / 5, weekly / 5, weekly / 5, weekly / 5, 0];
+
+/** Privzeto število ur na teden iz letnega števila ur (35 tednov), zaokroženo na pol ure: 70 → 2, 35 → 1, 64 → 2. */
+export const defaultWeekly = (yearly: number) => Math.max(0.5, Math.round((yearly / 35) * 2) / 2);
 
 /** Ure, ki bi bile na dan `d` (po urniku razreda ali enakomerno 2 / 5 na delovni dan). */
 export const hoursOnDay = (d: Date, pattern?: WeekPattern | null) => {

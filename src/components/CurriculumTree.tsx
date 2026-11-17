@@ -28,8 +28,7 @@ import RememberSchool from '@/components/RememberSchool';
 import YearTimeline from '@/components/YearTimeline';
 import PrintLdnButton from '@/components/PrintLdn';
 import { useEnotaOrder, PAUSE_TYPES, PAUSE_COLOR, type ResolvedEnotaItem } from '@/hooks/useEnotaOrder';
-import { parseDay, lostHours, shortDate, weekPatternFrom, schoolYearOf, hoursUntil, type WeekPattern } from '@/lib/schoolYear';
-import { SCHOOL_CALENDARS, eventKey } from '@/data/schoolCalendar';
+import { parseDay, lostHours, shortDate, weekPatternFrom, schoolYearOf, hoursUntil, uniformPattern, defaultWeekly, type WeekPattern } from '@/lib/schoolYear';
 import { lessonsFor, canonLabel } from '@/data/timetable';
 
 // ── Icons ──────────────────────────────────────────────────
@@ -1106,9 +1105,14 @@ function GradeCard({ children, pattern, grade }: { children: (ref: React.RefObje
 
 // ── Grade divider ─────────────────────────────────────────
 
-function GradeDivider({ razred, target, used, doneHours, totalHours }: {
+function GradeDivider({ razred, target, used, doneHours, totalHours, weekly, onWeekly, onSortByDate }: {
   razred: number; target: number; used: number; doneHours: number; totalHours: number;
+  /** povprečno število ur predmeta na teden */
+  weekly: number; onWeekly?: (v: number) => void;
+  /** razvrsti počitnice / praznike / dneve dejavnosti po datumu */
+  onSortByDate?: () => void;
 }) {
+  const wStep: CSSProperties = { width: '18px', height: '18px', border: '1px solid var(--hairline)', borderRadius: '4px', background: 'transparent', cursor: 'pointer', color: 'var(--forest)', fontSize: '12px', lineHeight: 1, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' };
   const remaining = target - used;
   const over = remaining < 0;
   const pct = totalHours === 0 ? 0 : Math.round((doneHours / totalHours) * 100);
@@ -1128,6 +1132,19 @@ function GradeDivider({ razred, target, used, doneHours, totalHours }: {
         <span style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: over ? '#c0392b' : 'var(--muted)', whiteSpace: 'nowrap' }}>
           {over ? `preveč: ${Math.abs(remaining)} ur` : `Nerazporejene ure: ${remaining}`}
         </span>
+      )}
+      <span title="Povprečno število ur tega predmeta na teden — upošteva ga časovni trak, odpadle ure ob počitnicah in razvrščanje po datumu"
+        style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--muted)', whiteSpace: 'nowrap', borderLeft: '1px solid var(--hairline)', paddingLeft: '12px' }}>
+        {onWeekly && <button style={{ ...wStep, opacity: weekly <= 0.5 ? 0.35 : 1 }} disabled={weekly <= 0.5} onClick={() => onWeekly(weekly - 0.5)} aria-label="Manj ur na teden">−</button>}
+        <b style={{ color: 'var(--ink)', minWidth: '18px', textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}>{String(weekly).replace('.', ',')}</b>
+        {onWeekly && <button style={wStep} onClick={() => onWeekly(weekly + 0.5)} aria-label="Več ur na teden">+</button>}
+        <span>{weekly === 1 ? 'ura' : weekly === 2 ? 'uri' : weekly > 2 && weekly < 5 && Number.isInteger(weekly) ? 'ure' : 'ur'} na teden</span>
+      </span>
+      {onSortByDate && (
+        <button onClick={onSortByDate} title="Počitnice, praznike in dneve dejavnosti z datumom razvrsti na pravo mesto po datumu (po urah na teden)"
+          style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: PAUSE_COLOR, background: 'transparent', border: `1px solid ${PAUSE_COLOR}66`, borderRadius: 'var(--r-sm)', padding: '2px 8px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+          ↻ Razvrsti po datumu
+        </button>
       )}
     </div>
   );
@@ -1151,7 +1168,7 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
   const { getHours, change } = useHours(classId ? `ucni-nacrt-hours-${classId}` : undefined);
   const { getNote, setNote } = useNotes(classId ? `ucni-nacrt-notes-${classId}` : undefined);
   const enoteKey = classId ? `ucni-nacrt-enote-order-${classId}` : 'ucni-nacrt-enote-order';
-  const { resolve, addEnota, moveEnota, reorder, removeEnota: removeEnotaNow, toggleCustom, renameCustom, setCustomHours, setCustomDates, countCustom, countCheckedCustom } = useEnotaOrder(classId ? `ucni-nacrt-enote-order-${classId}` : undefined);
+  const { resolve, addEnota, moveEnota, reorder, removeEnota: removeEnotaNow, toggleCustom, renameCustom, setCustomHours, setCustomDates, placeDated, countCustom, countCheckedCustom } = useEnotaOrder(classId ? `ucni-nacrt-enote-order-${classId}` : undefined);
   const { openChapters, toggle: toggleChapter, expandAll, collapseAll } = useOpenChapters(classId ? `ucni-nacrt-open-chapters-${classId}` : undefined);
   // Klik na naslov podpoglavja strne/razširi cilje, standarde, pojme in učno vsebino ZANJ POSEBEJ
   // (v nasprotju z gumbom "Strnjen seznam", ki to naredi globalno za vsa podpoglavja).
@@ -1168,7 +1185,29 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
     offerUndo(`»${name}« odstranjeno`, undo);
   }, [resolve, removeEnotaNow, enoteKey]);
   // ure predmeta po dnevih v tednu iz urnika tega razreda (za odpadle ure in časovni trak)
-  const pattern = useMemo(() => (classLabel ? weekPatternFrom(lessonsFor(canonLabel(classLabel), subtitle), predmet.id) : null), [classLabel, subtitle, predmet.id]);
+  // ure na teden po razredu (učitelj jih nastavi ob vrstici razreda; privzeto iz letnega števila ur)
+  const weeklyKey = `ucni-nacrt-weekly-${classId ?? 'anon'}`;
+  const [weeklyMap, setWeeklyMap] = useState<Record<string, number>>({});
+  useEffect(() => {
+    const load = () => { try { setWeeklyMap(JSON.parse(localStorage.getItem(weeklyKey) || '{}')); } catch { setWeeklyMap({}); } };
+    load();
+    const onStorage = (e: StorageEvent) => { if (e.key === weeklyKey) load(); };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [weeklyKey]);
+  const weeklyOf = useCallback((grade: number) => weeklyMap[grade] ?? defaultWeekly(gradeTargets[grade] ?? 70), [weeklyMap, gradeTargets]);
+  const setWeekly = (grade: number, v: number) => {
+    const next = { ...weeklyMap, [grade]: Math.max(0.5, Math.min(10, Math.round(v * 2) / 2)) };
+    setWeeklyMap(next);
+    localStorage.setItem(weeklyKey, JSON.stringify(next));
+    window.dispatchEvent(new Event('ucni-nacrt-changed'));
+  };
+  // ure predmeta po dnevih v tednu: iz urnika razreda (če se ujema s številom ur na teden), sicer enakomerno
+  const lessons = useMemo(() => (classLabel ? lessonsFor(canonLabel(classLabel), subtitle) : []), [classLabel, subtitle]);
+  const patternOf = useCallback((grade: number): WeekPattern => {
+    const w = weeklyOf(grade);
+    return (lessons.length ? weekPatternFrom(lessons, predmet.id, w) : null) ?? uniformPattern(w);
+  }, [lessons, predmet.id, weeklyOf]);
   const [customDrag, setCustomDrag] = useState<CustomDrag | null>(null);
 
   // samodejno drsenje strani, ko med vlečenjem prideš blizu zgornjega ali spodnjega roba zaslona
@@ -1258,113 +1297,31 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
     return r;
   }, [gradeData, checked, getHoursD, countCheckedCustom]);
 
-  // ── uradni šolski koledar: počitnice in prazniki se enkrat na šolsko leto samodejno vstavijo v učni načrt razreda ──
-  // (na mesto, do katerega bi razred po urah prišel do tistega datuma; učitelj jih lahko premakne ali odstrani)
-  const calRef = useRef({ resolve, getHoursD, resolveOrder, addEnota, pattern, filteredPoglavja });
-  useEffect(() => { calRef.current = { resolve, getHoursD, resolveOrder, addEnota, pattern, filteredPoglavja }; });
-  useEffect(() => {
-    if (!classId || isAnonymous) return;
-    // počakaj, da se podatki razreda naložijo (tudi iz oblaka), nato preveri, ali je koledar že vstavljen
-    const timer = setTimeout(() => {
-      const startYear = schoolYearOf(new Date()).start.getFullYear();
-      const cal = SCHOOL_CALENDARS[startYear];
-      if (!cal) return;
-      const flagKey = `ucni-nacrt-koledar-${classId}`;
-      // že vstavljeni dogodki (prejšnja različica je zapisala le leto = vsi dnevi brez pouka)
-      let done = new Set<string>();
-      try {
-        const raw = localStorage.getItem(flagKey);
-        if (raw === String(startYear)) done = new Set(cal.events.filter(e => e.kind !== 'info').map(eventKey));
-        else if (raw) { const p = JSON.parse(raw); if (p?.year === startYear && Array.isArray(p.keys)) done = new Set(p.keys); }
-      } catch { return; }
-      if (cal.events.every(e => done.has(eventKey(e)))) return;
-      const { resolve: res, getHoursD: hoursOf, resolveOrder: order, addEnota: add, pattern: pat, filteredPoglavja: chapters } = calRef.current;
-      for (const grade of [...new Set(chapters.map(p => p.razred ?? 0))]) {
-        const inGrade = chapters.filter(p => (p.razred ?? 0) === grade);
-        const byId = new Map(inGrade.map(p => [p.id, p]));
-        const slots = order(`${predmet.id}:${grade}`, inGrade.map(p => p.id)).map(id => {
-          const p = byId.get(id)!;
-          const key = `${predmet.id}:${p.id}`;
-          const currIds = p.podpoglavja.map(pp => pp.id);
-          return { key, currIds, items: res(key, currIds).map(it => it.kind === 'curriculum'
-            ? { hours: hoursOf(`${predmet.id}:${it.id}`) as number, from: undefined as string | undefined }
-            : { hours: it.hours, from: it.pause ? it.from : undefined }) };
-        });
-        if (!slots.length) continue;
-        const existing = new Set(slots.flatMap(sl => sl.items.map(i => i.from).filter(Boolean)));
-        const sy = { ...schoolYearOf(new Date(), grade), holidays: [] };
-        // dogodki si sledijo po datumu: vsak gre za prej vstavljenega (zaokrožene ure bi jih lahko sicer zamenjale)
-        let last: { si: number; i: number } | null = null;
-        const after = (si: number, i: number) => !last || si > last.si || (si === last.si && i > last.i);
-        for (const ev of cal.events) {
-          const f = parseDay(ev.from), t = parseDay(ev.to);
-          if (done.has(eventKey(ev)) || (ev.grades && !ev.grades.includes(grade))) continue;
-          if (!f || !t || f > sy.end || existing.has(ev.from)) continue;
-          const info = ev.kind === 'info';
-          const lost = info ? 0 : lostHours(f, t, pat);
-          // ure pouka do dneva pred dogodkom → mesto v učnem načrtu (vključno s prej vstavljenimi dnevi brez pouka)
-          const target = hoursUntil(new Date(f.getFullYear(), f.getMonth(), f.getDate() - 1), sy, pat);
-          let h = 0, at: { si: number; i: number } | null = null;
-          outer: for (let si = 0; si < slots.length; si++) {
-            for (let i = 0; i < slots[si].items.length; i++) {
-              if (h >= target - 1e-6 && after(si, i)) { at = i === 0 && si > 0 && after(si - 1, slots[si - 1].items.length) ? { si: si - 1, i: slots[si - 1].items.length } : { si, i }; break outer; }
-              h += slots[si].items[i].hours;
-            }
-          }
-          if (!at) at = { si: slots.length - 1, i: slots[slots.length - 1].items.length };
-          const sl = slots[at.si];
-          add(sl.key, ev.label, info ? INFO_COLOR : PAUSE_COLOR, at.i, sl.currIds, lost, { from: ev.from, to: ev.to, ...(info ? { info: true } : {}) });
-          sl.items.splice(at.i, 0, { hours: lost, from: ev.from });
-          last = at;
-        }
-      }
-      try { localStorage.setItem(flagKey, JSON.stringify({ year: startYear, keys: cal.events.map(eventKey) })); } catch { /* ignore */ }
-      window.dispatchEvent(new Event('ucni-nacrt-changed'));
-    }, 2500);
-    return () => clearTimeout(timer);
-  }, [classId, isAnonymous, predmet.id]);
+  // uradni šolski koledar se samodejno vstavi v vse učne načrte (CalendarSync v postavitvi, src/lib/calendarPlacement.ts)
 
   /**
-   * Datum pri počitnicah / prazniku / dnevu dejavnosti: shrani ga in element premakne na mesto, do katerega bi razred
-   * po urah (2 uri fizike na teden, oz. po urniku razreda) prišel do tistega dne — tudi v drugo poglavje istega razreda.
+   * Razvrsti vse elemente z datumom v razredu po datumu (2 uri na teden oz. po urniku / nastavljenih urah na teden).
+   * Ob vnosu datuma se najprej shrani datum (`patch`), nato se razvrsti vse — tako so vedno v pravem vrstnem redu.
    */
-  const setDatesAndPlace = useCallback((key: string, id: string, from: string | null, to: string | null, hours?: number) => {
-    setCustomDates(key, id, from, to, hours);
-    const f = from ? parseDay(from) : null;
-    if (!f) return;
-    const chapterId = key.slice(predmet.id.length + 1);
-    const grade = filteredPoglavja.find(p => p.id === chapterId)?.razred ?? 0;
+  const placeGradeByDate = useCallback((grade: number, patch?: { key: string; id: string; from: string | null; to: string | null; hours?: number }) => {
     const inGrade = filteredPoglavja.filter(p => (p.razred ?? 0) === grade);
     const byId = new Map(inGrade.map(p => [p.id, p]));
-    const slots = resolveOrder(`${predmet.id}:${grade}`, inGrade.map(p => p.id)).map(cid => {
-      const p = byId.get(cid)!;
-      const k = `${predmet.id}:${p.id}`;
-      const currIds = p.podpoglavja.map(pp => pp.id);
-      const all = resolve(k, currIds);
-      return { key: k, currIds, all, items: all.filter(it => it.id !== id).map(it => (it.kind === 'curriculum' ? getHoursD(`${predmet.id}:${it.id}`) : it.hours)) };
-    });
-    if (!slots.length) return;
-    const sy = { ...schoolYearOf(f, grade), holidays: [] };
-    const target = hoursUntil(new Date(f.getFullYear(), f.getMonth(), f.getDate() - 1), sy, pattern);
-    let h = 0, at: { si: number; i: number } | null = null;
-    outer: for (let si = 0; si < slots.length; si++) {
-      for (let i = 0; i < slots[si].items.length; i++) {
-        if (h >= target - 1e-6) { at = i === 0 && si > 0 ? { si: si - 1, i: slots[si - 1].items.length } : { si, i }; break outer; }
-        h += slots[si].items[i];
-      }
-    }
-    if (!at) at = { si: slots.length - 1, i: slots[slots.length - 1].items.length };
-    const dest = slots[at.si];
-    const fromIdx = slots.find(sl => sl.key === key)?.all.findIndex(it => it.id === id) ?? -1;
-    if (fromIdx < 0) return;
-    if (dest.key === key) {
-      // `at` je indeks brez tega elementa; reorder pričakuje mesto v seznamu z njim
-      const toWith = at.i >= fromIdx ? at.i + 1 : at.i;
-      if (toWith !== fromIdx && toWith !== fromIdx + 1) reorder(key, fromIdx, toWith, dest.currIds);
-    } else {
-      moveEnota(key, dest.key, id, at.i, dest.currIds);
-    }
-  }, [setCustomDates, predmet.id, filteredPoglavja, resolveOrder, resolve, getHoursD, pattern, reorder, moveEnota]);
+    const chapters = resolveOrder(`${predmet.id}:${grade}`, inGrade.map(p => p.id)).map(cid => ({ key: `${predmet.id}:${cid}`, currIds: byId.get(cid)!.podpoglavja.map(pp => pp.id) }));
+    if (!chapters.length) return;
+    const pat = patternOf(grade);
+    const sy = { ...schoolYearOf(new Date(), grade), holidays: [] };
+    placeDated(chapters, (_key, id) => getHoursD(`${predmet.id}:${id}`), from => {
+      const f = parseDay(from)!;
+      return hoursUntil(new Date(f.getFullYear(), f.getMonth(), f.getDate() - 1), sy, pat);
+    }, patch);
+  }, [filteredPoglavja, resolveOrder, predmet.id, patternOf, placeDated, getHoursD]);
+
+  const setDatesAndPlace = useCallback((key: string, id: string, from: string | null, to: string | null, hours?: number) => {
+    const chapterId = key.slice(predmet.id.length + 1);
+    const grade = filteredPoglavja.find(p => p.id === chapterId)?.razred ?? 0;
+    if (!from) { setCustomDates(key, id, from, to, hours); return; }
+    placeGradeByDate(grade, { key, id, from, to, hours });
+  }, [predmet.id, filteredPoglavja, setCustomDates, placeGradeByDate]);
 
   const handleExpandAll = useCallback(() => { setListMode(false); expandAll(filteredPoglavja.map(p => p.id)); }, [expandAll, filteredPoglavja]);
   const handleExpandList = useCallback(() => {
@@ -1469,13 +1426,16 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
                     used={gradeUsed[razred] ?? 0}
                     doneHours={gradeDoneHours[razred] ?? 0}
                     totalHours={gradeUsed[razred] ?? 0}
+                    weekly={weeklyOf(razred)}
+                    onWeekly={isAnonymous ? undefined : v => setWeekly(razred, v)}
+                    onSortByDate={() => placeGradeByDate(razred)}
                   />
                   <Palette
                     onDragStart={setPaletteDrag}
                     onDragEnd={() => setPaletteDrag(null)}
                   />
                   {gi === 0 && <Legend />}
-                  <GradeCard pattern={pattern} grade={razred}>{cardRef => <div ref={cardRef} data-list-card style={{ marginTop: '6px', background: 'var(--canvas)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
+                  <GradeCard pattern={patternOf(razred)} grade={razred}>{cardRef => <div ref={cardRef} data-list-card style={{ marginTop: '6px', background: 'var(--canvas)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
                     <div onDragOver={(e) => e.preventDefault()}>
                       {chapterDragging && <DropZone onDrop={() => handleChapterDrop(groupKey, 0, ids)} />}
                       {poglavja.map((poglavje, ci) => {
@@ -1502,7 +1462,7 @@ export default function CurriculumTree({ predmet, classId, razredFilter = null, 
                               renameCustom={renameCustom}
                               setCustomHours={setCustomHours}
                               setCustomDates={setDatesAndPlace}
-                              pattern={pattern}
+                              pattern={patternOf(razred)}
                               isAnonymous={isAnonymous}
                               listMode={listMode}
                               getNote={getNote}

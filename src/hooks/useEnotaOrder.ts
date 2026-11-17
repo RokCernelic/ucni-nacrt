@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { relayoutDated, customHours } from '@/lib/calendarPlacement';
 
 export const PALETTE_TYPES = ['Pisno ocenjevanje', 'Preverjanje', 'Ustno ocenjevanje', 'Utrjevanje'] as const;
 export type PaletteType = typeof PALETTE_TYPES[number];
@@ -12,7 +13,7 @@ export const PALETTE_COLORS: Record<string, string> = {
   'Utrjevanje':        '#e67e22',
 };
 
-type StoredItem =
+export type StoredItem =
   | { k: 'c'; id: string }
   | { k: 'x'; id: string; type: string; checked: boolean; color?: string; hours?: number; pause?: boolean; from?: string; to?: string; info?: boolean };
 
@@ -38,7 +39,7 @@ export type ResolvedEnotaItem =
  * (brez podpoglavij, ki jih ni več), nato nova podpoglavja iz učnega načrta na konec.
  * Tako se prikazani seznam in urejanje (dodajanje/premikanje) vedno ujemata po indeksih.
  */
-function materialize(stored: StoredItem[] | undefined, currIds: string[]): StoredItem[] {
+export function materialize(stored: StoredItem[] | undefined, currIds: string[]): StoredItem[] {
   const currSet = new Set(currIds);
   const base = stored ?? currIds.map(id => ({ k: 'c' as const, id }));
   const seen = new Set<string>();
@@ -159,6 +160,37 @@ export function useEnotaOrder(storageKey = 'ucni-nacrt-enote-order') {
     window.dispatchEvent(new Event('ucni-nacrt-changed'));
   }, [storageKey]);
 
+  /**
+   * Razvrsti vse elemente z datumom (počitnice, prazniki, dnevi dejavnosti, oznake) v danih poglavjih (en razred,
+   * v vrstnem redu poglavij) po datumu: vsak gre na mesto, do katerega razred po urah pride do dneva pred datumom
+   * (`targetOf`), in vedno za prejšnjim po datumu. `patch` najprej nastavi datume (in ure) enemu elementu.
+   */
+  const placeDated = useCallback((
+    chapters: { key: string; currIds: string[] }[],
+    curriculumHours: (key: string, id: string) => number,
+    targetOf: (from: string) => number,
+    patch?: { key: string; id: string; from: string | null; to: string | null; hours?: number },
+  ) => {
+    setStore(prev => {
+      const lists = chapters.map(c => materialize(prev[c.key], c.currIds));
+      if (patch) {
+        const ci = chapters.findIndex(c => c.key === patch.key);
+        if (ci >= 0) lists[ci] = lists[ci].map(i => {
+          if (i.k !== 'x' || i.id !== patch.id) return i;
+          const { from: _f, to: _t, ...rest } = i; void _f; void _t;
+          return { ...rest, ...(patch.from ? { from: patch.from } : {}), ...(patch.to ? { to: patch.to } : {}), ...(patch.hours != null ? { hours: patch.hours } : {}) };
+        });
+      }
+      if (!patch && !lists.some(l => l.some(i => i.k === 'x' && i.pause && i.from))) return prev;
+      const rest = relayoutDated(lists, (ci, i) => (i.k === 'c' ? curriculumHours(chapters[ci].key, i.id) : customHours(i)), targetOf);
+      const s = { ...prev };
+      chapters.forEach((c, ci) => { s[c.key] = rest[ci]; });
+      localStorage.setItem(storageKey, JSON.stringify(s));
+      return s;
+    });
+    window.dispatchEvent(new Event('ucni-nacrt-changed'));
+  }, [storageKey]);
+
   const toggleCustom = useCallback((poglavjeKey: string, id: string) => {
     setStore(prev => {
       const cur = prev[poglavjeKey];
@@ -193,5 +225,5 @@ export function useEnotaOrder(storageKey = 'ucni-nacrt-enote-order') {
     poglavjeKeys.reduce((n, k) => n + (store[k]?.filter(isCustom).filter(i => i.checked).reduce((s, i) => s + (i.hours ?? 1), 0) ?? 0), 0),
   [store]);
 
-  return { resolve, addEnota, moveEnota, reorder, removeEnota, toggleCustom, renameCustom, setCustomHours, setCustomDates, countCustom, countCheckedCustom };
+  return { resolve, addEnota, moveEnota, reorder, removeEnota, toggleCustom, renameCustom, setCustomHours, setCustomDates, placeDated, countCustom, countCheckedCustom };
 }

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import GlobalPrintBar from '@/components/tasks/GlobalPrintBar';
 import UndoToast from '@/components/UndoToast';
+import CalendarSync from '@/components/CalendarSync';
 import Nav from '@/components/Nav';
 import SyncProvider from '@/components/SyncProvider';
 
@@ -19,6 +20,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {children}
           <GlobalPrintBar />
           <UndoToast />
+          <CalendarSync />
         </SyncProvider>
       </body>
     </html>
