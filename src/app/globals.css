@@ -370,3 +370,6 @@ html.drawer-resizing { cursor: col-resize; user-select: none; }
 /* slike v nalogah: klik jih poveča (ImageZoom) */
 .rich-content img, .pqz-q img { cursor: zoom-in; }
 [contenteditable="true"] img { cursor: default; }
+/* urejanje slik na listu (urejevalnik kviza): premik / sprememba velikosti */
+.pqz-img-ed .rich-content img { cursor: move; outline: 1.5px dashed transparent; outline-offset: 1px; touch-action: none; }
+.pqz-img-ed .rich-content img:hover { outline-color: #6f9bd1; }

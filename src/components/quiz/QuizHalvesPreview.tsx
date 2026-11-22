@@ -6,14 +6,14 @@ import { HalvesPages, useHalvesPlan, findOrder } from './HalvesSheet';
 import type { Sheet } from './QuizSheetParts';
 import { itemsFromQuiz, layoutSheet, sheetToken } from '@/lib/quiz/printSheet';
 import { questionsLabel } from '@/lib/quiz/format';
-import type { Quiz } from '@/lib/quiz/types';
+import type { Quiz, ImgLayout } from '@/lib/quiz/types';
 import type { Task } from '@/lib/tasks/types';
 
 /**
  * Pogled »Dva testa na en A4« v urejevalniku kviza: tako bo videti natis dveh testov na list (zgoraj in spodaj,
  * sprednja in hrbtna stran), z vzorčnim imenom in QR kodo. Vprašanja, ki se ne prilegajo, so našteta spodaj.
  */
-export default function QuizHalvesPreview({ quiz, tasksById, onOpen, activeId, onSpacing }: { quiz: Quiz; tasksById: Map<string, Task>; onOpen: (questionId: string) => void; activeId: string | null; onSpacing: (questionId: string, kind: 'gap' | 'space', mm: number | null) => void }) {
+export default function QuizHalvesPreview({ quiz, tasksById, onOpen, activeId, onSpacing, onImg }: { quiz: Quiz; tasksById: Map<string, Task>; onOpen: (questionId: string) => void; activeId: string | null; onSpacing: (questionId: string, kind: 'gap' | 'space', mm: number | null) => void; onImg: (questionId: string, index: number, layout: ImgLayout | null) => void }) {
   const items = useMemo(() => itemsFromQuiz(quiz, tasksById), [quiz, tasksById]);
   const { plan, node } = useHalvesPlan(items, true, true, quiz.title);
   const [qr, setQr] = useState<string | null>(null);
@@ -51,7 +51,7 @@ export default function QuizHalvesPreview({ quiz, tasksById, onOpen, activeId, o
           </p>
           <div style={{ overflowX: 'auto', margin: '0 -32px', padding: '4px 0 8px' }}>
             <div className="pqz-preview pqz-ed pqz-halves-ed" style={{ display: 'flex', flexDirection: 'column', gap: '20px', alignItems: 'center' }}>
-              <HalvesPages sheets={[sheet, sheet]} plan={plan} title={quiz.title} placeholder edit={{ onOpen, activeId, onSpacing }} />
+              <HalvesPages sheets={[sheet, sheet]} plan={plan} title={quiz.title} placeholder edit={{ onOpen, activeId, onSpacing, onImg }} />
             </div>
           </div>
         </>

@@ -16,7 +16,7 @@ import { questionProblems, parseNumber, NUMERIC_REL_TOLERANCE } from '@/lib/quiz
 import { downscaleImage } from '@/lib/quiz/image';
 import { questionsLabel, pointsLabel, formatNumber, dateTimeLabel } from '@/lib/quiz/format';
 import { parseQuizText, readTextFile, type TextImportResult } from '@/lib/quiz/textImport';
-import type { Quiz, Question, McQuestion, NumericQuestion, QuizFolder } from '@/lib/quiz/types';
+import type { Quiz, Question, McQuestion, NumericQuestion, QuizFolder, ImgLayout } from '@/lib/quiz/types';
 import StartSessionDialog from '@/components/quiz/StartSessionDialog';
 import { scoringSignature } from '@/lib/quiz/sessionApi';
 import { useTasks } from '@/hooks/useTasks';
@@ -458,6 +458,17 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
     const field = kind === 'gap' ? 'gapAfter' : kind === 'gapHalf' ? 'gapHalf' : 'space';
     update({ ...d, questions: d.questions.map(x => (x.id !== id ? x : ({ ...x, [field]: mm ?? undefined } as Question))) });
   };
+  /** velikost / položaj slike v nalogi na listu (velja za oba pogleda in tisk) */
+  const setImg = (id: string, index: number, layout: ImgLayout | null) => {
+    const d = draftRef.current;
+    if (!d) return;
+    update({ ...d, questions: d.questions.map(x => {
+      if (x.id !== id) return x;
+      const imgs = [...(x.imgs ?? [])];
+      imgs[index] = layout;
+      return { ...x, imgs: imgs.some(Boolean) ? imgs : undefined } as Question;
+    }) });
+  };
   const setColGap = (mm: number | null) => {
     const d = draftRef.current;
     if (d) update({ ...d, sheet: { ...d.sheet, colGap: mm ?? undefined } });
@@ -604,11 +615,11 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
           <div style={{ overflowX: 'auto', margin: '0 -32px', padding: '4px 0 8px' }}>
             <QuizPaper quiz={draft} tasksById={taskById} activeId={drawerOpen ? active : null}
               onOpen={id => { flush(); setActive(id); }} onMove={moveOnSheet} onDuplicate={duplicateById} onDelete={deleteById}
-              onSpacing={setSpacing} onColGap={setColGap} />
+              onSpacing={setSpacing} onColGap={setColGap} onImg={setImg} />
           </div>
         )}
         {view === 'halves' && <QuizHalvesPreview quiz={draft} tasksById={taskById} activeId={drawerOpen ? active : null} onOpen={id => { flush(); setActive(id); }}
-          onSpacing={(id, kind, mm) => setSpacing(id, kind === 'gap' ? 'gapHalf' : 'space', mm)} />}
+          onSpacing={(id, kind, mm) => setSpacing(id, kind === 'gap' ? 'gapHalf' : 'space', mm)} onImg={setImg} />}
         {view === 'list' && <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {draft.questions.map((q, i) => {
             const dup = () => setQuestions([...draft.questions.slice(0, i + 1), cloneQuestion(q), ...draft.questions.slice(i + 1)]);

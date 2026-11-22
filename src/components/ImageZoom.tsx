@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 /**
  * Povečava slik: klik na sliko v besedilu naloge (.rich-content, tudi na natisnjenem listu v urejevalniku) jo odpre
  * čez cel zaslon. Klik na sliko preklopi med »prilagodi zaslonu« in pravo velikostjo; klik ob sliko ali Esc zapre.
+ * Na listu v urejevalniku kviza (.pqz-img-ed) se slika premika s klikom in vlečenjem, zato je povečava tam na dvoklik.
  * Slike v urejevalniku besedila (contenteditable) niso zajete — tam klik izbere sliko za urejanje.
  */
 export default function ImageZoom() {
@@ -15,12 +16,16 @@ export default function ImageZoom() {
     const onClick = (e: MouseEvent) => {
       const img = e.target instanceof HTMLImageElement ? e.target : null;
       if (!img || !img.closest('.rich-content, .pqz-q') || img.closest('[contenteditable="true"]')) return;
+      // na listu v urejevalniku kviza je klik za premikanje slike — povečava tam na dvoklik
+      if (e.type === 'click' && img.closest('.pqz-img-ed')) return;
       // ne odpri naloge / ne sproži drugih klikov (npr. na listu A4)
       e.preventDefault(); e.stopPropagation();
       setSrc(img.currentSrc || img.src); setFull(false);
     };
+    const onDbl = (e: MouseEvent) => { if (e.target instanceof HTMLImageElement && e.target.closest('.pqz-img-ed')) onClick(e); };
     document.addEventListener('click', onClick, true);
-    return () => document.removeEventListener('click', onClick, true);
+    document.addEventListener('dblclick', onDbl, true);
+    return () => { document.removeEventListener('click', onClick, true); document.removeEventListener('dblclick', onDbl, true); };
   }, []);
 
   useEffect(() => {

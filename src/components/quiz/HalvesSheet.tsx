@@ -9,7 +9,9 @@ import { SheetHead, FrameView, ItemBody, type Sheet } from './QuizSheetParts';
  * »Dva testa na en list A4«: list je po sredini razdeljen s črtkano črto. Zgoraj je test enega učenca, spodaj drugega;
  * na hrbtni strani (dvostransko tiskanje) sta zgoraj nadaljevanje prvega, spodaj nadaljevanje drugega.
  *
- * Vsak test ima štiri stolpce: sprednja stran levo in desno (pod glavo in okvirjem z odgovori), hrbtna stran levo in desno.
+ * Naloge, ki jih preveri skener (ABCD, drži / ne drži, več možnosti), so v dveh stolpcih; ostale (račun, zapis odgovora)
+ * imajo celo širino, ker za reševanje potrebujejo prostor. Sprednja polovica: glava, okvir z odgovori, nato naloge;
+ * hrbtna polovica: nadaljevanje.
  * Številčenje gre VEDNO po vrsti v bralnem redu (levi stolpec navzdol, nato desni, nato hrbtna stran), da učenec brez
  * zmede sledi vpisovanju v krogce; kdo je katera naloga, pa je shranjeno (vrstni red po učencih), zato točkovanje,
  * skener in statistika vedo, katera naloga je katera. Z mešanjem vprašanj ima vsak učenec drugačen vrstni red nalog;
@@ -22,6 +24,7 @@ const PAD_T = 8, PAD_B = 7, SAFETY = 2; // mm: odmik v polovici + rezerva
 const INNER = HALF_H - PAD_T - PAD_B - SAFETY;
 const PX_MM = 25.4 / 96;
 const COL_W = 85;                       // mm: širina enega stolpca ((178 − 8) / 2)
+const FULL_W = 178;                     // mm: cela širina (naloge brez krogcev)
 
 export interface Measured { head: number; /** višina vsakega vprašanja v stolpcu (z razmikom pod njim), mm */ heights: Record<string, number> }
 
@@ -53,24 +56,55 @@ function shuffled<T>(arr: T[], rng: () => number): T[] {
   return a;
 }
 
-/** Višine stolpcev: [sprednja levo, sprednja desno, hrbtna levo, hrbtna desna]. Sprednja sta nižja zaradi glave in okvira z odgovori. */
+/** Višini polovic testa: [sprednja, hrbtna]. Sprednja je nižja zaradi glave in okvira z odgovori. */
 function capsFor(layoutForFrame: SheetLayout, m: Measured, withQr: boolean): number[] {
   const frameH = layoutForFrame.choice.length > 0 || withQr ? frameGeometry(layoutForFrame, withQr).h + 4 : 0;
-  const c1 = INNER - m.head - frameH;
-  return [c1, c1, INNER, INNER];
+  return [INNER - m.head - frameH, INNER];
 }
 
-/** Zaporedno polnjenje (vrstni red ostane): levi stolpec do vrha, nato naslednji … Vrne stolpce ali null, če se kaj ne prilega. */
-function nextFit<T>(order: T[], h: (x: T) => number, caps: number[]): T[][] | null {
-  const cols: T[][] = caps.map(() => []);
-  let k = 0, used = 0;
-  for (const x of order) {
-    const hx = h(x);
-    while (k < caps.length && used + hx > caps[k] + 1e-6) { k++; used = 0; }
-    if (k >= caps.length) return null;
-    cols[k].push(x); used += hx;
+/** Ena polovica testa: izbirne naloge v dveh stolpcih (levo, desno), pod njimi ostale čez celo širino. */
+export interface HalfPart<T> { left: T[]; right: T[]; free: T[] }
+
+/** Razdelitev zaporedja v dva stolpca (levi nato desni) z najnižjo višino; ob enakem je levi daljši. */
+function balance<T>(seg: T[], h: (x: T) => number): { split: number; height: number } {
+  const total = seg.reduce((t, x) => t + h(x), 0);
+  let best = { split: seg.length, height: total }, left = 0;
+  for (let k = 0; k <= seg.length; k++) {
+    if (k > 0) left += h(seg[k - 1]);
+    const height = Math.max(left, total - left);
+    if (height < best.height - 1e-6 || (Math.abs(height - best.height) < 1e-6 && left >= total - left)) best = { split: k, height };
   }
-  return cols;
+  return best;
+}
+
+/**
+ * Zaporedno polnjenje polovic (vrstni red ostane): izbirne naloge v dveh stolpcih — na prvo polovico kolikor jih gre,
+ * ostale na naslednjo —, nato ostale naloge čez celo širino pod njimi. Vrne polovice ali null, če se kaj ne prilega.
+ */
+function packHalves<T>(order: T[], isChoice: (x: T) => boolean, h: (x: T) => number, caps: number[]): HalfPart<T>[] | null {
+  const choice = order.filter(isChoice), free = order.filter(x => !isChoice(x));
+  const parts: HalfPart<T>[] = caps.map(() => ({ left: [], right: [], free: [] }));
+  const used = caps.map(() => 0);
+  let p = 0, i = 0;
+  while (i < choice.length) {
+    if (p >= caps.length) return null;
+    let fit: { k: number; split: number; height: number } | null = null;
+    for (let k = choice.length; k > i; k--) {
+      const r = balance(choice.slice(i, k), h);
+      if (r.height <= caps[p] + 1e-6) { fit = { k, ...r }; break; }
+    }
+    if (!fit) { p++; continue; }
+    const seg = choice.slice(i, fit.k);
+    parts[p].left = seg.slice(0, fit.split); parts[p].right = seg.slice(fit.split);
+    used[p] = fit.height; i = fit.k;
+    if (i < choice.length) p++;
+  }
+  for (const x of free) {
+    while (p < caps.length && used[p] + h(x) > caps[p] + 1e-6) p++;
+    if (p >= caps.length) return null;
+    parts[p].free.push(x); used[p] += h(x);
+  }
+  return parts;
 }
 
 /**
@@ -85,7 +119,7 @@ export function findOrder(items: PrintItem[], m: Measured, withQr: boolean, seed
   const h = (i: PrintItem) => m.heights[i.id] ?? 0;
   const attempt = (c: PrintItem[], f: PrintItem[]): string[] | null => {
     const seq = [...c, ...f];
-    return nextFit(seq, h, caps) ? seq.map(i => i.id) : null;
+    return packHalves(seq, i => i.choice, h, caps) ? seq.map(i => i.id) : null;
   };
   if (seed) {
     const rng = mulberry(seed);
@@ -116,7 +150,8 @@ export function planFor(items: PrintItem[], m: Measured, withQr: boolean): Halve
     const list = seq.filter((_, i) => keep[i]);
     const kept = list.map(c => c.item as PrintItem);
     const caps = capsFor(layoutSheet(kept, null), m, withQr);
-    if (list.reduce((s, c) => s + hOf(c), 0) > caps.reduce((a, b) => a + b, 0) + 1e-6) return false;
+    // hitra spodnja meja: izbirne v dveh stolpcih vsaj polovico svoje višine, ostale vso
+    if (list.reduce((s, c) => s + hOf(c) / (c.item.choice ? 2 : 1), 0) > caps.reduce((a, b) => a + b, 0) + 1e-6) return false;
     return !!findOrder(kept, m, withQr, null);
   };
 
@@ -194,7 +229,7 @@ export function useHalvesPlan(items: PrintItem[], enabled: boolean, withQr: bool
     <div ref={ref} className="pqz-preview pqz-hbox pqz-hmeasure" aria-hidden>
       <div data-h style={{ display: 'flow-root' }}><SheetHead sheet={sample} title={title} placeholder /></div>
       {seq.map(c => (
-        <div data-i={c.item.id} key={c.item.id} style={{ display: 'flow-root', width: `${COL_W}mm` }}>
+        <div data-i={c.item.id} key={c.item.id} style={{ display: 'flow-root', width: `${c.item.choice ? COL_W : FULL_W}mm` }}>
           <div className="pqz-hitem" style={hGap(c.item)}><ItemBody c={c} /></div>
         </div>
       ))}
@@ -211,6 +246,7 @@ export interface HalvesEdit {
   onOpen: (questionId: string) => void; activeId: string | null;
   /** vlečenje razmika: `gap` = razmik pod nalogo (dva testa na list), `space` = prostor za odgovor; null = privzeto */
   onSpacing?: (questionId: string, kind: 'gap' | 'space', mm: number | null) => void;
+  onImg?: (questionId: string, index: number, layout: import('@/lib/quiz/types').ImgLayout | null) => void;
 }
 
 /** privzeti razmik pod nalogo pri dveh testih na list (globals.css: .pqz-hitem) */
@@ -259,19 +295,20 @@ function HalfGapHandle({ c, edit }: { c: SheetItem; edit: HalvesEdit }) {
 function HalfView({ sheet, part, plan, title, className, placeholder, edit }: {
   sheet: Sheet; part: 1 | 2; plan: HalvesPlan; title: string; className?: string; placeholder?: boolean; edit?: HalvesEdit;
 }) {
-  // številke so po vrsti v bralnem redu: levi stolpec navzdol, nato desni, nato hrbtna stran
+  // številke so po vrsti v bralnem redu: levi stolpec navzdol, nato desni, nato naloge čez celo širino, nato hrbtna stran
   const seq = [...sheet.layout.choice, ...sheet.layout.free];
-  const cols = nextFit(seq, c => plan.m.heights[c.item.id] ?? 0, capsFor(sheet.layout, plan.m, !!sheet.qr)) ?? [seq, [], [], []];
-  const [left, right] = part === 1 ? [cols[0], cols[1]] : [cols[2], cols[3]];
-  const col = (items: SheetItem[]) => (
-    <div className="pqz-hcol">
-      {items.map(c => edit ? (
+  const parts = packHalves(seq, c => c.item.choice, c => plan.m.heights[c.item.id] ?? 0, capsFor(sheet.layout, plan.m, !!sheet.qr))
+    ?? [{ left: sheet.layout.choice, right: [], free: sheet.layout.free }, { left: [], right: [], free: [] }];
+  const { left, right, free } = parts[part - 1];
+  const items = (list: SheetItem[]) => (
+    <>
+      {list.map(c => edit ? (
         <div className={`pqz-hitem pqz-ed-item${edit.activeId === c.item.id ? ' is-active' : ''}`} key={c.n} style={hGap(c.item)} onClick={() => edit.onOpen(c.item.id)} title="Klikni za urejanje naloge">
-          <ItemBody c={c} />
+          <ItemBody c={c} onImg={edit.onImg ? (i, L) => edit.onImg!(c.item.id, i, L) : undefined} />
           <HalfGapHandle c={c} edit={edit} />
         </div>
       ) : <div className="pqz-hitem" key={c.n} style={hGap(c.item)}><ItemBody c={c} /></div>)}
-    </div>
+    </>
   );
   return (
     <>
@@ -281,7 +318,8 @@ function HalfView({ sheet, part, plan, title, className, placeholder, edit }: {
           <FrameView sheet={sheet} />
         </>
       )}
-      <div className="pqz-hcols">{col(left)}{col(right)}</div>
+      {(left.length > 0 || right.length > 0) && <div className="pqz-hcols"><div className="pqz-hcol">{items(left)}</div><div className="pqz-hcol">{items(right)}</div></div>}
+      {free.length > 0 && <div className="pqz-hfree">{items(free)}</div>}
     </>
   );
 }

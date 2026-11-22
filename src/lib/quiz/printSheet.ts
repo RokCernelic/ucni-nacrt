@@ -1,5 +1,5 @@
 import type { Task } from '@/lib/tasks/types';
-import type { Quiz } from './types';
+import type { Quiz, ImgLayout } from './types';
 import { questionMatchesTask } from '@/lib/tasks/fromQuestion';
 import { stripDuplicateChoices } from '@/lib/tasks/choices';
 
@@ -32,6 +32,8 @@ export interface PrintItem {
   gapHalf?: number;
   /** brez okvirčka za točke (nastavitev kviza) */
   hidePoints?: boolean;
+  /** postavitev slik v nalogi (širina, odmik; mm) */
+  imgs?: (ImgLayout | null)[];
 }
 
 const hasText = (h?: string) => !!h && h.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim() !== '';
@@ -82,7 +84,7 @@ export function itemsFromQuiz(quiz: Quiz, tasksById?: Map<string, Task>): PrintI
     const bankHtml = fromBank ? (stripDuplicateChoices(t!)?.body ?? t!.body) : null;
     const unitNote = q.kind === 'numeric' && q.unit && q.prompt.includes(`(odgovor v ${q.unit})`) ? `<p>(odgovor v ${esc(q.unit)})</p>` : '';
     const html = bankHtml != null && hasText(bankHtml) ? bankHtml + unitNote : `<p>${plainHtml(q.prompt)}</p>${img}`;
-    const gap = { ...(q.gapAfter != null ? { gapAfter: q.gapAfter } : {}), ...(q.gapHalf != null ? { gapHalf: q.gapHalf } : {}), ...(quiz.sheet?.hidePoints ? { hidePoints: true } : {}) };
+    const gap = { ...(q.gapAfter != null ? { gapAfter: q.gapAfter } : {}), ...(q.gapHalf != null ? { gapHalf: q.gapHalf } : {}), ...(quiz.sheet?.hidePoints ? { hidePoints: true } : {}), ...(q.imgs?.some(Boolean) ? { imgs: q.imgs } : {}) };
     // naloga »več možnosti« iz banke (v kvizu odprto vprašanje): na listu dobi krogce, skener jo točkuje
     if (q.kind === 'open' && t) {
       const ids = t.answer_kind === 'multi' ? (t.correct ?? '').split(',').filter(Boolean) : [];

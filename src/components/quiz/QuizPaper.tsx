@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import { SheetHead, FrameView, ItemBody, type Sheet } from './QuizSheetParts';
 import { itemsFromQuiz, layoutSheet, sheetToken, clampSpace, type PrintItem } from '@/lib/quiz/printSheet';
-import type { Quiz } from '@/lib/quiz/types';
+import type { Quiz, ImgLayout } from '@/lib/quiz/types';
 import type { Task } from '@/lib/tasks/types';
 
 /** Mere strani (mm): list A4, odmik zgoraj in spodaj kot pri tisku po učencih. */
@@ -18,7 +18,7 @@ const fmt = (mm: number) => `${String(Math.round(mm * 10) / 10).replace('.', ','
  * Urejevalnik kviza kot natisnjen list A4 (merilo 1:1): enak razpored kot pri tisku (izbirne naloge na vrhu v dveh stolpcih,
  * nato naloge za ročni pregled), meje strani, vlečenje razmikov med nalogami in med stolpcema. Klik na nalogo jo odpre za urejanje.
  */
-export default function QuizPaper({ quiz, tasksById, activeId, onOpen, onMove, onDuplicate, onDelete, onSpacing, onColGap }: {
+export default function QuizPaper({ quiz, tasksById, activeId, onOpen, onMove, onDuplicate, onDelete, onSpacing, onColGap, onImg }: {
   quiz: Quiz;
   tasksById: Map<string, Task>;
   activeId: string | null;
@@ -29,6 +29,8 @@ export default function QuizPaper({ quiz, tasksById, activeId, onOpen, onMove, o
   /** razmik pod nalogo: pri izbirnih je to razmik do naslednje, pri ostalih prostor za odgovor (mm; null = privzeto) */
   onSpacing: (questionId: string, kind: 'gap' | 'space', mm: number | null) => void;
   onColGap: (mm: number | null) => void;
+  /** velikost / položaj slike v nalogi (null = privzeto) */
+  onImg: (questionId: string, index: number, layout: ImgLayout | null) => void;
 }) {
   const items = useMemo(() => itemsFromQuiz(quiz, tasksById), [quiz, tasksById]);
   const layout = useMemo(() => layoutSheet(items, null, { questions: false, options: false }), [items]);
@@ -127,12 +129,13 @@ export default function QuizPaper({ quiz, tasksById, activeId, onOpen, onMove, o
         className={`pqz-item${g === 'choice' ? ' pqz-c' : ''} pqz-ed-item${isActive ? ' is-active' : ''}`}
         style={{ marginBottom: `${gap}mm` }}
         onClick={() => onOpen(it.id)}>
-        <ItemBody c={c} />
+        <ItemBody c={c} onImg={(i, L) => onImg(it.id, i, L)} />
         <span className="pqz-ed-tools" onClick={e => e.stopPropagation()}>
           <button title="Uredi nalogo" onClick={() => onOpen(it.id)}>✎</button>
           <button title="Premakni naprej" disabled={i === 0} onClick={() => onMove(it.id, -1)}>↑</button>
           <button title="Premakni nazaj" disabled={i === list.length - 1} onClick={() => onMove(it.id, 1)}>↓</button>
           <button title="Podvoji" onClick={() => onDuplicate(it.id)}>⧉</button>
+          {it.imgs?.some(Boolean) && <button title="Slike nazaj na privzeto velikost in mesto" onClick={() => it.imgs!.forEach((_, i) => onImg(it.id, i, null))}>↺</button>}
           <button title="Odstrani iz kviza" className="del" onClick={() => onDelete(it.id)}>×</button>
         </span>
         {/* vodoravna ločilna črta: pri izbirnih nalogah razmik do naslednje, pri ostalih prostor za odgovor */}

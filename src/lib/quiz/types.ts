@@ -23,7 +23,12 @@ interface QuestionBase {
   gapAfter?: number;
   /** razmik pod nalogo pri tisku dveh testov na en list (mm; privzeto 3,5) */
   gapHalf?: number;
+  /** postavitev slik v besedilu naloge na natisnjenem listu (po vrsti slik): širina in odmik v mm */
+  imgs?: (ImgLayout | null)[];
 }
+
+/** Velikost in položaj slike znotraj naloge na listu (mm): `w` širina, `x` odmik levo/desno, `y` odmik gor/dol. */
+export interface ImgLayout { w: number; x: number; y: number }
 
 export interface McQuestion extends QuestionBase {
   kind: 'mc';
