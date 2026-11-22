@@ -362,3 +362,8 @@ body { transition: padding-right 260ms cubic-bezier(.2,.8,.2,1); }
 html.has-drawer body { padding-right: var(--drawer-w, 0px); }
 @media print { html.has-drawer body { padding-right: 0; } }
 .pqz-halves-ed .pqz-page { box-shadow: 0 2px 14px rgba(0,0,0,.18); }
+.side-drawer-grip { position: absolute; left: -5px; top: 0; bottom: 0; width: 10px; cursor: col-resize; z-index: 2; }
+.side-drawer-grip::after { content: ''; position: absolute; left: 4px; top: 50%; width: 3px; height: 44px; margin-top: -22px; border-radius: 3px; background: #c8d6e8; transition: background .15s, height .15s; }
+.side-drawer-grip:hover::after { background: #6f9bd1; height: 64px; margin-top: -32px; }
+html.drawer-resizing body, html.drawer-resizing .side-drawer { transition: none !important; }
+html.drawer-resizing { cursor: col-resize; user-select: none; }

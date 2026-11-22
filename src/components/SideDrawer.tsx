@@ -3,8 +3,17 @@
 import { useEffect, useLayoutEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-/** širina stranskega okna (px): 46 % zaslona, med 380 in 620 */
-const drawerWidth = () => Math.round(Math.max(380, Math.min(620, window.innerWidth * 0.46)));
+const WIDTH_KEY = 'stransko-okno-sirina';
+const MIN_W = 360;
+/** stran mora ohraniti vsaj toliko prostora */
+const MIN_PAGE = 320;
+const clampW = (w: number) => Math.round(Math.max(MIN_W, Math.min(window.innerWidth - MIN_PAGE, w)));
+/** širina stranskega okna (px): kot jo je nastavil uporabnik, sicer 46 % zaslona (380–620) */
+const drawerWidth = () => {
+  let saved = NaN;
+  try { saved = Number(localStorage.getItem(WIDTH_KEY)); } catch { /* ignore */ }
+  return clampW(saved > 0 ? saved : Math.max(380, Math.min(620, window.innerWidth * 0.46)));
+};
 /** na ozkih zaslonih okno stran prekrije (zožitev ne bi pustila prostora vsebini) */
 const PUSH_MIN = 980;
 const MS = 260;
@@ -56,6 +65,25 @@ export default function SideDrawer({ open, onClose, title, subtitle, children }:
     return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('resize', onResize); };
   }, [open, onClose]);
 
+  /** vlečenje levega roba: širše / ožje okno (stran se sproti prilagodi) */
+  const startResize = (e: React.PointerEvent) => {
+    e.preventDefault();
+    const target = e.currentTarget as HTMLElement;
+    target.setPointerCapture(e.pointerId);
+    const root = document.documentElement;
+    root.classList.add('drawer-resizing');
+    let w = width;
+    const move = (ev: PointerEvent) => { w = clampW(window.innerWidth - ev.clientX); setWidth(w); };
+    const up = () => {
+      target.removeEventListener('pointermove', move); target.removeEventListener('pointerup', up); target.removeEventListener('pointercancel', up);
+      root.classList.remove('drawer-resizing');
+      try { localStorage.setItem(WIDTH_KEY, String(w)); } catch { /* ignore */ }
+    };
+    target.addEventListener('pointermove', move);
+    target.addEventListener('pointerup', up);
+    target.addEventListener('pointercancel', up);
+  };
+
   if (!mounted || typeof document === 'undefined') return null;
   return createPortal(
     <aside className="no-print side-drawer" aria-label="Urejevalnik"
@@ -63,6 +91,8 @@ export default function SideDrawer({ open, onClose, title, subtitle, children }:
         background: 'var(--canvas)', borderLeft: '1px solid #c8d6e8', boxShadow: shown ? '-6px 0 24px rgba(0,0,0,0.14)' : 'none',
         display: 'flex', flexDirection: 'column', transform: shown ? 'translateX(0)' : 'translateX(100%)',
         transition: `transform ${MS}ms cubic-bezier(.2,.8,.2,1), box-shadow ${MS}ms` }}>
+      <div className="side-drawer-grip" onPointerDown={startResize} onDoubleClick={() => { try { localStorage.removeItem(WIDTH_KEY); } catch { /* ignore */ } setWidth(drawerWidth()); }}
+        title="Povleci levo ali desno za širše / ožje okno · dvoklik: privzeta širina" />
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px', borderBottom: '1px solid var(--hairline)', fontFamily: 'var(--font-sans)' }}>
         <strong style={{ fontSize: '14px', color: 'var(--ink)' }}>{title}</strong>
         {subtitle && <span style={{ fontSize: '12px', color: 'var(--muted)' }}>{subtitle}</span>}
