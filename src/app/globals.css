@@ -367,3 +367,6 @@ html.has-drawer body { padding-right: var(--drawer-w, 0px); }
 .side-drawer-grip:hover::after { background: #6f9bd1; height: 64px; margin-top: -32px; }
 html.drawer-resizing body, html.drawer-resizing .side-drawer { transition: none !important; }
 html.drawer-resizing { cursor: col-resize; user-select: none; }
+/* slike v nalogah: klik jih poveča (ImageZoom) */
+.rich-content img, .pqz-q img { cursor: zoom-in; }
+[contenteditable="true"] img { cursor: default; }

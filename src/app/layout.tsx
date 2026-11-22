@@ -3,6 +3,7 @@ import './globals.css';
 import GlobalPrintBar from '@/components/tasks/GlobalPrintBar';
 import UndoToast from '@/components/UndoToast';
 import CalendarSync from '@/components/CalendarSync';
+import ImageZoom from '@/components/ImageZoom';
 import Nav from '@/components/Nav';
 import SyncProvider from '@/components/SyncProvider';
 
@@ -21,6 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <GlobalPrintBar />
           <UndoToast />
           <CalendarSync />
+          <ImageZoom />
         </SyncProvider>
       </body>
     </html>

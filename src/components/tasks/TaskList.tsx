@@ -128,7 +128,7 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
                   )}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flexShrink: 0 }}>
-                  <button onClick={() => { setEditingId(t.id); setAdding(false); }} style={{ ...btn(), padding: '3px 9px', fontSize: '11px' }}>✎ Uredi</button>
+                  <button onClick={() => setEditingId(t.id)} style={{ ...btn(), padding: '3px 9px', fontSize: '11px' }}>✎ Uredi</button>
                   <button onClick={() => openGen(t)} disabled={genBusy !== null}
                     title="Z umetno inteligenco (Claude) ustvari novo nalogo iz te: podobno, težjo, lažjo, drugačne oblike …"
                     style={{ ...btn(drawerOpen && editingId === `gen:${t.id}`), padding: '3px 9px', fontSize: '11px', opacity: genBusy !== null ? 0.5 : 1 }}>
