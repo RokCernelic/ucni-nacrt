@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import { Rich } from '@/components/tasks/ui';
 import type { ImgLayout } from '@/lib/quiz/types';
-import { frameGeometry, type SheetLayout, type SheetItem } from '@/lib/quiz/printSheet';
+import { frameGeometry, FRAME, type SheetLayout, type SheetItem } from '@/lib/quiz/printSheet';
 
 /** En list za tisk: ime (ali prazna črta), QR (po učencih) in razpored vprašanj. */
 export interface Sheet { key: string; name: string | null; qr: string | null; layout: SheetLayout }
@@ -31,7 +31,7 @@ export function FrameView({ sheet: sh }: { sheet: Sheet }) {
       {g.marks.map(([x, y], i) => <i key={i} className="pqz-mark" style={{ left: mm(x - 2), top: mm(y - 2) }} />)}
       {g.cells.map(c => (
         <div key={c.n}>
-          <span className="pqz-n" style={{ left: mm(c.x), top: mm(c.y), width: mm(6), height: mm(6.8) }}>{c.n}{c.multi ? '+' : ''}</span>
+          <span className="pqz-n" style={{ left: mm(c.x), top: mm(c.y), width: mm(FRAME.numW), height: mm(FRAME.rowH) }}>{c.n}{c.multi ? '+' : ''}</span>
           {c.bubbles.map(b => (
             <span key={b.letter} className="pqz-bub" style={{ left: mm(b.cx - g.bub / 2), top: mm(b.cy - g.bub / 2), width: mm(g.bub), height: mm(g.bub) }}>{b.letter}</span>
           ))}

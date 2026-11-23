@@ -188,13 +188,13 @@ export const FRAME = {
   mark: 4,         // stranica črnega kvadratka
   markInset: 1.5,  // odmik kvadratka od roba okvirja
   rowY0: 3.5,      // prva vrstica krogcev (brez naslova v okvirju)
-  rowH: 6.8,
+  rowH: 7.2,
   padX: 9,
   qr: 22,
   qrGap: 4,
-  colGap: 5,
-  numW: 6,         // številka vprašanja
-  bubGap: 1.3,
+  colGap: 3,
+  numW: 5,         // številka vprašanja
+  bubGap: 1,
   bottom: 3.5,
 } as const;
 
@@ -217,7 +217,7 @@ export function frameGeometry<T extends LayoutItem>(layout: SheetLayout<T>, with
   const colW = (areaW - 3 * F.colGap) / 4;
   const maxOpts = Math.max(1, ...layout.choice.map(c => c.options.length));
   const avail = colW - F.numW - F.bubGap;
-  const bub = Math.max(3.4, Math.min(5.4, Math.floor(((avail - (maxOpts - 1) * F.bubGap) / maxOpts) * 10) / 10));
+  const bub = Math.max(3.4, Math.min(5.6, Math.floor(((avail - (maxOpts - 1) * F.bubGap) / maxOpts) * 10) / 10));
   const h = Math.max(F.rowY0 + rows * F.rowH, withQr ? F.rowY0 + F.qr : 0) + F.bottom;
   const cells = layout.choice.map((c, i) => {
     const col = Math.floor(i / rows), row = i % rows;
