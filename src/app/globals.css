@@ -72,17 +72,21 @@ html { scroll-behavior: smooth; }
 .print-roster { display: none; }
 @media print {
   html.printing-roster body > :not(.print-roster) { display: none !important; }
+  html.printing-roster .print-roster, html.printing-roster .print-roster * { visibility: visible !important; }
   html.printing-roster .print-roster { display: block; font-family: -apple-system, Inter, sans-serif; color: #222; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .print-roster .pr-head { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #1f3d2b; padding-bottom: 2mm; margin-bottom: 3mm; }
   .print-roster .pr-cls { font-size: 9pt; color: #777; letter-spacing: .08em; text-transform: uppercase; }
   .print-roster .pr-title { font-size: 16pt; font-weight: 700; color: #1f3d2b; }
   .print-roster .pr-meta { font-size: 9pt; color: #555; text-align: right; line-height: 1.4; }
-  .print-roster .pr-table { width: 100%; border-collapse: collapse; font-size: 10pt; }
-  .print-roster .pr-table th { background: #eef1ec; border: 1px solid #9aa79c; padding: 1.5mm 2mm; font-size: 8pt; text-transform: uppercase; letter-spacing: .03em; color: #3d4a41; text-align: center; vertical-align: bottom; }
+  /* ločeni robovi v mm: pri tisku se tanke 1px črte ne izgubljajo */
+  .print-roster .pr-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 10pt; border-top: .25mm solid #9aa79c; border-left: .25mm solid #9aa79c; }
+  .print-roster .pr-table th { background: #eef1ec; border: 0; border-right: .25mm solid #9aa79c; border-bottom: .25mm solid #9aa79c; padding: 1.5mm 2mm; font-size: 8pt; text-transform: uppercase; letter-spacing: .03em; color: #3d4a41; text-align: center; vertical-align: bottom; }
   .print-roster .pr-table th.quiz { text-transform: none; letter-spacing: 0; max-width: 24mm; font-size: 7.5pt; line-height: 1.2; }
   .print-roster .pr-table th.quiz span { font-weight: 400; color: #666; }
   .print-roster .pr-table th.blank { min-width: 14mm; }
-  .print-roster .pr-table td { border: 1px solid #b8c0b9; padding: 1.3mm 2mm; text-align: center; }
+  .print-roster .pr-table th.avg, .print-roster .pr-table td.avg { border-right: 1mm double #8f9b92; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .print-roster .pr-table th.avg { color: #1f3d2b; }
+  .print-roster .pr-table td { border: 0; border-right: .25mm solid #b8c0b9; border-bottom: .25mm solid #b8c0b9; padding: 1.3mm 2mm; text-align: center; }
   .print-roster .pr-table .left { text-align: left; }
   .print-roster .pr-table .num { width: 8mm; text-align: right; color: #777; }
   .print-roster .pr-table td.name { font-weight: 600; white-space: nowrap; }

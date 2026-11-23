@@ -119,6 +119,16 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
     saveCfg({ ...cfg, manual: cfg.manual.map(x => (x.id === id ? { ...x, values } : x)) });
   };
   const numVal = (v: string | undefined) => { if (!v) return null; const n = parseFloat(v.replace(',', '.')); return Number.isFinite(n) && /^\s*[-+]?\d+([.,]\d+)?\s*$/.test(v) ? n : null; };
+  // povprečna ocena: ročni stolpci, v katerih so vpisane same ocene 1–5 (dovoljeno tudi 4+, 3-)
+  const gradeOf = (v: string | undefined) => { const m = /^\s*([1-5])\s*[+-]?\s*$/.exec(v ?? ''); return m ? Number(m[1]) : null; };
+  const gradeCols = cfg.manual.filter(m => { const vs = Object.values(m.values).filter(v => v.trim()); return vs.length > 0 && vs.every(v => gradeOf(v) != null); });
+  const avgGrade = (studentId: string): number | null => {
+    const gs = gradeCols.map(m => gradeOf(m.values[studentId])).filter((n): n is number => n != null);
+    return gs.length ? gs.reduce((a, b) => a + b, 0) / gs.length : null;
+  };
+  const gradeTint = (g: number | null) => (g == null ? 'var(--muted)' : g >= 4.5 ? '#2e8b3e' : g >= 3.5 ? '#7aa82a' : g >= 2.5 ? '#cf9e00' : g >= 1.5 ? '#e06a1b' : '#c0392b');
+  const fmtGrade = (g: number | null) => (g == null ? '–' : formatNumber(Math.round(g * 100) / 100));
+  const AVG_SEP = '3px double #aeb8b0';
 
   // vrstni red stolpcev: shranjeni vrstni red, novi stolpci (nov kviz, nov ročni stolpec) na konec
   const defaultKeys = ['gender', 'pin', 'seat', ...quizCols.map(c => `q:${c.s.id}`), ...cfg.manual.map(m => `m:${m.id}`)];
@@ -173,6 +183,7 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
   const sortValue = (key: string, st: (typeof students)[number]): string | number => {
     if (key === 'gender') return st.gender || '~';
     if (key === 'pin') return st.pin ?? '~';
+    if (key === 'avg') { const g = avgGrade(st.id); return g == null ? 1e9 : -g; } // najboljši najprej
     if (key === 'seat') return -((st.frontRow ? 4 : 0) + (st.nextToBoy ? 2 : 0) + (st.apartFrom?.length ? 1 : 0));
     if (key.startsWith('q:')) { const c = quizCols.find(c => `q:${c.s.id}` === key); const r = c ? resOf(c, st) : undefined; return r ? -r.pct : 1; } // najboljši najprej
     if (key.startsWith('m:')) {
@@ -185,7 +196,7 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
   const sortedStudents = (() => {
     const base = sortByLastName(students); // pri enakih vrednostih po priimku
     if (sort.key === 'name') return sort.dir === 1 ? base : [...base].reverse();
-    if (!colKeys.includes(sort.key)) return base;
+    if (!colKeys.includes(sort.key) && sort.key !== 'avg') return base;
     return base.map((st, i) => ({ st, i })).sort((a, b) => {
       const va = sortValue(sort.key, a.st), vb = sortValue(sort.key, b.st);
       const c = typeof va === 'number' && typeof vb === 'number' ? va - vb : String(va).localeCompare(String(vb), 'sl');
@@ -436,6 +447,8 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
                     style={{ position: 'absolute', top: 0, right: -4, width: '9px', height: '100%', cursor: 'col-resize', zIndex: 4, touchAction: 'none',
                       background: dragW != null ? 'linear-gradient(to right, transparent 3px, var(--forest) 3px, var(--forest) 5px, transparent 5px)' : undefined }} />
                 </th>
+                <th onClick={() => clickSort('avg')} title={gradeCols.length ? `Povprečna ocena iz stolpcev z ocenami: ${gradeCols.map(m => m.name).join(', ')} — klik: razvrsti` : 'Povprečna ocena — šteje ročne stolpce, v katere so vpisane ocene 1–5'}
+                  style={{ ...TH, cursor: 'pointer', borderRight: AVG_SEP, fontWeight: 700, color: sort.key === 'avg' ? 'var(--forest)' : 'var(--ink)' }}>Ocena ⌀{arrow('avg')}</th>
                 {visibleKeys.map(headCell)}
               </tr>
             </thead>
@@ -463,13 +476,19 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
                   </span>
                 )}
                 </td>
+                {(() => { const g = avgGrade(s.id); return (
+                  <td style={{ ...td, textAlign: 'center', borderRight: AVG_SEP, fontWeight: 800, fontSize: '16px', fontVariantNumeric: 'tabular-nums', color: gradeTint(g) }}>{fmtGrade(g)}</td>
+                ); })()}
                 {visibleKeys.map(k => bodyCell(k, s, gs, td))}
               </tr>
             ); })}
             {/* povprečje razreda po kvizih (le učenci, ki so sodelovali) in po ročnih stolpcih s števili */}
-            {(quizCols.length > 0 || cfg.manual.length > 0) && (
+            {(quizCols.length > 0 || cfg.manual.length > 0 || gradeCols.length > 0) && (
               <tr style={focusId ? { filter: 'blur(5px)', opacity: 0.45 } : undefined}>
                 <td style={{ position: 'sticky', left: 0, zIndex: 1, background: '#f7f6f3', padding: '7px 12px', borderTop: DIV, borderRight: DIV, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: nameW, maxWidth: nameW, boxSizing: 'border-box', fontWeight: 700, color: 'var(--ink)' }}>Povprečje razreda</td>
+                {(() => { const gs = students.map(x => avgGrade(x.id)).filter((n): n is number => n != null); const g = gs.length ? gs.reduce((a, b) => a + b, 0) / gs.length : null; return (
+                  <td style={{ textAlign: 'center', padding: '7px 6px', borderTop: DIV, borderRight: AVG_SEP, background: '#f7f6f3', fontWeight: 800, fontSize: '14px', color: gradeTint(g) }}>{fmtGrade(g)}</td>
+                ); })()}
                 {visibleKeys.map(footCell)}
               </tr>
             )}
@@ -481,7 +500,7 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
       {/* Seznam za tisk (Natisni seznam): na zaslonu skrit, ob tisku edini viden */}
       {printOpts && typeof document !== 'undefined' && createPortal(
         <div className="print-roster" aria-hidden>
-          {printKeys.length + printOpts.blank > 7 ? <style>{'@page { size: A4 landscape; margin: 10mm; }'}</style> : <style>{'@page { size: A4 portrait; margin: 12mm; }'}</style>}
+          {printKeys.length + printOpts.blank + 1 > 7 ? <style>{'@page { size: A4 landscape; margin: 10mm; }'}</style> : <style>{'@page { size: A4 portrait; margin: 12mm; }'}</style>}
           <div className="pr-head">
             <div><div className="pr-cls">{className}</div><div className="pr-title">Seznam učencev</div></div>
             <div className="pr-meta">{students.length} učencev · {students.filter(x => x.gender === 'Ž').length} Ž / {students.filter(x => x.gender === 'M').length} M<br />{new Date().toLocaleDateString('sl-SI', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
@@ -489,7 +508,7 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
           <table className="pr-table">
             <thead>
               <tr>
-                <th className="num">#</th><th className="left">Učenec</th>
+                <th className="num">#</th><th className="left">Učenec</th><th className="avg">Ocena ⌀</th>
                 {printKeys.map(k => {
                   if (k === 'gender') return <th key={k}>Spol</th>;
                   if (k === 'pin') return <th key={k}>PIN</th>;
@@ -505,6 +524,7 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
                 <tr key={s.id} style={{ background: gs.bg }}>
                   <td className="num" style={{ color: gs.color }}>{numberOf(s)}</td>
                   <td className="left name" style={{ color: gs.color }}>{s.name}</td>
+                  {(() => { const g = avgGrade(s.id); return <td className="avg" style={{ color: gradeTint(g) }}>{fmtGrade(g)}</td>; })()}
                   {printKeys.map(k => {
                     if (k === 'gender') return <td key={k} style={{ color: gs.color }}>{s.gender || '—'}</td>;
                     if (k === 'pin') return <td key={k} className="pin">{s.pin ?? '—'}</td>;
