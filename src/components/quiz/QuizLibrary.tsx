@@ -211,7 +211,7 @@ export default function QuizLibrary() {
   return (
     <div>
       <div style={{ background: 'var(--forest)', padding: '32px 32px 28px' }}>
-        <div style={{ maxWidth: '900px', margin: '0 auto', width: '100%' }}>
+        <div style={{ maxWidth: '1100px', margin: '0 auto', width: '100%' }}>
           <p style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', margin: '0 0 6px' }}>
             Knjižnica
           </p>
@@ -219,7 +219,7 @@ export default function QuizLibrary() {
         </div>
       </div>
 
-      <div style={{ width: '100%', maxWidth: '900px', margin: '0 auto', padding: '28px 32px 64px' }}>
+      <div style={{ width: '100%', maxWidth: '1100px', margin: '0 auto', padding: '28px 32px 64px' }}>
         {!user ? (
           <p style={{ fontSize: '14px', color: 'var(--muted)' }}>
             Za kvize se <Link href="/login" style={{ color: 'var(--forest)', fontWeight: 500 }}>prijavite</Link>.

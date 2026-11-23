@@ -223,7 +223,7 @@ function QuestionView({ q, index, total, task, active, onEdit, onGenerate, onMov
   const problems = questionProblems(q);
   const small: React.CSSProperties = { ...btn(), padding: '3px 9px', fontSize: '11px' };
   return (
-    <div style={{ border: `1px solid ${active ? '#6f9bd1' : problems.length ? '#ecd9a8' : 'var(--hairline)'}`, boxShadow: active ? '0 0 0 1px #6f9bd1' : undefined, borderRadius: 'var(--r-md)', background: active ? '#f3f8fe' : 'var(--canvas)', padding: '10px 12px', fontSize: '13px', color: 'var(--body)', lineHeight: 1.5, fontFamily: 'var(--font-sans)' }}>
+    <div style={{ border: `1px solid ${active ? '#6f9bd1' : problems.length ? '#ecd9a8' : 'var(--hairline)'}`, boxShadow: active ? '0 0 0 1px #6f9bd1' : undefined, borderRadius: 'var(--r-md)', background: active ? '#f3f8fe' : 'var(--canvas)', padding: '10px 12px', fontSize: '16px', color: 'var(--body)', lineHeight: 1.5, fontFamily: 'var(--font-sans)' }}>
       <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
         <span style={{ color: 'var(--muted)', minWidth: '22px', fontVariantNumeric: 'tabular-nums' }}>{index + 1}.</span>
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -243,10 +243,10 @@ function QuestionView({ q, index, total, task, active, onEdit, onGenerate, onMov
             </div>
           )}
           {q.kind === 'numeric' && (
-            <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Rešitev: {q.correct}{q.tolerance ? ` ± ${formatNumber(q.tolerance)}` : ''}</div>
+            <div style={{ fontSize: '14px', color: 'var(--muted)' }}>Rešitev: {q.correct}{q.tolerance ? ` ± ${formatNumber(q.tolerance)}` : ''}</div>
           )}
           {q.kind === 'open' && q.answer && (
-            <div style={{ fontSize: '12px', color: 'var(--muted)', whiteSpace: 'pre-wrap' }}>Rešitev: {q.answer}</div>
+            <div style={{ fontSize: '14px', color: 'var(--muted)', whiteSpace: 'pre-wrap' }}>Rešitev: {q.answer}</div>
           )}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
             {task ? <TaskBadges task={task} /> : (
@@ -559,7 +559,7 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
   return (
     <div>
       <div style={{ background: 'var(--forest)', padding: '28px 32px 24px' }}>
-        <div style={{ maxWidth: '900px', margin: '0 auto', width: '100%' }}>
+        <div style={{ maxWidth: '1100px', margin: '0 auto', width: '100%' }}>
           <Link href="/kvizi" onClick={flush} style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'rgba(255,255,255,0.6)', textDecoration: 'none' }}>
             ← Kvizi{path.length ? ` / ${path.map(f => f.name).join(' / ')}` : ''}
           </Link>
@@ -594,7 +594,7 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
         </div>
       </div>
 
-      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px 32px 80px' }}>
+      <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '24px 32px 80px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px', fontFamily: 'var(--font-sans)' }}>
           <div style={{ display: 'inline-flex', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', overflow: 'hidden' }}>
             {([['a4', '📄 List A4'], ['halves', '▤ Dva testa na en A4'], ['list', '☰ Seznam vprašanj']] as const).map(([v, l]) => (

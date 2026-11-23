@@ -74,7 +74,7 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
         const on = selected.has(t.id);
         return (
           <div key={t.id} style={{ border: `1px solid ${on ? 'var(--forest)' : 'var(--hairline)'}`, borderRadius: 'var(--r-md)',
-            background: drawerOpen && (editingId === t.id || editingId === `gen:${t.id}`) ? '#f3f8fe' : 'var(--canvas)', padding: '10px 12px', ...(drawerOpen && (editingId === t.id || editingId === `gen:${t.id}`) ? { borderColor: '#6f9bd1', boxShadow: '0 0 0 1px #6f9bd1' } : {}), fontSize: '13px', color: 'var(--body)', lineHeight: 1.5,
+            background: drawerOpen && (editingId === t.id || editingId === `gen:${t.id}`) ? '#f3f8fe' : 'var(--canvas)', padding: '10px 12px', ...(drawerOpen && (editingId === t.id || editingId === `gen:${t.id}`) ? { borderColor: '#6f9bd1', boxShadow: '0 0 0 1px #6f9bd1' } : {}), fontSize: '16px', color: 'var(--body)', lineHeight: 1.5,
             ...(nested ? { marginLeft: '28px', borderLeft: '4px solid var(--forest)' } : {}) }}>
             {(
 
@@ -96,7 +96,7 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
                     </div>
                   )}
                   {((t.answer && !isChoice(t.answer_kind)) || t.answer_kind === 'numeric' || (isChoice(t.answer_kind) && t.answer)) && (
-                    <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Rešitev: <TaskAnswer task={t} noChoice /></div>
+                    <div style={{ fontSize: '14px', color: 'var(--muted)' }}>Rešitev: <TaskAnswer task={t} noChoice /></div>
                   )}
                   <TaskBadges task={t} showTopics={showTopics} hideTopic={hideTopic} hideChapter={hideChapter} />
                   {showDate && (

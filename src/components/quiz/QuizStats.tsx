@@ -287,7 +287,7 @@ export default function QuizStats() {
   return (
     <div>
       <div style={{ background: 'var(--forest)', padding: '28px 32px 24px' }}>
-        <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+        <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
           {selected && <Link href="/kvizi/statistika" style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'rgba(255,255,255,0.6)', textDecoration: 'none' }}>← Vsi rezultati</Link>}
           <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(28px,4vw,42px)', fontWeight: 300, color: '#fff', lineHeight: 1, margin: selected ? '8px 0 0' : 0 }}>
             {selected && shown[0] ? shown[0].s.quiz_title : 'Rezultati'}
@@ -297,7 +297,7 @@ export default function QuizStats() {
           </p>
         </div>
       </div>
-      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px 32px 64px', fontFamily: 'var(--font-sans)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '24px 32px 64px', fontFamily: 'var(--font-sans)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {(() => {
           const empty = rows.filter(r => (!selected || r.key === selected) && !r.people && !r.open).length;
           return empty > 0 && (

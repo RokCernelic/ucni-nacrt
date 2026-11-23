@@ -162,14 +162,14 @@ export default function TaskBank({ picker }: { picker?: BankPicker } = {}) {
         </div>
       ) : (
       <div style={{ background: 'var(--forest)', padding: '28px 32px 24px' }}>
-        <div style={{ maxWidth: '1000px', margin: '0 auto', width: '100%' }}>
+        <div style={{ maxWidth: '1100px', margin: '0 auto', width: '100%' }}>
           <p style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', margin: '0 0 6px' }}>Kvizi</p>
           <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(32px,4vw,48px)', fontWeight: 300, color: '#fff', lineHeight: 1 }}>Baza nalog</h1>
         </div>
       </div>
       )}
 
-      <div style={{ width: '100%', maxWidth: '1000px', margin: '0 auto', padding: '24px 32px 80px', fontFamily: 'var(--font-sans)' }}>
+      <div style={{ width: '100%', maxWidth: '1100px', margin: '0 auto', padding: '24px 32px 80px', fontFamily: 'var(--font-sans)' }}>
         {!user ? (
           <p style={{ fontSize: '14px', color: 'var(--muted)' }}>Za bazo nalog se <Link href="/login" style={{ color: 'var(--forest)', fontWeight: 500 }}>prijavite</Link>.</p>
         ) : (

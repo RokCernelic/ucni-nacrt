@@ -53,7 +53,7 @@ export function QuizHistoryBody({ quizTitle, data, back = { href: '/kvizi', labe
   return (
     <div>
       <div style={{ background: 'var(--forest)', padding: '28px 32px 24px' }}>
-        <div style={{ maxWidth: '900px', margin: '0 auto', width: '100%' }}>
+        <div style={{ maxWidth: '1100px', margin: '0 auto', width: '100%' }}>
           <Link href={back.href} style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'rgba(255,255,255,0.6)', textDecoration: 'none' }}>{back.label}</Link>
           <p style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', margin: '10px 0 6px' }}>Zgodovina kviza</p>
           <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(28px,4vw,42px)', fontWeight: 300, color: '#fff', lineHeight: 1 }}>{quizTitle}</h1>
@@ -61,7 +61,7 @@ export function QuizHistoryBody({ quizTitle, data, back = { href: '/kvizi', labe
         </div>
       </div>
 
-      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '28px 32px 64px', fontFamily: 'var(--font-sans)' }}>
+      <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '28px 32px 64px', fontFamily: 'var(--font-sans)' }}>
         {sessions.length === 0 ? (
           <p style={{ color: 'var(--muted)', fontSize: '14px' }}>Ta kviz še ni bil zagnan v nobenem razredu.</p>
         ) : (
