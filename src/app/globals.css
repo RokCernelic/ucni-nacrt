@@ -92,6 +92,34 @@ html { scroll-behavior: smooth; }
   .print-roster .pr-table tr { break-inside: avoid; }
 }
 
+/* Rezultati izvedbe → Natisni: na zaslonu skrito, ob tisku edina vidna stvar */
+.print-results { display: none; }
+@media print {
+  html.printing-results body > :not(.print-results) { display: none !important; }
+  html.printing-results .print-results, html.printing-results .print-results * { visibility: visible !important; }
+  html.printing-results .print-results { display: block; font-family: Inter, -apple-system, sans-serif; color: #222; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .print-results .prs-head { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #1f3d2b; padding-bottom: 2mm; margin-bottom: 3mm; }
+  .print-results .prs-cls { font-size: 9pt; color: #777; letter-spacing: .06em; text-transform: uppercase; }
+  .print-results .prs-title { font-size: 16pt; font-weight: 700; color: #1f3d2b; }
+  .print-results .prs-meta { font-size: 9pt; color: #555; }
+  .print-results .prs-table { width: 100%; border-collapse: collapse; font-size: 9.5pt; }
+  .print-results .prs-table th { background: #eef1ec; border: 1px solid #9aa79c; padding: 1.2mm 1mm; font-size: 8pt; color: #3d4a41; text-align: center; }
+  .print-results .prs-table th.ex { text-decoration: line-through; color: #999; }
+  .print-results .prs-table td { border: 1px solid #b8c0b9; padding: 1.1mm 1mm; text-align: center; font-variant-numeric: tabular-nums; }
+  .print-results .prs-table .left { text-align: left; padding-left: 2mm; }
+  .print-results .prs-table .num { width: 7mm; color: #777; }
+  .print-results .prs-table td.name { font-weight: 600; white-space: nowrap; }
+  .print-results .prs-table td.res { font-weight: 700; white-space: nowrap; }
+  .print-results .prs-table td.ok { color: #2e7d32; font-weight: 700; }
+  .print-results .prs-table td.bad { color: #c0392b; font-weight: 700; }
+  .print-results .prs-table td.none, .print-results .prs-table td.avg { color: #888; }
+  .print-results .prs-table td.pts { font-weight: 700; }
+  .print-results .prs-table tfoot td { background: #f4f3ef; border-top: 2px solid #9aa79c; font-size: 8.5pt; }
+  .print-results .prs-table thead { display: table-header-group; }
+  .print-results .prs-table tr { break-inside: avoid; }
+  .print-results .prs-legend { font-size: 8pt; color: #666; margin-top: 2mm; }
+}
+
 /* Obogateno besedilo (prilepljeno iz Worda/spleta): vprašanja in naloge */
 .rich-field:empty::before { content: attr(data-placeholder); color: var(--muted); pointer-events: none; }
 .rich-field img, .rich-content img { max-width: 100%; max-height: 320px; vertical-align: middle; }

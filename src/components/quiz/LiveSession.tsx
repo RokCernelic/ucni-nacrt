@@ -14,7 +14,8 @@ import { isCorrect, answerStatus, scoreAnswers, parseNumber, numericValue, choic
 import { formatNumber, pointsLabel, studentsLabel } from '@/lib/quiz/format';
 import { sessionResultsCsv, downloadCsv, safeFilename } from '@/lib/quiz/csv';
 import type { Question } from '@/lib/quiz/types';
-import { compareByLastName } from '@/lib/names';
+import { compareByLastName, initialsName } from '@/lib/names';
+import { createPortal } from 'react-dom';
 import { layoutSheet, sheetSeed, shuffleOpts } from '@/lib/quiz/printSheet';
 import type { PaperInfo } from '@/lib/quiz/paperSession';
 import { ceilPct } from '@/lib/quiz/format';
@@ -391,6 +392,17 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
   const overallLabel = overall ? `${overall.sessions} izvedb${overall.sessions === 2 ? 'i' : overall.sessions < 5 ? 'e' : ''}, ${overall.people} učencev` : '';
   const avgPct = partRows.length ? ceilPct(partRows.reduce((s, r) => s + r.sc.percent, 0) / partRows.length) : 0;
 
+  // tisk rezultatov na A4 (med tiskom je viden le .print-results; globals.css, html.printing-results)
+  const [anon, setAnonState] = useState(() => { try { return localStorage.getItem('rezultati-tisk-zakrij') === '1'; } catch { return false; } });
+  const setAnon = (v: boolean) => { setAnonState(v); try { localStorage.setItem('rezultati-tisk-zakrij', v ? '1' : '0'); } catch { /* ignore */ } };
+  const [printing, setPrinting] = useState(false);
+  const printResults = () => {
+    setPrinting(true);
+    const root = document.documentElement;
+    const done = () => { root.classList.remove('printing-results'); window.removeEventListener('afterprint', done); setPrinting(false); };
+    setTimeout(() => { root.classList.add('printing-results'); window.addEventListener('afterprint', done); window.print(); }, 60);
+  };
+
   const exportCsv = () => {
     const csv = sessionResultsCsv(scoredQuiz, students.map(s => ({ name: s.name, participated: participated(s), answers: answersByStudent.get(s.student_id) ?? {} })));
     const date = new Date(session.ended_at ?? session.created_at).toISOString().slice(0, 10);
@@ -420,6 +432,14 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
               {ending ? 'Končujem …' : '■ Končaj'}
             </button>
           )}
+          <label title="Na izpisu namesto imena in priimka okrajšave (npr. Janez Lojze Novak → JL. No.)"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--muted)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+            <input type="checkbox" checked={anon} onChange={e => setAnon(e.target.checked)} /> zakrij imena
+          </label>
+          <button onClick={printResults} title="Natisne tabelo rezultatov na list A4"
+            style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600, color: 'var(--forest)', background: 'transparent', border: '1px solid var(--forest)', borderRadius: 'var(--r-sm)', padding: '9px 16px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+            🖨 Natisni
+          </button>
           <button onClick={exportCsv} style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600, color: '#fff', background: 'var(--forest)', border: 'none', borderRadius: 'var(--r-sm)', padding: '9px 16px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
             ⬇ Izvozi CSV
           </button>
@@ -543,6 +563,52 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
             ); })}
           </div>
         </div>
+      )}
+
+      {printing && typeof document !== 'undefined' && createPortal(
+        <div className="print-results">
+          <div className="prs-head">
+            <div>
+              <div className="prs-cls">{session.class_name} · {new Date(session.created_at).toLocaleDateString('sl-SI')}</div>
+              <div className="prs-title">{quizTitle}</div>
+            </div>
+            <div className="prs-meta">{studentsLabel(joinedCount)} od {students.length} · povprečje {avgPct} %</div>
+          </div>
+          <table className="prs-table">
+            <thead><tr>
+              <th className="num">#</th><th className="left">{anon ? 'Učenec (okrajšano)' : 'Učenec'}</th><th>Točke</th><th>%</th>
+              {questions.map((q, i) => <th key={q.id} className={excluded.includes(q.id) && !perStudentOrder ? 'ex' : ''}>{i + 1}</th>)}
+            </tr></thead>
+            <tbody>
+              {rows.map(({ s: st, ans, sc }, ri) => {
+                const on = isOn(st);
+                return (
+                  <tr key={st.student_id}>
+                    <td className="num">{ri + 1}</td>
+                    <td className="left name">{anon ? initialsName(st.name) : st.name}</td>
+                    <td className="res">{on ? `${formatNumber(sc.points)} / ${formatNumber(sc.maxPoints)}` : '–'}</td>
+                    <td className="res">{on ? `${formatNumber(sc.percent)} %` : ''}</td>
+                    {colsFor(st.student_id).map((q, i) => {
+                      if (!on) return <td key={i} />;
+                      if (q.kind === 'open' && q.manual) { const p = manualPoints(q, ans[q.id]); return <td key={i} className="pts">{p === null ? '–' : formatNumber(p)}</td>; }
+                      const stt = answerStatus(q, ans[q.id]);
+                      const right = rightFor(st.student_id, q);
+                      return <td key={i} className={stt === 'correct' ? 'ok' : stt === 'wrong' ? 'bad' : 'none'}>{stt === 'correct' ? '✓' : stt === 'wrong' ? (right ?? '✗') : '–'}</td>;
+                    })}
+                  </tr>
+                );
+              })}
+            </tbody>
+            {!perStudentOrder && (
+              <tfoot><tr>
+                <td /><td className="left"><b>Povprečje razreda</b></td><td /><td className="res">{avgPct} %</td>
+                {questions.map(q => { const p = perQuestion.get(q.id); return <td key={q.id} className="avg">{p == null ? '–' : `${p}`}</td>; })}
+              </tr></tfoot>
+            )}
+          </table>
+          <p className="prs-legend">✓ pravilno · črka = pravilni odgovor pri napačno rešeni nalogi · – brez odgovora · število = ročno vpisane točke{excluded.length && !perStudentOrder ? ' · prečrtana številka = naloga izvzeta iz točkovanja' : ''}{perStudentOrder ? ' · številke stolpcev so številke nalog na listu posameznega učenca' : ''}{!perStudentOrder ? ' · zadnja vrstica: delež pravilnih v %' : ''}</p>
+        </div>,
+        document.body,
       )}
 
       {/* statistika po vprašanjih */}
