@@ -42,6 +42,8 @@ export default function PaperScanner() {
   const work = useRef<HTMLCanvasElement | null>(null);
   const sessions = useRef(new Map<string, Promise<Loaded>>());
   const lastSig = useRef<{ s: string; n: number }>({ s: '', n: 0 });
+  /** od kdaj berem list tega učenca: ob negotovem branju (rumeno) skener še nekaj časa poskuša dobiti zanesljivo sliko */
+  const firstSeen = useRef<{ id: string; t: number }>({ id: '', t: 0 });
   const [running, setRunning] = useState(false);
   const [status, setStatus] = useState('Usmeri kamero v okvir z odgovori (vsi štirje črni kvadratki in QR koda).');
   const [hit, setHit] = useState<Hit | null>(null);
@@ -167,8 +169,13 @@ export default function PaperScanner() {
                   drawn = { reading, geom };
                   const sg = sig({ studentId: tok.studentId, reading });
                   lastSig.current = lastSig.current.s === sg ? { s: sg, n: lastSig.current.n + 1 } : { s: sg, n: 1 };
-                  setStatus(`${st.name}: berem …`);
-                  if (lastSig.current.n >= 2) {
+                  if (firstSeen.current.id !== tok.studentId) firstSeen.current = { id: tok.studentId, t: Date.now() };
+                  const unsure = reading.cells.some(c => c.uncertain);
+                  // negotovo branje: še do ~3 s poskušaj (drug kot, manj odseva); šele nato pokaži, kar je prebrano
+                  const waitMore = unsure && Date.now() - firstSeen.current.t < 3000;
+                  setStatus(waitMore ? `${st.name}: nekateri krogci niso jasni — drži telefon pri miru, berem znova …` : `${st.name}: berem …`);
+                  if (lastSig.current.n >= 2 && !waitMore) {
+                    firstSeen.current = { id: '', t: 0 };
                     const nOf = new Map([...layout.choice, ...layout.free].map(c => [c.item.id, c.n]));
                     const manual = s.session.quiz.questions.filter(q => q.kind === 'open' && q.manual)
                       .map(q => ({ id: q.id, n: nOf.get(q.id) ?? 0, prompt: q.prompt, points: q.points })).sort((a, b) => a.n - b.n);

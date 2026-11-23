@@ -98,6 +98,7 @@ html { scroll-behavior: smooth; }
   html.printing-results body > :not(.print-results) { display: none !important; }
   html.printing-results .print-results, html.printing-results .print-results * { visibility: visible !important; }
   html.printing-results .print-results { display: block; font-family: Inter, -apple-system, sans-serif; color: #222; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .print-results .prs-sheet + .prs-sheet { break-before: page; page-break-before: always; }
   .print-results .prs-head { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #1f3d2b; padding-bottom: 2mm; margin-bottom: 3mm; }
   .print-results .prs-cls { font-size: 9pt; color: #777; letter-spacing: .06em; text-transform: uppercase; }
   .print-results .prs-title { font-size: 16pt; font-weight: 700; color: #1f3d2b; }

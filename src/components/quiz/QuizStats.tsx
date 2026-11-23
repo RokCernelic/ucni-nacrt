@@ -9,6 +9,8 @@ import type { QuizFolder } from '@/lib/quiz/types';
 import { loadAllHistory, joinStatsChannel, isLive, participated, type QuizSession, type SessionStudent, type SessionAnswer } from '@/lib/quiz/sessionApi';
 import { scoreAnswers, isScored, answerFraction } from '@/lib/quiz/scoring';
 import { SessionResults } from './LiveSession';
+import ResultsPrintSheet from './ResultsPrint';
+import { createPortal } from 'react-dom';
 import { ceilPct, questionsLabel, pointsLabel, dateTimeLabel } from '@/lib/quiz/format';
 import { gradeColor } from '@/lib/quiz/format';
 
@@ -50,6 +52,16 @@ export default function QuizStats() {
   });
   const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // tisk rezultatov vseh izvedb kviza (vsak razred na svoj list A4); »zakrij imena« velja tudi za tisk ene izvedbe
+  const [anon, setAnonState] = useState(() => { try { return localStorage.getItem('rezultati-tisk-zakrij') === '1'; } catch { return false; } });
+  const setAnon = (v: boolean) => { setAnonState(v); try { localStorage.setItem('rezultati-tisk-zakrij', v ? '1' : '0'); } catch { /* ignore */ } };
+  const [printKey, setPrintKey] = useState<string | null>(null);
+  const printAll = (key: string) => {
+    setPrintKey(key);
+    const root = document.documentElement;
+    const done = () => { root.classList.remove('printing-results'); window.removeEventListener('afterprint', done); setPrintKey(null); };
+    setTimeout(() => { root.classList.add('printing-results'); window.addEventListener('afterprint', done); window.print(); }, 80);
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -139,6 +151,31 @@ export default function QuizStats() {
               </div>
               {isOpen && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '8px 12px 12px 34px', borderTop: '1px solid var(--hairline)' }}>
+                  {g.rows.some(r => r.people > 0) && (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px', flexWrap: 'wrap' }}>
+                      <label title="Na izpisu namesto imena in priimka okrajšave (npr. Janez Lojze Novak → JL. No.)"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: 'var(--muted)', cursor: 'pointer' }}>
+                        <input type="checkbox" checked={anon} onChange={e => setAnon(e.target.checked)} /> zakrij imena
+                      </label>
+                      <button onClick={() => printAll(g.key)} title="Natisne rezultate vseh izvedb tega kviza: vsak razred na svoj list A4"
+                        style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 600, color: 'var(--forest)', background: '#fff', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', padding: '6px 12px', cursor: 'pointer' }}>
+                        🖨 Natisni vse izvedbe
+                      </button>
+                    </div>
+                  )}
+                  {printKey === g.key && typeof document !== 'undefined' && createPortal(
+                    <div className="print-results">
+                      {[...g.rows].filter(r => r.people > 0).sort((a, b) => a.s.class_name.localeCompare(b.s.class_name, 'sl') || a.s.created_at.localeCompare(b.s.created_at)).map(r => {
+                        const libQ = lib.quizzes.find(q => q.id === r.s.quiz_id);
+                        const questions = r.s.quiz.questions.map(q => (q.prompt || !libQ ? q : { ...q, prompt: libQ.questions.find(x => x.id === q.id)?.prompt ?? '' }));
+                        const by = new Map<string, Record<string, string>>();
+                        for (const a of data.answersBySession.get(r.s.id) ?? []) by.set(a.student_id, { ...(by.get(a.student_id) ?? {}), [a.question_id]: a.value });
+                        return <ResultsPrintSheet key={r.s.id} session={r.s} students={data.studentsBySession.get(r.s.id) ?? []} answersByStudent={by}
+                          questions={questions} excluded={r.s.quiz.excluded ?? []} title={g.title} anon={anon} />;
+                      })}
+                    </div>,
+                    document.body,
+                  )}
                   {g.rows.map(r => (
               <Link key={r.s.id} href={`/kvizi/statistika?${selected ? `k=${encodeURIComponent(selected)}&` : ''}s=${r.s.id}`} style={card}>
                 <div style={{ flex: '1 1 240px', minWidth: 0 }}>
