@@ -127,7 +127,8 @@ export default function QuizStats() {
                   <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--ink)' }}>
                     {g.title}{g.deleted && <span style={{ fontSize: '11px', fontWeight: 500, color: '#b7791f', marginLeft: '8px' }}>izbrisan kviz</span>}
                     {g.live ? <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--green-ok)', marginLeft: '8px' }}>● v teku</span>
-                      : g.open && <span style={{ fontSize: '11px', fontWeight: 600, color: '#b7791f', marginLeft: '8px' }}>nezaključeno</span>}
+                      : g.open ? <span style={{ fontSize: '11px', fontWeight: 600, color: '#b7791f', marginLeft: '8px' }}>nezaključeno</span>
+                      : <span style={{ fontSize: '11px', fontWeight: 700, color: '#c0392b', marginLeft: '8px' }}>● zaključeno</span>}
                   </div>
                   <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '2px' }}>
                     {g.rows.length} {g.rows.length === 1 ? 'izvedba' : g.rows.length === 2 ? 'izvedbi' : g.rows.length < 5 ? 'izvedbe' : 'izvedb'} · {g.classes.join(', ')} · nazadnje {dateTimeLabel(g.rows[0].s.created_at)}
@@ -144,7 +145,8 @@ export default function QuizStats() {
                   <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--ink)' }}>
                     {r.s.class_name} · {dateTimeLabel(r.s.created_at)}
                     {r.live ? <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--green-ok)', marginLeft: '8px' }}>● v teku</span>
-                      : r.open && <span style={{ fontSize: '11px', fontWeight: 600, color: '#b7791f', marginLeft: '8px' }}>nezaključeno</span>}
+                      : r.open ? <span style={{ fontSize: '11px', fontWeight: 600, color: '#b7791f', marginLeft: '8px' }}>nezaključeno</span>
+                      : <span style={{ fontSize: '11px', fontWeight: 700, color: '#c0392b', marginLeft: '8px' }}>● zaključeno</span>}
                     {r.scoringChanged && <span style={{ fontSize: '11px', fontWeight: 600, color: '#b7791f', marginLeft: '8px' }} title="Točke v kvizu so bile spremenjene — odpri izvedbo in potrdi novo točkovanje">⚠ novo točkovanje ni potrjeno</span>}
                   </div>
                   <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '3px' }}>
