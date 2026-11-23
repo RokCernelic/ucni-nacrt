@@ -611,6 +611,47 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
         {error && <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: '#c0392b', margin: '0 0 14px' }}>{error}</p>}
         {scoringNote && <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: '#8a5a00', background: '#fdf6e3', border: '1px solid #ecd9a8', borderRadius: 'var(--r-sm)', padding: '8px 12px', margin: '0 0 14px' }}>{scoringNote}</p>}
 
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px', padding: '14px', border: '1px dashed var(--hairline)', borderRadius: 'var(--r-md)', alignItems: 'center' }}>
+          <span style={{ ...label, marginRight: '4px' }}>Dodaj vprašanje</span>
+          {view !== 'list' ? (
+            <button style={btn(true)} onClick={() => { flush(); setActive('__new'); }} title="Odpre urejevalnik naloge (kot v bazi nalog); naloga se shrani v bazo in doda v kviz">+ Nova naloga</button>
+          ) : (
+            <>
+              <button style={btn(true)} onClick={() => addQuestion(newMcQuestion())}>+ ABCD</button>
+              <button style={btn()} onClick={() => addQuestion(newTrueFalseQuestion())}>+ Drži / ne drži</button>
+              <button style={btn()} onClick={() => addQuestion(newNumericQuestion())}>+ Kratek odgovor (število)</button>
+              <button style={btn()} onClick={() => addQuestion(newOpenQuestion())}>+ Odprto</button>
+            </>
+          )}
+          <button style={{ ...btn(), borderColor: 'var(--forest)', fontWeight: 600 }} onClick={() => { flush(); setPicking(true); }}
+            title="Odpre bazo nalog: obkljukaš eno ali več nalog in jih dodaš v kviz">+ Iz baze nalog</button>
+          <span style={{ flex: 1 }} />
+          <button style={btn()} title="Izbriše vsa obstoječa vprašanja in uvozi vprašanja iz besedilne datoteke (.txt)" onClick={() => pickImport('replace')}>📄 Uvozi in zamenjaj</button>
+          <button style={btn()} title="Doda vprašanja iz besedilne datoteke (.txt) za obstoječimi vprašanji" onClick={() => pickImport('merge')}>📄 Uvozi in združi</button>
+          <a href="/primer-kviz.txt" download style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--muted)' }}>primer datoteke</a>
+          <input ref={importRef} type="file" accept=".txt,text/plain" hidden
+            onChange={e => { void importFile(e.target.files?.[0]); e.target.value = ''; }} />
+        </div>
+
+        {importResult && (
+          <div style={{ margin: '-4px 0 16px', padding: '12px 14px', borderRadius: 'var(--r-md)', fontFamily: 'var(--font-sans)', fontSize: '13px', lineHeight: 1.5,
+            background: importResult.errors.length ? '#fdf6e3' : '#eef6ee', border: `1px solid ${importResult.errors.length ? '#ecd9a8' : '#bfe3c0'}` }}>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'baseline' }}>
+              <strong style={{ color: 'var(--ink)' }}>
+                {importResult.file} — {importResult.mode === 'replace' ? 'zamenjano z' : 'dodano'}: {questionsLabel(importResult.questions.length)}
+                {importResult.errors.length > 0 && ` · preskočeno: ${importResult.errors.length}`}
+              </strong>
+              <span style={{ flex: 1 }} />
+              <button onClick={() => setImportResult(null)} style={{ ...iconBtn, width: '24px', height: '24px' }} title="Zapri">×</button>
+            </div>
+            {importResult.errors.length > 0 && (
+              <ul style={{ margin: '6px 0 0', paddingLeft: '18px', color: '#8a5a00' }}>
+                {importResult.errors.map((er, i) => <li key={i}>vrstica {er.line}: {er.message}</li>)}
+              </ul>
+            )}
+          </div>
+        )}
+
         {view === 'a4' && (
           <div style={{ overflowX: 'auto', margin: '0 -32px', padding: '4px 0 8px' }}>
             <QuizPaper quiz={draft} tasksById={taskById} activeId={drawerOpen ? active : null}
@@ -639,47 +680,6 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
             );
           })}
         </div>}
-
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '16px', padding: '14px', border: '1px dashed var(--hairline)', borderRadius: 'var(--r-md)', alignItems: 'center' }}>
-          <span style={{ ...label, marginRight: '4px' }}>Dodaj vprašanje</span>
-          {view !== 'list' ? (
-            <button style={btn(true)} onClick={() => { flush(); setActive('__new'); }} title="Odpre urejevalnik naloge (kot v bazi nalog); naloga se shrani v bazo in doda v kviz">+ Nova naloga</button>
-          ) : (
-            <>
-              <button style={btn(true)} onClick={() => addQuestion(newMcQuestion())}>+ ABCD</button>
-              <button style={btn()} onClick={() => addQuestion(newTrueFalseQuestion())}>+ Drži / ne drži</button>
-              <button style={btn()} onClick={() => addQuestion(newNumericQuestion())}>+ Kratek odgovor (število)</button>
-              <button style={btn()} onClick={() => addQuestion(newOpenQuestion())}>+ Odprto</button>
-            </>
-          )}
-          <button style={{ ...btn(), borderColor: 'var(--forest)', fontWeight: 600 }} onClick={() => { flush(); setPicking(true); }}
-            title="Odpre bazo nalog: obkljukaš eno ali več nalog in jih dodaš v kviz">+ Iz baze nalog</button>
-          <span style={{ flex: 1 }} />
-          <button style={btn()} title="Izbriše vsa obstoječa vprašanja in uvozi vprašanja iz besedilne datoteke (.txt)" onClick={() => pickImport('replace')}>📄 Uvozi in zamenjaj</button>
-          <button style={btn()} title="Doda vprašanja iz besedilne datoteke (.txt) za obstoječimi vprašanji" onClick={() => pickImport('merge')}>📄 Uvozi in združi</button>
-          <a href="/primer-kviz.txt" download style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--muted)' }}>primer datoteke</a>
-          <input ref={importRef} type="file" accept=".txt,text/plain" hidden
-            onChange={e => { void importFile(e.target.files?.[0]); e.target.value = ''; }} />
-        </div>
-
-        {importResult && (
-          <div style={{ marginTop: '12px', padding: '12px 14px', borderRadius: 'var(--r-md)', fontFamily: 'var(--font-sans)', fontSize: '13px', lineHeight: 1.5,
-            background: importResult.errors.length ? '#fdf6e3' : '#eef6ee', border: `1px solid ${importResult.errors.length ? '#ecd9a8' : '#bfe3c0'}` }}>
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'baseline' }}>
-              <strong style={{ color: 'var(--ink)' }}>
-                {importResult.file} — {importResult.mode === 'replace' ? 'zamenjano z' : 'dodano'}: {questionsLabel(importResult.questions.length)}
-                {importResult.errors.length > 0 && ` · preskočeno: ${importResult.errors.length}`}
-              </strong>
-              <span style={{ flex: 1 }} />
-              <button onClick={() => setImportResult(null)} style={{ ...iconBtn, width: '24px', height: '24px' }} title="Zapri">×</button>
-            </div>
-            {importResult.errors.length > 0 && (
-              <ul style={{ margin: '6px 0 0', paddingLeft: '18px', color: '#8a5a00' }}>
-                {importResult.errors.map((er, i) => <li key={i}>vrstica {er.line}: {er.message}</li>)}
-              </ul>
-            )}
-          </div>
-        )}
       </div>
       {starting && <StartSessionDialog quiz={draft} onClose={() => setStarting(false)} />}
       {picking && <BankPickerShell title={draft.title} onAdd={addFromBank} onClose={() => setPicking(false)} />}
