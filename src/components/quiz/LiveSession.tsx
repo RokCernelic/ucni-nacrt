@@ -275,7 +275,9 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
     try { await syncSessionScoring(libQuiz.id, libQuiz.questions); window.location.reload(); }
     catch (e) { alert(`Točkovanja ni bilo mogoče posodobiti: ${e instanceof Error ? e.message : String(e)}`); setSyncing(false); }
   };
-  const [sortBy, setSortBy] = useState<'name' | 'points'>('name');
+  // razvrščanje se zapomni (velja za vse rezultate, tudi za tisk)
+  const [sortBy, setSortByState] = useState<'name' | 'points'>(() => { try { return localStorage.getItem('rezultati-razvrsti') === 'points' ? 'points' : 'name'; } catch { return 'name'; } });
+  const setSortBy = (v: 'name' | 'points') => { setSortByState(v); try { localStorage.setItem('rezultati-razvrsti', v); } catch { /* ignore */ } };
   // ročno točkovane naloge starejših izvedb nimajo besedila — vzemi ga iz kviza v knjižnici
   const questions = useMemo(() => session.quiz.questions.map(q => (q.prompt || !libQuiz ? q : { ...q, prompt: libQuiz.questions.find(x => x.id === q.id)?.prompt ?? '' })), [session.quiz.questions, libQuiz]);
   // naloge, izvzete iz točkovanja (velja za to izvedbo; pri združenih rezultatih za vse prikazane izvedbe)

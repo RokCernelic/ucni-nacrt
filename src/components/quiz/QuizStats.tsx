@@ -171,7 +171,8 @@ export default function QuizStats() {
                         const by = new Map<string, Record<string, string>>();
                         for (const a of data.answersBySession.get(r.s.id) ?? []) by.set(a.student_id, { ...(by.get(a.student_id) ?? {}), [a.question_id]: a.value });
                         return <ResultsPrintSheet key={r.s.id} session={r.s} students={data.studentsBySession.get(r.s.id) ?? []} answersByStudent={by}
-                          questions={questions} excluded={r.s.quiz.excluded ?? []} title={g.title} anon={anon} />;
+                          questions={questions} excluded={r.s.quiz.excluded ?? []} title={g.title} anon={anon}
+                          byPoints={(() => { try { return localStorage.getItem('rezultati-razvrsti') === 'points'; } catch { return false; } })()} />;
                       })}
                     </div>,
                     document.body,
