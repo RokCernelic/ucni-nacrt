@@ -1,6 +1,7 @@
 import { sanitizeRichHtml } from '@/lib/richText';
 import { makeZip, type ZipFile } from './zip';
 import { readZip } from './unzip';
+import { topicInfo, chapterInfo } from './topics';
 import { emptyTask, type Task, type TaskDraft, type AnswerKind, type TaskKind, type BloomLevel, type Difficulty } from './types';
 
 /** Izvoz in uvoz nalog v JSON: ohrani VSE (besedilo z enačbami MathML, rešitve, možnosti, metapodatke, povezave med nalogami). */
@@ -132,6 +133,11 @@ export function parseTasksJson(text: string): JsonParse {
           .map(o => ({ id: str(o.id) ?? crypto.randomUUID(), text: str(o.text) ?? '' }))
       : null;
     const diff = numOrNull(t.difficulty), bloom = numOrNull(t.bloom);
+    // neznani ključi podpoglavij / poglavij / standardov (npr. iz datoteke, ki jo je pripravil AI) se ne uvozijo
+    const topics = strs(t.topics).filter(k => topicInfo(k) || (res.warnings.push(`${at}: neznano podpoglavje »${k}« — izpuščeno`), false));
+    const chapters = strs(t.chapters).filter(k => chapterInfo(k) || (res.warnings.push(`${at}: neznano poglavje »${k}« — izpuščeno`), false));
+    const known = new Set(topics.flatMap(k => topicInfo(k)?.standards.map(s => s.id) ?? []));
+    const standards = strs(t.standards).filter(id => !topics.length || known.has(id) || (res.warnings.push(`${at}: standard »${id}« ne sodi k izbranim podpoglavjem — izpuščen`), false));
     res.items.push({
       srcId: str(t.id) ?? `#${i}`,
       srcParent: str(t.parent_id),
@@ -142,7 +148,7 @@ export function parseTasksJson(text: string): JsonParse {
         difficulty: diff && diff >= 1 && diff <= 3 ? (diff as Difficulty) : null,
         bloom: bloom && bloom >= 1 && bloom <= 6 ? (bloom as BloomLevel) : null,
         kinds: strs(t.kinds).filter(k => TASK_KINDS.has(k)) as TaskKind[],
-        curriculum: str(t.curriculum), chapters: strs(t.chapters), topics: strs(t.topics), standards: strs(t.standards),
+        curriculum: str(t.curriculum) ?? ((topics[0] ?? chapters[0] ?? '').split(':')[0] || null), chapters, topics, standards,
         points: numOrNull(t.points) ?? 1, minutes: numOrNull(t.minutes),
         source: str(t.source) ?? 'lastna', tags: strs(t.tags), status: t.status === 'draft' ? 'draft' : 'verified',
         parent_id: null, // povezave se obnovijo po uvozu (nova id-ja)

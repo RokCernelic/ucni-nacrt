@@ -12,6 +12,7 @@ import { plural } from '@/lib/quiz/format';
 import BuildTest from './BuildTest';
 import { downloadTasksZip } from '@/lib/tasks/exportJson';
 import ImportJsonTasks from './ImportJsonTasks';
+import { downloadAiGuide } from '@/lib/tasks/aiGuide';
 import { plainKey } from '@/lib/tasks/import';
 import { offerUndo } from '@/lib/undoStore';
 import { orderTasks, groupTasks, isNested } from '@/lib/tasks/order';
@@ -243,6 +244,12 @@ export default function TaskBank({ picker }: { picker?: BankPicker } = {}) {
                 izberi vse{anyFilter ? ' (v filtru)' : ''}
               </label>
               {!picker && <ImportJsonTasks />}
+              {!picker && (
+                <button onClick={downloadAiGuide} style={btn()}
+                  title="Prenesi navodila (JSON) za AI: kako pripraviti nove ali pregledati in dopolniti naloge iz drugih virov, da jih uvoziš z »⬆ Uvozi ZIP« — z vsemi metapodatki in katalogom poglavij, podpoglavij in standardov">
+                  ⬇ Navodila za AI
+                </button>
+              )}
               {!picker && (() => {
                 const chosen = orderTasks(tasks.filter(t => selected.has(t.id)));
                 const list = chosen.length ? chosen : orderTasks(tasks);
