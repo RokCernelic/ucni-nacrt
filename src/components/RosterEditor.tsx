@@ -4,7 +4,7 @@ import { offerUndo } from '@/lib/undoStore';
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useRoster, parseRoster, rosterToText } from '@/hooks/useRoster';
-import { sortByLastName } from '@/lib/names';
+import { sortByLastName, initialsName } from '@/lib/names';
 import { genderStyle as baseGenderStyle } from '@/lib/genderColors';
 import { seatColors } from '@/lib/schoolColor';
 import { useQuizLibrary } from '@/hooks/useQuizLibrary';
@@ -323,7 +323,10 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
 
   // tisk seznama: izbor stolpcev; med tiskom je viden le .print-roster (globals.css, html.printing-roster)
   // natisnejo se stolpci, ki so vidni v tabeli (meni Stolpci ▾), v istem vrstnem redu; dodatno le prazni stolpci
-  const [printSel, setPrintSel] = useState({ blank: 0 });
+  const [printSel, setPrintSel] = useState(() => {
+    let anon = false; try { anon = localStorage.getItem('rezultati-tisk-zakrij') === '1'; } catch { /* ignore */ }
+    return { blank: 0, anon };
+  });
   const [printOpts, setPrintOpts] = useState<typeof printSel | null>(null);
   const printRoster = () => {
     setPrintOpts(printSel);
@@ -389,10 +392,14 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
               style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 600, color: '#fff', background: 'var(--forest)', border: 'none', borderRadius: 'var(--r-sm)', padding: '7px 14px', cursor: 'pointer' }}>
               🖨 Natisni seznam
             </button>
+            <label title="Na izpisu namesto imena in priimka okrajšave (npr. Janez Lojze Novak → JL. No.)"
+              style={{ display: 'inline-flex', gap: '4px', alignItems: 'center', fontSize: '12px', color: 'var(--muted)', cursor: 'pointer' }}>
+              <input type="checkbox" checked={printSel.anon} onChange={e => { const v = e.target.checked; setPrintSel(p => ({ ...p, anon: v })); try { localStorage.setItem('rezultati-tisk-zakrij', v ? '1' : '0'); } catch { /* ignore */ } }} /> zakrij imena
+            </label>
             <span style={{ display: 'inline-flex', gap: '10px', alignItems: 'center', fontSize: '12px', color: 'var(--muted)', flexWrap: 'wrap' }}>
               <label style={{ display: 'inline-flex', gap: '4px', alignItems: 'center' }} title="Prazni stolpci za ročne zapiske (npr. ocene, prisotnost)">
                 prazni stolpci
-                <input type="number" min={0} max={20} value={printSel.blank} onChange={e => setPrintSel(() => ({ blank: Math.max(0, Math.min(20, Number(e.target.value) || 0)) }))}
+                <input type="number" min={0} max={20} value={printSel.blank} onChange={e => setPrintSel(p => ({ ...p, blank: Math.max(0, Math.min(20, Number(e.target.value) || 0)) }))}
                   style={{ width: '46px', fontSize: '12px', padding: '2px 4px', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)' }} />
               </label>
             </span>
@@ -507,44 +514,75 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
       )}
       {/* Seznam za tisk (Natisni seznam): na zaslonu skrit, ob tisku edini viden */}
       {printOpts && typeof document !== 'undefined' && createPortal(
-        <div className="print-roster" aria-hidden>
+        <div className="print-roster print-results" aria-hidden>
           {printKeys.length + printOpts.blank + 1 > 7 ? <style>{'@page { size: A4 landscape; margin: 10mm; }'}</style> : <style>{'@page { size: A4 portrait; margin: 12mm; }'}</style>}
-          <div className="pr-head">
-            <div><div className="pr-cls">{className}</div><div className="pr-title">Seznam učencev</div></div>
-            <div className="pr-meta">{students.length} učencev · {students.filter(x => x.gender === 'Ž').length} Ž / {students.filter(x => x.gender === 'M').length} M<br />{new Date().toLocaleDateString('sl-SI', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
-          </div>
-          <table className="pr-table">
-            <thead>
-              <tr>
-                <th className="num">#</th><th className="left">Učenec</th><th className="avg">⌀ %</th>
-                {printKeys.map(k => {
-                  if (k === 'gender') return <th key={k}>Spol</th>;
-                  if (k === 'pin') return <th key={k}>PIN</th>;
-                  if (k === 'seat') return <th key={k} className="left">Sedežni red</th>;
-                  if (k.startsWith('q:')) { const c = quizCols.find(c => `q:${c.s.id}` === k)!; return <th key={k} className="quiz">{c.title}<br /><span>{new Date(c.s.created_at).toLocaleDateString('sl-SI', { day: 'numeric', month: 'numeric', year: '2-digit' })}</span></th>; }
-                  const m = cfg.manual.find(m => `m:${m.id}` === k)!; return <th key={k} className="quiz">{m.name}</th>;
-                })}
-                {printOpts.blank > 0 && Array.from({ length: printOpts.blank }, (_, i) => <th key={`b${i}`} className="blank" />)}
-              </tr>
-            </thead>
-            <tbody>
-              {sortedStudents.map(s => { const gs = genderStyle(s.gender); return (
-                <tr key={s.id} style={{ background: gs.bg }}>
-                  <td className="num" style={{ color: gs.color }}>{numberOf(s)}</td>
-                  <td className="left name" style={{ color: gs.color }}>{s.name}</td>
-                  {(() => { const g = avgGrade(s); return <td className="avg" style={{ color: gradeTint(g) }}>{fmtGrade(g)}</td>; })()}
-                  {printKeys.map(k => {
-                    if (k === 'gender') return <td key={k} style={{ color: gs.color }}>{s.gender || '—'}</td>;
-                    if (k === 'pin') return <td key={k} className="pin">{s.pin ?? '—'}</td>;
-                    if (k === 'seat') return <td key={k} className="left" style={{ fontSize: '8.5pt' }}>{seatRulesText(s)}</td>;
-                    if (k.startsWith('q:')) { const c = quizCols.find(c => `q:${c.s.id}` === k)!; const r = resOf(c, s); return <td key={k} className="res" style={{ color: r ? gradeColor(r.pct) : '#999' }}>{r ? `${r.pct} %` : '–'}</td>; }
-                    const m = cfg.manual.find(m => `m:${m.id}` === k)!; return <td key={k} className="res">{m.values[s.id] ?? ''}</td>;
-                  })}
-                  {printOpts.blank > 0 && Array.from({ length: printOpts.blank }, (_, i) => <td key={`b${i}`} />)}
-                </tr>
-              ); })}
-            </tbody>
-          </table>
+          {/* enak videz kot tisk rezultatov kviza (globals.css: .print-results .prs-*) */}
+          {(() => {
+            const avgs = students.map(x => avgGrade(x)).filter((n): n is number => n != null);
+            const classAvg = avgs.length ? avgs.reduce((a, b) => a + b, 0) / avgs.length : null;
+            return (
+              <div className="prs-sheet">
+                <div className="prs-head">
+                  <div>
+                    <div className="prs-cls">{className} · {new Date().toLocaleDateString('sl-SI')}</div>
+                    <div className="prs-title">Seznam učencev</div>
+                  </div>
+                  <div className="prs-meta">{students.length} učencev · {students.filter(x => x.gender === 'Ž').length} Ž / {students.filter(x => x.gender === 'M').length} M{classAvg != null && <> · povprečje <b style={{ color: gradeTint(classAvg) }}>{fmtGrade(classAvg)}</b></>}</div>
+                </div>
+                <table className="prs-table">
+                  <thead><tr>
+                    <th className="num">#</th><th className="left">{printOpts.anon ? 'Učenec (okrajšano)' : 'Učenec'}</th>
+                    <th style={{ borderRight: '1mm double #8f9b92' }}>⌀ %</th>
+                    {printKeys.map(k => {
+                      if (k === 'gender') return <th key={k}>Spol</th>;
+                      if (k === 'pin') return <th key={k}>PIN</th>;
+                      if (k === 'seat') return <th key={k} className="left">Sedežni red</th>;
+                      if (k.startsWith('q:')) { const c = quizCols.find(c => `q:${c.s.id}` === k)!; return <th key={k} style={{ maxWidth: '24mm', fontWeight: 600, lineHeight: 1.2 }}>{c.title}<br /><span style={{ fontWeight: 400, color: '#666' }}>{new Date(c.s.created_at).toLocaleDateString('sl-SI', { day: 'numeric', month: 'numeric', year: '2-digit' })}</span></th>; }
+                      const m = cfg.manual.find(m => `m:${m.id}` === k)!; return <th key={k} style={{ maxWidth: '24mm', lineHeight: 1.2 }}>{m.name}</th>;
+                    })}
+                    {printOpts.blank > 0 && Array.from({ length: printOpts.blank }, (_, i) => <th key={`b${i}`} style={{ minWidth: '14mm' }} />)}
+                  </tr></thead>
+                  <tbody>
+                    {sortedStudents.map(s => { const g = avgGrade(s); return (
+                      <tr key={s.id}>
+                        <td className="num">{numberOf(s)}</td>
+                        <td className="left name">{printOpts.anon ? initialsName(s.name) : s.name}</td>
+                        <td className="res" style={{ color: gradeTint(g), borderRight: '1mm double #8f9b92' }}>{fmtGrade(g)}</td>
+                        {printKeys.map(k => {
+                          if (k === 'gender') return <td key={k}>{s.gender || '–'}</td>;
+                          if (k === 'pin') return <td key={k} className="res" style={{ letterSpacing: '.08em' }}>{s.pin ?? '–'}</td>;
+                          if (k === 'seat') return <td key={k} className="left" style={{ fontSize: '8.5pt' }}>{seatRulesText(s)}</td>;
+                          if (k.startsWith('q:')) { const c = quizCols.find(c => `q:${c.s.id}` === k)!; const r = resOf(c, s); return <td key={k} className={r ? 'res' : 'none'} style={r ? { color: gradeColor(r.pct) } : undefined}>{r ? `${r.pct} %` : '–'}</td>; }
+                          const m = cfg.manual.find(m => `m:${m.id}` === k)!; return <td key={k} className="pts">{m.values[s.id] ?? ''}</td>;
+                        })}
+                        {printOpts.blank > 0 && Array.from({ length: printOpts.blank }, (_, i) => <td key={`b${i}`} />)}
+                      </tr>
+                    ); })}
+                  </tbody>
+                  <tfoot><tr>
+                    <td /><td className="left"><b>Povprečje razreda</b></td>
+                    <td className="res" style={{ color: gradeTint(classAvg), borderRight: '1mm double #8f9b92' }}>{fmtGrade(classAvg)}</td>
+                    {printKeys.map(k => {
+                      if (k.startsWith('q:')) {
+                        const c = quizCols.find(c => `q:${c.s.id}` === k)!;
+                        const v = [...c.res.values()]; const p = v.length ? ceilPct(v.reduce((t, r) => t + r.pct, 0) / v.length) : null;
+                        return <td key={k} className="avg" style={p == null ? undefined : { color: gradeColor(p), fontWeight: 700 }}>{p == null ? '–' : `${p} %`}</td>;
+                      }
+                      if (k.startsWith('m:')) {
+                        const m = cfg.manual.find(m => `m:${m.id}` === k)!;
+                        const isPct = pctCols.includes(m);
+                        const nums = students.map(x => (isPct ? pctOf(m.values[x.id]) : numVal(m.values[x.id]))).filter((n): n is number => n != null);
+                        const avg = nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null;
+                        return <td key={k} className="avg" style={isPct && avg != null ? { color: gradeTint(avg), fontWeight: 700 } : undefined}>{avg == null ? '' : isPct ? fmtGrade(avg) : formatNumber(Math.round(avg * 100) / 100)}</td>;
+                      }
+                      return <td key={k} />;
+                    })}
+                    {printOpts.blank > 0 && Array.from({ length: printOpts.blank }, (_, i) => <td key={`b${i}`} />)}
+                  </tr></tfoot>
+                </table>
+              </div>
+            );
+          })()}
         </div>,
         document.body,
       )}
