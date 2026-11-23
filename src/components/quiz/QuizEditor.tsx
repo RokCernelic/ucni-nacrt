@@ -5,6 +5,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { openQuestionHtml, itemsFromQuiz } from '@/lib/quiz/printSheet';
 import QuizPaper from '@/components/quiz/QuizPaper';
+import DecimalInput from '@/components/DecimalInput';
 import QuizHalvesPreview from '@/components/quiz/QuizHalvesPreview';
 import QuestionTaskDrawer, { questionFromTask } from '@/components/quiz/QuestionTaskDrawer';
 import { useAuth } from '@/hooks/useAuth';
@@ -95,8 +96,8 @@ function QuestionCard({ q, index, total, onChange, onMove, onDuplicate, onDelete
         </span>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--muted)', marginLeft: '6px' }}>
           točke
-          <input type="number" min={0.5} step={0.5} value={q.points}
-            onChange={e => onChange({ ...q, points: Math.max(0, Number(e.target.value) || 0) })}
+          <DecimalInput value={q.points}
+            onChange={n => onChange({ ...q, points: n ?? 0 })}
             style={{ ...input, width: '64px', padding: '4px 6px', fontSize: '13px' }} />
         </span>
         <span style={{ flex: 1 }} />
@@ -180,8 +181,8 @@ function QuestionCard({ q, index, total, onChange, onMove, onDuplicate, onDelete
           </label>
           <label style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <span style={label}>Toleranca ±</span>
-            <input type="number" min={0} step="any" value={q.tolerance}
-              onChange={e => setNum({ tolerance: Math.max(0, Number(e.target.value) || 0) })}
+            <DecimalInput value={q.tolerance}
+              onChange={n => setNum({ tolerance: n ?? 0 })}
               style={{ ...input, width: '120px' }} />
           </label>
           <label style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>

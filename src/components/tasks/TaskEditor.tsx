@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import RichField from '@/components/RichField';
+import DecimalInput from '@/components/DecimalInput';
 import { isRichEmpty, sanitizeRichHtml } from '@/lib/richText';
 import { parseNumber } from '@/lib/quiz/scoring';
 import {
@@ -167,7 +168,7 @@ export default function TaskEditor({ initial, fixedTopic, onSave, onCancel, save
               style={{ ...input, width: '130px', borderColor: t.correct && parseNumber(t.correct) === null ? '#c0392b' : 'var(--hairline)' }} />
           </Field>
           <Field label="Toleranca ±">
-            <input type="number" min={0} step="any" value={t.tolerance ?? ''} onChange={e => up({ tolerance: e.target.value === '' ? null : Math.max(0, Number(e.target.value)) })} style={{ ...input, width: '100px' }} />
+            <DecimalInput allowEmpty value={t.tolerance} onChange={n => up({ tolerance: n })} style={{ ...input, width: '100px' }} />
           </Field>
           <Field label="Enota">
             <input value={t.unit ?? ''} placeholder="npr. N" onChange={e => up({ unit: e.target.value || null })} style={{ ...input, width: '90px' }} />
@@ -260,7 +261,7 @@ export default function TaskEditor({ initial, fixedTopic, onSave, onCancel, save
 
       <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
         <Field label="Točke">
-          <input type="number" min={0.5} step={0.5} value={t.points} onChange={e => up({ points: Math.max(0, Number(e.target.value) || 0) })} style={{ ...input, width: '70px' }} />
+          <DecimalInput value={t.points} onChange={n => up({ points: n ?? 0 })} style={{ ...input, width: '70px' }} />
         </Field>
         <Field label="Čas (min)">
           <input type="number" min={0} value={t.minutes ?? ''} onChange={e => up({ minutes: e.target.value === '' ? null : Math.max(0, Math.round(Number(e.target.value))) })} style={{ ...input, width: '70px' }} />
