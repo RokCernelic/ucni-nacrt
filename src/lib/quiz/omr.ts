@@ -221,8 +221,48 @@ export interface QrCorners { topLeft: Pt; topRight: Pt; bottomLeft: Pt; bottomRi
 export interface CellReading { n: number; multi: boolean; fills: number[]; chosen: number[]; uncertain: boolean }
 export interface SheetReading { H: number[]; cells: CellReading[]; marks: Pt[] }
 
-const FILLED = 0.42;
-const UNSURE = 0.22;
+/** Pobarvanost, ki zanesljivo pomeni »pobarvano« (delež temnosti glede na lokalni papir in črne kvadratke). */
+const FILLED = 0.36;
+/** Najmanjša razlika do najsvetlejšega krogca v vrstici, da je krogec sploh lahko pobarvan. */
+const LIGHT = 0.17;
+/** Za šibko pobarvan krogec (svinčnik, le delno pobarvan): toliko mora biti temnejši od naslednjega najtemnejšega. */
+const LEAD = 0.1;
+const UNSURE = 0.2;
+
+/**
+ * Svetlost papirja okrog točke: zgornji percentil svetlosti v kvadratu okrog krogca (večina je papir),
+ * tako senca ali neenakomerna osvetlitev ne vplivata na oceno pobarvanosti.
+ */
+function localWhite(g: Gray, cx: number, cy: number, half: number): number {
+  const hist = new Uint32Array(256);
+  let n = 0;
+  const step = Math.max(1, Math.floor(half / 14));
+  for (let y = Math.max(0, Math.floor(cy - half)); y <= Math.min(g.h - 1, Math.ceil(cy + half)); y += step) {
+    for (let x = Math.max(0, Math.floor(cx - half)); x <= Math.min(g.w - 1, Math.ceil(cx + half)); x += step) { hist[g.d[y * g.w + x]]++; n++; }
+  }
+  if (!n) return 255;
+  let k = 255, acc = 0;
+  for (; k > 0; k--) { acc += hist[k]; if (acc >= n * 0.15) break; }
+  return k;
+}
+
+/** Delež temnosti v krogu: povprečje in delež izrazito temnih pik (poteze pisala), oboje glede na lokalni papir. */
+function bubbleFill(g: Gray, cx: number, cy: number, r: number, white: number, span: number): number {
+  let s = 0, ink = 0, n = 0;
+  const r2 = r * r, cut = white - span * 0.4;
+  for (let y = Math.max(0, Math.floor(cy - r)); y <= Math.min(g.h - 1, Math.ceil(cy + r)); y++) {
+    for (let x = Math.max(0, Math.floor(cx - r)); x <= Math.min(g.w - 1, Math.ceil(cx + r)); x++) {
+      const dx = x - cx, dy = y - cy;
+      if (dx * dx + dy * dy > r2) continue;
+      const p = g.d[y * g.w + x];
+      s += p; n++; if (p < cut) ink++;
+    }
+  }
+  if (!n) return 0;
+  const mean = Math.max(0, Math.min(1, (white - s / n) / span));
+  // delno pobarvan krogec z močnimi potezami: delež temnih pik pove več kot povprečje
+  return Math.max(mean, (ink / n) * 0.85);
+}
 
 /** Prebere krogce, ko poznamo geometrijo okvirja in položaj QR kode v sliki. */
 export function readSheet(g: Gray, geom: FrameGeometry, qr: QrCorners): SheetReading | null {
@@ -263,12 +303,21 @@ export function readWithMarks(g: Gray, geom: FrameGeometry, marks: Pt[], pxPerMm
   const cells: CellReading[] = geom.cells.map(c => {
     const fills = c.bubbles.map(b => {
       const [cx, cy] = project(H, b.cx, b.cy);
-      return Math.max(0, Math.min(1, (white - meanDisk(g, cx, cy, geom.bub * 0.33 * pxPerMm)) / span));
+      // lokalni papir (senca, gradient osvetlitve), a nikoli temnejši od pol poti do črne
+      const lw = Math.max(black + span * 0.5, Math.min(white + 25, localWhite(g, cx, cy, geom.bub * 0.7 * pxPerMm)));
+      return bubbleFill(g, cx, cy, geom.bub * 0.36 * pxPerMm, lw, Math.max(30, lw - black));
     });
-    // primerjava z najsvetlejšim krogcem v vrstici (črke, svinčnik, senca)
+    // primerjava z najsvetlejšim krogcem v vrstici (natisnjena črka, sled radirke)
     const base = fills.length >= 3 ? Math.min(...fills) : 0;
-    const chosen = fills.map((f, i) => (f >= FILLED && f - base >= FILLED * 0.75 ? i : -1)).filter(i => i >= 0);
-    const uncertain = fills.some((f, i) => !chosen.includes(i) && f - base >= UNSURE) || (!c.multi && chosen.length > 1);
+    const sorted = [...fills].sort((a, b) => b - a);
+    let weak = false;
+    let chosen = fills.map((f, i) => (f >= FILLED && f - base >= FILLED * 0.7 ? i : -1)).filter(i => i >= 0);
+    // šibko pobarvan krogec (svinčnik, le delno): izrazito najtemnejši v vrstici → izbran, a označen kot negotov
+    if (!chosen.length && fills.length >= 2 && sorted[0] - base >= LIGHT && sorted[0] - sorted[1] >= LEAD) {
+      chosen = [fills.indexOf(sorted[0])];
+      weak = true;
+    }
+    const uncertain = weak || fills.some((f, i) => !chosen.includes(i) && f - base >= UNSURE) || (!c.multi && chosen.length > 1);
     return { n: c.n, multi: c.multi, fills, chosen, uncertain };
   });
   return { H, cells, marks };
