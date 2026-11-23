@@ -21,8 +21,8 @@ export function SheetHead({ sheet: sh, title, className, placeholder, suffix }: 
       <b className="pqz-title">{title}{suffix}</b>
       <span className="pqz-meta">{placeholder && sh.name ? 'DATUM' : todayLabel()}</span>
       <span className="pqz-name">{sh.name ?? 'Ime in priimek: ______________________'}</span>
-      {/* nad QR kodo (desno v okvirju): puščica kaže na sredino kode */}
-      {sh.qr && <span className="pqz-scanhint" style={{ paddingRight: `${FRAME.padX + FRAME.qr / 2 - 1.6}mm` }}>Poskeniraj kodo za rezultate <b>↓</b></span>}
+      {/* nad QR kodo (desno v okvirju) */}
+      {sh.qr && <span className="pqz-scanhint"><b>↓</b> Poskeniraj kodo za rezultate <b>↓</b></span>}
     </header>
   );
 }
