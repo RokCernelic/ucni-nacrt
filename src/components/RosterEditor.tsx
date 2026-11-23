@@ -3,13 +3,18 @@
 import { offerUndo } from '@/lib/undoStore';
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import {
+  buildQuizCols, resOf, numVal, pctColsOf, avgPctOf, columnsOf, sortStudents, readRosterSort, readColCfg, cfgKeyOf, SORT_KEY,
+  numberOf as numberOfLib, seatRulesText as seatRulesOf, readRosterStudents, type ColCfg, type RosterSort, type QuizCol,
+} from '@/lib/rosterTable';
+import RosterPrintSheet from '@/components/RosterPrintSheet';
+import { useMasterClasses } from '@/hooks/useMasterClasses';
 import { useRoster, parseRoster, rosterToText } from '@/hooks/useRoster';
-import { sortByLastName, initialsName } from '@/lib/names';
+import { sortByLastName } from '@/lib/names';
 import { genderStyle as baseGenderStyle } from '@/lib/genderColors';
 import { seatColors } from '@/lib/schoolColor';
 import { useQuizLibrary } from '@/hooks/useQuizLibrary';
-import { loadClassHistory, participated, type QuizSession } from '@/lib/quiz/sessionApi';
-import { scoreAnswers } from '@/lib/quiz/scoring';
+import { loadClassHistory } from '@/lib/quiz/sessionApi';
 import { ceilPct, gradeColor, formatNumber } from '@/lib/quiz/format';
 
 export default function RosterEditor({ classId, className, shade }: { classId: string; className: string; /** odtenek šole (kot pri sedežnem redu) */ shade?: number }) {
@@ -42,9 +47,7 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
   const missingPins = students.some(s => !s.pin);
   // pravila sedežnega reda za enega učenca se urejajo v oknu (gumb 🪑)
   const [seatFor, setSeatFor] = useState<string | null>(null);
-  const seatRulesText = (st: (typeof students)[number]) => [
-    st.frontRow && 'prva vrsta', st.nextToBoy && 'ob fantu', st.apartFrom?.length && `ne ob: ${students.find(x => x.id === st.apartFrom![0])?.name ?? '?'}`,
-  ].filter(Boolean).join(' · ');
+  const seatRulesText = (st: (typeof students)[number]) => seatRulesOf(st, students);
 
   // rezultati kvizov/testov tega razreda: en stolpec na izvedbo (z vsaj enim sodelujočim), od najstarejše
   const lib = useQuizLibrary();
@@ -54,40 +57,15 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
     loadClassHistory(classId).then(h => { if (alive) setHistory(h); }).catch(() => { /* brez prijave / brez povezave: brez stolpcev */ });
     return () => { alive = false; };
   }, [classId]);
-  type R = { pct: number; pts: number; max: number; sid: string };
-  const normName = (n: string) => n.trim().toLowerCase().replace(/\s+/g, ' ');
-  // rezultat učenca v izvedbi: po id-ju iz seznama, sicer po imenu (npr. če je bil seznam ponovno vnesen in so id-ji novi)
-  const resOf = (c: { res: Map<string, R>; byName: Map<string, R> }, st: { id: string; name: string }) => c.res.get(st.id) ?? c.byName.get(normName(st.name));
-  const quizCols = (() => {
-    if (!history) return [] as { s: QuizSession; title: string; res: Map<string, R>; byName: Map<string, R> }[];
-    return history.sessions.map(s => {
-      const by = new Map<string, Record<string, string>>();
-      for (const a of history.answersBySession.get(s.id) ?? []) by.set(a.student_id, { ...(by.get(a.student_id) ?? {}), [a.question_id]: a.value });
-      const res = new Map<string, R>();
-      const byName = new Map<string, R>();
-      for (const st of (history.studentsBySession.get(s.id) ?? []).filter(participated)) {
-        const sc = scoreAnswers(s.quiz, by.get(st.student_id) ?? {});
-        const r: R = { pct: ceilPct(sc.percent), pts: sc.points, max: sc.maxPoints, sid: st.student_id };
-        res.set(st.student_id, r);
-        byName.set(normName(st.name), r);
-      }
-      return { s, title: lib.quizzes.find(q => q.id === s.quiz_id)?.title || s.quiz_title, res, byName };
-    }).filter(c => c.res.size > 0);
-  })();
+  const quizCols = buildQuizCols(history, s => lib.quizzes.find(q => q.id === s.quiz_id)?.title || s.quiz_title);
 
   // zaporedna številka: podana v seznamu (»Ime Priimek, M, 12«), sicer mesto po priimku
-  const byLast = sortByLastName(students);
-  const numberOf = (st: (typeof students)[number]) => st.no ?? byLast.findIndex(x => x.id === st.id) + 1;
+  const numberOf = (st: (typeof students)[number]) => numberOfLib(st, students);
   const nameOf = (id?: string) => students.find(x => x.id === id)?.name ?? '';
 
   // ročni stolpci (poimenuje jih učitelj, vrednosti vpisuje sam) in lasten vrstni red stolpcev — za vsak razred posebej
-  type ManualCol = { id: string; name: string; values: Record<string, string> };
-  type ColCfg = { manual: ManualCol[]; order: string[]; hidden?: string[]; nameWidth?: number };
-  const cfgKey = `ucni-nacrt-rostercols-${classId}`;
-  const [cfg, setCfg] = useState<ColCfg>(() => {
-    try { const r = typeof window !== 'undefined' ? localStorage.getItem(cfgKey) : null; const v = r ? JSON.parse(r) : null; return { manual: v?.manual ?? [], order: v?.order ?? [], hidden: v?.hidden ?? [], nameWidth: v?.nameWidth }; }
-    catch { return { manual: [], order: [] }; }
-  });
+  const cfgKey = cfgKeyOf(classId);
+  const [cfg, setCfg] = useState<ColCfg>(() => readColCfg(classId));
   const cfgRef = useRef(cfg);
   useEffect(() => { cfgRef.current = cfg; }, [cfg]);
   const saveCfg = (next: ColCfg) => {
@@ -118,26 +96,14 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
     const values = { ...m.values }; if (value.trim()) values[studentId] = value; else delete values[studentId];
     saveCfg({ ...cfg, manual: cfg.manual.map(x => (x.id === id ? { ...x, values } : x)) });
   };
-  const numVal = (v: string | undefined) => { if (!v) return null; const n = parseFloat(v.replace(',', '.')); return Number.isFinite(n) && /^\s*[-+]?\d+([.,]\d+)?\s*$/.test(v) ? n : null; };
-  // povprečje odstotkov: rezultati kvizov in ročni stolpci, v katere so vpisani odstotki (npr. 85 %)
-  const pctOf = (v: string | undefined) => { const m = /^\s*(\d{1,3}(?:[.,]\d+)?)\s*%\s*$/.exec(v ?? ''); const n = m ? Number(m[1].replace(',', '.')) : NaN; return n >= 0 && n <= 100 ? n : null; };
-  const pctCols = cfg.manual.filter(m => { const vs = Object.values(m.values).filter(v => v.trim()); return vs.length > 0 && vs.every(v => pctOf(v) != null); });
-  const avgGrade = (st: { id: string; name: string }): number | null => {
-    const ps = [
-      ...quizCols.map(c => resOf(c, st)?.pct ?? null),
-      ...pctCols.map(m => pctOf(m.values[st.id])),
-    ].filter((n): n is number => n != null);
-    return ps.length ? ps.reduce((a, b) => a + b, 0) / ps.length : null;
-  };
+  const pctCols = pctColsOf(cfg);
+  const avgGrade = (st: { id: string; name: string }) => avgPctOf(st, quizCols, pctCols);
   const gradeTint = (p: number | null) => (p == null ? 'var(--muted)' : gradeColor(ceilPct(p)));
   const fmtGrade = (p: number | null) => (p == null ? '–' : `${ceilPct(p)} %`);
   const AVG_SEP = '3px double #aeb8b0';
 
   // vrstni red stolpcev: shranjeni vrstni red, novi stolpci (nov kviz, nov ročni stolpec) na konec
-  const defaultKeys = ['gender', 'pin', 'seat', ...quizCols.map(c => `q:${c.s.id}`), ...cfg.manual.map(m => `m:${m.id}`)];
-  const colKeys = [...cfg.order.filter(k => defaultKeys.includes(k)), ...defaultKeys.filter(k => !cfg.order.includes(k))];
-  const hidden = new Set(cfg.hidden ?? []);
-  const visibleKeys = colKeys.filter(k => !hidden.has(k));
+  const { defaultKeys, colKeys, hidden, visibleKeys } = columnsOf(cfg, quizCols);
   const toggleHidden = (k: string) => saveCfg({ ...cfg, hidden: hidden.has(k) ? [...hidden].filter(x => x !== k) : [...hidden, k] });
   const colLabel = (k: string) => k === 'gender' ? 'Spol' : k === 'pin' ? 'PIN' : k === 'seat' ? 'Sedež (pravila)'
     : k.startsWith('q:') ? (() => { const c = quizCols.find(c => `q:${c.s.id}` === k); return c ? `${c.title} (${dateShort(c.s.created_at)})` : k; })()
@@ -165,7 +131,7 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
       setDragW(null);
       if (w !== w0) saveCfg({ ...cfgRef.current, nameWidth: Math.round(w) });
     };
-    document.body.style.cursor = 'col-resize';
+    document.body.style.setProperty('cursor', 'col-resize');
     window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
   };
   const customOrder = cfg.order.length > 0 && colKeys.some((k, i) => k !== defaultKeys[i]);
@@ -182,40 +148,14 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
 
   // razvrščanje seznama s klikom na ime stolpca (ponovni klik obrne smer)
   // razvrščanje (stolpec + smer) se zapomni in velja za vse razrede (menjava zavihka razreda ga ohrani)
-  type Sort = { key: string; dir: 1 | -1 };
-  const SORT_KEY = 'ucni-nacrt-roster-sort';
-  const [sort, setSort] = useState<Sort>(() => {
-    try { const v = JSON.parse(localStorage.getItem(SORT_KEY) ?? 'null'); if (v && typeof v.key === 'string' && (v.dir === 1 || v.dir === -1)) return v; } catch { /* ignore */ }
-    return { key: 'name', dir: 1 };
-  });
+  type Sort = RosterSort;
+  const [sort, setSort] = useState<Sort>(readRosterSort);
   const clickSort = (key: string) => {
     const n: Sort = sort.key === key ? { key, dir: sort.dir === 1 ? -1 : 1 } : { key, dir: 1 };
     setSort(n);
     try { localStorage.setItem(SORT_KEY, JSON.stringify(n)); } catch { /* ignore */ }
   };
-  const sortValue = (key: string, st: (typeof students)[number]): string | number => {
-    if (key === 'gender') return st.gender || '~';
-    if (key === 'pin') return st.pin ?? '~';
-    if (key === 'avg') { const g = avgGrade(st); return g == null ? 1e9 : -g; } // najboljši najprej
-    if (key === 'seat') return -((st.frontRow ? 4 : 0) + (st.nextToBoy ? 2 : 0) + (st.apartFrom?.length ? 1 : 0));
-    if (key.startsWith('q:')) { const c = quizCols.find(c => `q:${c.s.id}` === key); const r = c ? resOf(c, st) : undefined; return r ? -r.pct : 1; } // najboljši najprej
-    if (key.startsWith('m:')) {
-      const v = cfg.manual.find(m => `m:${m.id}` === key)?.values[st.id] ?? '';
-      const n = numVal(v);
-      return n != null ? `0${String(1e6 - n * 100).padStart(12, '0')}` : v ? `1${v.toLowerCase()}` : '~'; // števila (večja najprej), nato besedilo, prazno na konec
-    }
-    return 0;
-  };
-  const sortedStudents = (() => {
-    const base = sortByLastName(students); // pri enakih vrednostih po priimku
-    if (sort.key === 'name') return sort.dir === 1 ? base : [...base].reverse();
-    if (!colKeys.includes(sort.key) && sort.key !== 'avg') return base;
-    return base.map((st, i) => ({ st, i })).sort((a, b) => {
-      const va = sortValue(sort.key, a.st), vb = sortValue(sort.key, b.st);
-      const c = typeof va === 'number' && typeof vb === 'number' ? va - vb : String(va).localeCompare(String(vb), 'sl');
-      return c * sort.dir || a.i - b.i;
-    }).map(x => x.st);
-  })();
+  const sortedStudents = sortStudents(students, sort, quizCols, cfg, colKeys);
   const W = { gender: 44, pin: 52, seat: 96, quiz: 72, manual: 96 };
   // oblika kot tabela »Učenec × vprašanje« v Rezultatih; vrstice v barvah sedežnega reda
   const TH: React.CSSProperties = { position: 'sticky', top: 0, zIndex: 2, background: 'var(--canvas)', borderBottom: '1px solid var(--hairline)', padding: '8px 12px',
@@ -331,22 +271,51 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
     return <td key={k} style={st} />;
   };
 
-  // tisk seznama: izbor stolpcev; med tiskom je viden le .print-roster (globals.css, html.printing-roster)
-  // natisnejo se stolpci, ki so vidni v tabeli (meni Stolpci ▾), v istem vrstnem redu; dodatno le prazni stolpci
+  // tisk seznama: med tiskom je viden le .print-roster (globals.css, html.printing-roster).
+  // Natisnejo se stolpci, ki so vidni v tabeli (meni Stolpci ▾); en razred ali vsi razredi iste generacije na šoli (vsak na svoj list),
+  // po želji le učenci s povprečjem nad izbranim odstotkom.
   const [printSel, setPrintSel] = useState(() => {
     let anon = false; try { anon = localStorage.getItem('rezultati-tisk-zakrij') === '1'; } catch { /* ignore */ }
-    return { blank: 0, anon };
+    return { blank: 0, anon, minOn: false, min: 80 };
   });
-  const [printOpts, setPrintOpts] = useState<typeof printSel | null>(null);
-  const printRoster = () => {
-    setPrintOpts(printSel);
+  type PrintSheetData = { key: string; className: string; students: typeof students; quizCols: QuizCol[]; cfg: ColCfg };
+  const [printOpts, setPrintOpts] = useState<{ sheets: PrintSheetData[]; blank: number; anon: boolean; minPct: number | null } | null>(null);
+  const [printMenu, setPrintMenu] = useState(false);
+  const menuItem: React.CSSProperties = { display: 'block', width: '100%', textAlign: 'left', padding: '8px 14px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--ink)' };
+  const [printBusy, setPrintBusy] = useState(false);
+  const doPrint = (sheets: PrintSheetData[]) => {
+    setPrintMenu(false);
+    setPrintOpts({ sheets, blank: printSel.blank, anon: printSel.anon, minPct: printSel.minOn ? printSel.min : null });
     const root = document.documentElement;
     const done = () => { root.classList.remove('printing-roster'); window.removeEventListener('afterprint', done); setPrintOpts(null); };
     setTimeout(() => {
       root.classList.add('printing-roster');
       window.addEventListener('afterprint', done);
       window.print();
-    }, 60);
+    }, 80);
+  };
+  const printThis = () => doPrint([{ key: classId, className, students, quizCols, cfg }]);
+  // razredi iste generacije na isti šoli (npr. vsi 8. razredi): po številki v imenu razreda
+  const { classes: masterClasses } = useMasterClasses();
+  const gradeNo = (name: string) => /([1-9])/.exec(name)?.[1] ?? null;
+  const curMaster = masterClasses.find(c => c.id === classId);
+  const sameGen = curMaster && gradeNo(curMaster.name)
+    ? masterClasses.filter(c => gradeNo(c.name) === gradeNo(curMaster.name) && c.school.trim().toLowerCase() === curMaster.school.trim().toLowerCase())
+      .sort((a, b) => a.name.localeCompare(b.name, 'sl'))
+    : [];
+  const printGeneration = async () => {
+    setPrintBusy(true);
+    try {
+      const sheets = await Promise.all(sameGen.map(async c => {
+        if (c.id === classId) return { key: c.id, className, students, quizCols, cfg };
+        const h = await loadClassHistory(c.id).catch(() => null);
+        return {
+          key: c.id, className: [c.name, c.school].filter(Boolean).join(' · '), students: readRosterStudents(c.id),
+          quizCols: buildQuizCols(h, s => lib.quizzes.find(q => q.id === s.quiz_id)?.title || s.quiz_title), cfg: readColCfg(c.id),
+        };
+      }));
+      doPrint(sheets.filter(x => x.students.length > 0));
+    } finally { setPrintBusy(false); }
   };
 
   // Popravek imena na mestu: ohrani id, PIN in vse oznake (besedilno polje bi ga obravnavalo kot novega učenca).
@@ -383,7 +352,6 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
     }));
 
   // stolpci za tisk: isti vrstni red kot na zaslonu, le izbrane vrste
-  const printKeys = printOpts ? visibleKeys : [];
 
   return (
     <div>
@@ -398,10 +366,34 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
             <br /><b>✎</b> — tipkarske napake v imenu popravi tukaj, ne v besedilnem polju zgoraj (tam bi učenec dobil nov PIN).
           </p>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap' }}>
-            <button onClick={printRoster} title="Natisne stolpce, ki so vidni v tabeli (izbor v meniju Stolpci ▾)"
-              style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 600, color: '#fff', background: 'var(--forest)', border: 'none', borderRadius: 'var(--r-sm)', padding: '7px 14px', cursor: 'pointer' }}>
-              🖨 Natisni seznam
-            </button>
+            <span style={{ position: 'relative' }}>
+              <button onClick={() => setPrintMenu(o => !o)} disabled={printBusy} title="Natisni seznam: ta razred, vse razrede iste generacije ali le učence nad izbranim povprečjem"
+                style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 600, color: '#fff', background: 'var(--forest)', border: 'none', borderRadius: 'var(--r-sm)', padding: '7px 14px', cursor: 'pointer', opacity: printBusy ? 0.6 : 1 }}>
+                {printBusy ? 'Pripravljam …' : '🖨 Natisni seznam ▾'}
+              </button>
+              {printMenu && (<>
+                <div onClick={() => setPrintMenu(false)} style={{ position: 'fixed', inset: 0, zIndex: 20 }} />
+                <div style={{ position: 'absolute', left: 0, top: 'calc(100% + 4px)', zIndex: 21, background: '#fff', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                  padding: '6px 0', minWidth: '280px', fontFamily: 'var(--font-sans)', fontSize: '13px' }}>
+                  <button onClick={printThis} style={menuItem}>🖨 Ta razred <span style={{ color: 'var(--muted)' }}>({curMaster?.name ?? className})</span></button>
+                  {sameGen.length > 1 && (
+                    <button onClick={() => void printGeneration()} style={menuItem} title="Vsak razred na svoj list A4">
+                      🖨 Vsi razredi iste generacije <span style={{ color: 'var(--muted)' }}>({sameGen.map(c => c.name).join(', ')})</span>
+                    </button>
+                  )}
+                  <div style={{ borderTop: '1px solid var(--hairline)', margin: '6px 0 0', padding: '8px 14px 4px', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--ink)' }}>
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={printSel.minOn} onChange={e => { const v = e.target.checked; setPrintSel(p => ({ ...p, minOn: v })); }} />
+                      samo učenci s povprečjem nad
+                    </label>
+                    <input type="number" min={0} max={100} value={printSel.min}
+                      onChange={e => { const v = Math.max(0, Math.min(100, Number(e.target.value) || 0)); setPrintSel(p => ({ ...p, min: v, minOn: true })); }}
+                      style={{ width: '54px', fontSize: '13px', padding: '2px 4px', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)' }} /> %
+                  </div>
+                  <p style={{ margin: 0, padding: '2px 14px 6px', fontSize: '11px', color: 'var(--muted)' }}>Velja za oba načina tiska; nato izberi zgoraj, kaj natisneš.</p>
+                </div>
+              </>)}
+            </span>
             <label title="Na izpisu namesto imena in priimka okrajšave (npr. Janez Lojze Novak → JL. No.)"
               style={{ display: 'inline-flex', gap: '4px', alignItems: 'center', fontSize: '12px', color: 'var(--muted)', cursor: 'pointer' }}>
               <input type="checkbox" checked={printSel.anon} onChange={e => { const v = e.target.checked; setPrintSel(p => ({ ...p, anon: v })); try { localStorage.setItem('rezultati-tisk-zakrij', v ? '1' : '0'); } catch { /* ignore */ } }} /> zakrij imena
@@ -525,74 +517,12 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
       {/* Seznam za tisk (Natisni seznam): na zaslonu skrit, ob tisku edini viden */}
       {printOpts && typeof document !== 'undefined' && createPortal(
         <div className="print-roster print-results" aria-hidden>
-          {printKeys.length + printOpts.blank + 1 > 7 ? <style>{'@page { size: A4 landscape; margin: 10mm; }'}</style> : <style>{'@page { size: A4 portrait; margin: 12mm; }'}</style>}
-          {/* enak videz kot tisk rezultatov kviza (globals.css: .print-results .prs-*) */}
-          {(() => {
-            const avgs = students.map(x => avgGrade(x)).filter((n): n is number => n != null);
-            const classAvg = avgs.length ? avgs.reduce((a, b) => a + b, 0) / avgs.length : null;
-            return (
-              <div className="prs-sheet">
-                <div className="prs-head">
-                  <div>
-                    <div className="prs-cls">{className} · {new Date().toLocaleDateString('sl-SI')}</div>
-                    <div className="prs-title">Seznam učencev</div>
-                  </div>
-                  <div className="prs-meta">{students.length} učencev · {students.filter(x => x.gender === 'Ž').length} Ž / {students.filter(x => x.gender === 'M').length} M{classAvg != null && <> · povprečje <b style={{ color: gradeTint(classAvg) }}>{fmtGrade(classAvg)}</b></>}</div>
-                </div>
-                <table className="prs-table">
-                  <thead><tr>
-                    <th className="num">#</th><th className="left">{printOpts.anon ? 'Učenec (okrajšano)' : 'Učenec'}</th>
-                    <th style={{ borderRight: '1mm double #8f9b92' }}>Povprečje</th>
-                    {printKeys.map(k => {
-                      if (k === 'gender') return <th key={k}>Spol</th>;
-                      if (k === 'pin') return <th key={k}>PIN</th>;
-                      if (k === 'seat') return <th key={k} className="left">Sedežni red</th>;
-                      if (k.startsWith('q:')) { const c = quizCols.find(c => `q:${c.s.id}` === k)!; return <th key={k} style={{ maxWidth: '24mm', fontWeight: 600, lineHeight: 1.2 }}>{c.title}<br /><span style={{ fontWeight: 400, color: '#666' }}>{new Date(c.s.created_at).toLocaleDateString('sl-SI', { day: 'numeric', month: 'numeric', year: '2-digit' })}</span></th>; }
-                      const m = cfg.manual.find(m => `m:${m.id}` === k)!; return <th key={k} style={{ maxWidth: '24mm', lineHeight: 1.2 }}>{m.name}</th>;
-                    })}
-                    {printOpts.blank > 0 && Array.from({ length: printOpts.blank }, (_, i) => <th key={`b${i}`} style={{ minWidth: '14mm' }} />)}
-                  </tr></thead>
-                  <tbody>
-                    {sortedStudents.map(s => { const g = avgGrade(s); return (
-                      <tr key={s.id}>
-                        <td className="num">{numberOf(s)}</td>
-                        <td className="left name">{printOpts.anon ? initialsName(s.name) : s.name}</td>
-                        <td className="res" style={{ color: gradeTint(g), borderRight: '1mm double #8f9b92' }}>{fmtGrade(g)}</td>
-                        {printKeys.map(k => {
-                          if (k === 'gender') return <td key={k}>{s.gender || '–'}</td>;
-                          if (k === 'pin') return <td key={k} className="res" style={{ letterSpacing: '.08em' }}>{s.pin ?? '–'}</td>;
-                          if (k === 'seat') return <td key={k} className="left" style={{ fontSize: '8.5pt' }}>{seatRulesText(s)}</td>;
-                          if (k.startsWith('q:')) { const c = quizCols.find(c => `q:${c.s.id}` === k)!; const r = resOf(c, s); return <td key={k} className={r ? 'res' : 'none'} style={r ? { color: gradeColor(r.pct) } : undefined}>{r ? `${r.pct} %` : '–'}</td>; }
-                          const m = cfg.manual.find(m => `m:${m.id}` === k)!; return <td key={k} className="pts">{m.values[s.id] ?? ''}</td>;
-                        })}
-                        {printOpts.blank > 0 && Array.from({ length: printOpts.blank }, (_, i) => <td key={`b${i}`} />)}
-                      </tr>
-                    ); })}
-                  </tbody>
-                  <tfoot><tr>
-                    <td /><td className="left"><b>Povprečje razreda</b></td>
-                    <td className="res" style={{ color: gradeTint(classAvg), borderRight: '1mm double #8f9b92' }}>{fmtGrade(classAvg)}</td>
-                    {printKeys.map(k => {
-                      if (k.startsWith('q:')) {
-                        const c = quizCols.find(c => `q:${c.s.id}` === k)!;
-                        const v = [...c.res.values()]; const p = v.length ? ceilPct(v.reduce((t, r) => t + r.pct, 0) / v.length) : null;
-                        return <td key={k} className="avg" style={p == null ? undefined : { color: gradeColor(p), fontWeight: 700 }}>{p == null ? '–' : `${p} %`}</td>;
-                      }
-                      if (k.startsWith('m:')) {
-                        const m = cfg.manual.find(m => `m:${m.id}` === k)!;
-                        const isPct = pctCols.includes(m);
-                        const nums = students.map(x => (isPct ? pctOf(m.values[x.id]) : numVal(m.values[x.id]))).filter((n): n is number => n != null);
-                        const avg = nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null;
-                        return <td key={k} className="avg" style={isPct && avg != null ? { color: gradeTint(avg), fontWeight: 700 } : undefined}>{avg == null ? '' : isPct ? fmtGrade(avg) : formatNumber(Math.round(avg * 100) / 100)}</td>;
-                      }
-                      return <td key={k} />;
-                    })}
-                    {printOpts.blank > 0 && Array.from({ length: printOpts.blank }, (_, i) => <td key={`b${i}`} />)}
-                  </tr></tfoot>
-                </table>
-              </div>
-            );
-          })()}
+          {Math.max(...printOpts.sheets.map(sh => columnsOf(sh.cfg, sh.quizCols).visibleKeys.length)) + printOpts.blank + 1 > 7
+            ? <style>{'@page { size: A4 landscape; margin: 10mm; }'}</style> : <style>{'@page { size: A4 portrait; margin: 12mm; }'}</style>}
+          {printOpts.sheets.map(sh => (
+            <RosterPrintSheet key={sh.key} className={sh.className} students={sh.students} quizCols={sh.quizCols} cfg={sh.cfg}
+              sort={sort} anon={printOpts.anon} blank={printOpts.blank} minPct={printOpts.minPct} />
+          ))}
         </div>,
         document.body,
       )}
