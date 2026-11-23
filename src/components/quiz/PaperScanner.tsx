@@ -48,7 +48,7 @@ export default function PaperScanner() {
   const [scannedAt, setScannedAt] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // rezultati ležeče (zasukani za 90° v levo), ko je zaslon pokončen — telefon med skeniranjem drži ležeče
+  // rezultati ležeče (zasukani za 90° v desno), ko je zaslon pokončen — telefon med skeniranjem drži ležeče
   const [landscape, setLandscapeState] = useState(true);
   const [portraitScreen, setPortraitScreen] = useState(true);
   useEffect(() => {
@@ -357,14 +357,14 @@ export default function PaperScanner() {
         const buttons = (<>
           <button onClick={() => void save()} disabled={busy} style={{ ...btnS(true), flex: 1, opacity: busy ? 0.6 : 1 }}>{busy ? 'Shranjujem …' : '✓ Shrani in naprej'}</button>
           <button onClick={() => { lastSig.current = { s: '', n: 0 }; setHit(null); }} disabled={busy} style={btnS()}>Skeniraj znova</button>
-          {portraitScreen && <button onClick={() => setLandscape(!landscape)} title={landscape ? 'Prikaži pokončno' : 'Prikaži ležeče (zasukano za 90° v levo)'}
+          {portraitScreen && <button onClick={() => setLandscape(!landscape)} title={landscape ? 'Prikaži pokončno' : 'Prikaži ležeče (zasukano za 90° v desno)'}
             style={{ ...btnS(), padding: '12px 14px' }}>{landscape ? '▯' : '▭'}</button>}
         </>);
         const barStyle: React.CSSProperties = { display: 'flex', gap: '8px', background: 'var(--canvas)', borderTop: '1px solid var(--hairline)', boxShadow: '0 -6px 24px rgba(0,0,0,.12)' };
         if (turned) return (
-          // telefon drži ležeče (zaslon zaklenjen pokončno): stran zasukana za 90° v levo čez cel zaslon
+          // telefon drži ležeče (zaslon zaklenjen pokončno): stran zasukana za 90° v desno čez cel zaslon
           <div style={{ position: 'fixed', top: 0, left: 0, width: '100vh', height: '100vw', zIndex: 60, background: 'var(--canvas)',
-            transformOrigin: 'top left', transform: 'rotate(-90deg) translateX(-100%)', display: 'flex', flexDirection: 'column' }}>
+            transformOrigin: 'top left', transform: 'rotate(90deg) translateY(-100%)', display: 'flex', flexDirection: 'column' }}>
             <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px' }}>{body}</div>
             <div style={{ ...barStyle, padding: '10px 14px' }}>{buttons}</div>
           </div>
