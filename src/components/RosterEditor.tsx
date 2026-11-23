@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   buildQuizCols, resOf, numVal, pctColsOf, avgPctOf, columnsOf, sortStudents, readRosterSort, readColCfg, cfgKeyOf, SORT_KEY,
-  numberOf as numberOfLib, seatRulesText as seatRulesOf, readRosterStudents, type ColCfg, type RosterSort, type QuizCol,
+  numberOf as numberOfLib, seatRulesText as seatRulesOf, readRosterStudents, mergeClasses, type ColCfg, type RosterSort, type QuizCol,
 } from '@/lib/rosterTable';
 import RosterPrintSheet from '@/components/RosterPrintSheet';
 import { useMasterClasses } from '@/hooks/useMasterClasses';
@@ -278,7 +278,7 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
     let anon = false; try { anon = localStorage.getItem('rezultati-tisk-zakrij') === '1'; } catch { /* ignore */ }
     return { blank: 0, anon, minOn: false, min: 80 };
   });
-  type PrintSheetData = { key: string; className: string; students: typeof students; quizCols: QuizCol[]; cfg: ColCfg };
+  type PrintSheetData = { key: string; className: string; students: typeof students; quizCols: QuizCol[]; cfg: ColCfg; classOf?: Map<string, string> };
   const [printOpts, setPrintOpts] = useState<{ sheets: PrintSheetData[]; blank: number; anon: boolean; minPct: number | null } | null>(null);
   const [printMenu, setPrintMenu] = useState(false);
   const menuItem: React.CSSProperties = { display: 'block', width: '100%', textAlign: 'left', padding: '8px 14px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--ink)' };
@@ -303,18 +303,23 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
     ? masterClasses.filter(c => gradeNo(c.name) === gradeNo(curMaster.name) && c.school.trim().toLowerCase() === curMaster.school.trim().toLowerCase())
       .sort((a, b) => a.name.localeCompare(b.name, 'sl'))
     : [];
-  const printGeneration = async () => {
+  /** vsi razredi iste generacije: vsak na svoj list ali (`together`) vsi v eni tabeli s stolpcem Razred */
+  const printGeneration = async (together: boolean) => {
     setPrintBusy(true);
     try {
-      const sheets = await Promise.all(sameGen.map(async c => {
-        if (c.id === classId) return { key: c.id, className, students, quizCols, cfg };
+      const parts = (await Promise.all(sameGen.map(async c => {
+        if (c.id === classId) return { classId: c.id, name: c.name, label: className, students, quizCols, cfg };
         const h = await loadClassHistory(c.id).catch(() => null);
         return {
-          key: c.id, className: [c.name, c.school].filter(Boolean).join(' · '), students: readRosterStudents(c.id),
+          classId: c.id, name: c.name, label: [c.name, c.school].filter(Boolean).join(' · '), students: readRosterStudents(c.id),
           quizCols: buildQuizCols(h, s => lib.quizzes.find(q => q.id === s.quiz_id)?.title || s.quiz_title), cfg: readColCfg(c.id),
         };
-      }));
-      doPrint(sheets.filter(x => x.students.length > 0));
+      }))).filter(x => x.students.length > 0);
+      if (together) {
+        const m = mergeClasses(parts.map(p => ({ ...p, label: p.name })));
+        const school = curMaster?.school?.trim();
+        doPrint([{ key: 'vsi', className: `${parts.map(p => p.name).join(', ')}${school ? ` · ${school}` : ''}`, ...m }]);
+      } else doPrint(parts.map(p => ({ key: p.classId, className: p.label, students: p.students, quizCols: p.quizCols, cfg: p.cfg })));
     } finally { setPrintBusy(false); }
   };
 
@@ -377,9 +382,14 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
                   padding: '6px 0', minWidth: '280px', fontFamily: 'var(--font-sans)', fontSize: '13px' }}>
                   <button onClick={printThis} style={menuItem}>🖨 Ta razred <span style={{ color: 'var(--muted)' }}>({curMaster?.name ?? className})</span></button>
                   {sameGen.length > 1 && (
-                    <button onClick={() => void printGeneration()} style={menuItem} title="Vsak razred na svoj list A4">
-                      🖨 Vsi razredi iste generacije <span style={{ color: 'var(--muted)' }}>({sameGen.map(c => c.name).join(', ')})</span>
-                    </button>
+                    <>
+                      <button onClick={() => void printGeneration(false)} style={menuItem} title="Vsak razred na svoj list A4">
+                        🖨 Vsi razredi iste generacije <span style={{ color: 'var(--muted)' }}>({sameGen.map(c => c.name).join(', ')})</span>
+                      </button>
+                      <button onClick={() => void printGeneration(true)} style={menuItem} title="Vsi učenci generacije v eni tabeli, z dodatnim stolpcem Razred">
+                        🖨 Vsi razredi na en list <span style={{ color: 'var(--muted)' }}>(s stolpcem Razred)</span>
+                      </button>
+                    </>
                   )}
                   <div style={{ borderTop: '1px solid var(--hairline)', margin: '6px 0 0', padding: '8px 14px 4px', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--ink)' }}>
                     <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
@@ -521,7 +531,7 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
             ? <style>{'@page { size: A4 landscape; margin: 10mm; }'}</style> : <style>{'@page { size: A4 portrait; margin: 12mm; }'}</style>}
           {printOpts.sheets.map(sh => (
             <RosterPrintSheet key={sh.key} className={sh.className} students={sh.students} quizCols={sh.quizCols} cfg={sh.cfg}
-              sort={sort} anon={printOpts.anon} blank={printOpts.blank} minPct={printOpts.minPct} />
+              sort={sort} anon={printOpts.anon} blank={printOpts.blank} minPct={printOpts.minPct} classOf={sh.classOf} />
           ))}
         </div>,
         document.body,

@@ -14,13 +14,18 @@ const fmt = (p: number | null) => (p == null ? '–' : `${ceilPct(p)} %`);
  * Natisnejo se vidni stolpci razreda (meni Stolpci), stolpec Povprečje in po želji prazni stolpci;
  * `minPct`: le učenci s povprečjem nad tem odstotkom.
  */
-export default function RosterPrintSheet({ className, students, quizCols, cfg, sort, anon, blank, minPct }: {
+export default function RosterPrintSheet({ className, students, quizCols, cfg, sort, anon, blank, minPct, classOf }: {
   className: string; students: Student[]; quizCols: QuizCol[]; cfg: ColCfg; sort: RosterSort; anon: boolean; blank: number; minPct: number | null;
+  /** več razredov na enem listu: razred vsakega učenca (doda stolpec Razred; zaporedne številke 1, 2, 3 … po vrsti izpisa) */
+  classOf?: Map<string, string>;
 }) {
   const { colKeys, visibleKeys: keys } = columnsOf(cfg, quizCols);
   const pctCols = pctColsOf(cfg);
   const avg = (st: Student) => avgPctOf(st, quizCols, pctCols);
-  const shown = sortStudents(students, sort, quizCols, cfg, colKeys).filter(st => { if (minPct == null) return true; const a = avg(st); return a != null && a > minPct; });
+  const sorted = sortStudents(students, sort, quizCols, cfg, colKeys);
+  // več razredov, razvrščeno po imenu: najprej po razredu, znotraj razreda po priimku
+  const ordered = classOf && sort.key === 'name' ? [...sorted].sort((a, b) => (classOf.get(a.id) ?? '').localeCompare(classOf.get(b.id) ?? '', 'sl')) : sorted;
+  const shown = ordered.filter(st => { if (minPct == null) return true; const a = avg(st); return a != null && a > minPct; });
   const avgs = shown.map(avg).filter((n): n is number => n != null);
   const classAvg = avgs.length ? avgs.reduce((a, b) => a + b, 0) / avgs.length : null;
   const quizOf = (k: string) => quizCols.find(c => `q:${c.s.id}` === k)!;
@@ -40,22 +45,23 @@ export default function RosterPrintSheet({ className, students, quizCols, cfg, s
       </div>
       <table className="prs-table">
         <thead><tr>
-          <th className="num">#</th><th className="left">{anon ? 'Učenec (okrajšano)' : 'Učenec'}</th>
+          <th className="num">#</th><th className="left">{anon ? 'Učenec (okrajšano)' : 'Učenec'}</th>{classOf && <th>Razred</th>}
           <th style={{ borderRight: SEP }}>Povprečje</th>
           {keys.map(k => {
             if (k === 'gender') return <th key={k}>Spol</th>;
             if (k === 'pin') return <th key={k}>PIN</th>;
             if (k === 'seat') return <th key={k} className="left">Sedežni red</th>;
-            if (k.startsWith('q:')) { const c = quizOf(k); return <th key={k} style={{ maxWidth: '24mm', fontWeight: 600, lineHeight: 1.2 }}>{c.title}<br /><span style={{ fontWeight: 400, color: '#666' }}>{new Date(c.s.created_at).toLocaleDateString('sl-SI', { day: 'numeric', month: 'numeric', year: '2-digit' })}</span></th>; }
+            if (k.startsWith('q:')) { const c = quizOf(k); return <th key={k} style={{ maxWidth: '24mm', fontWeight: 600, lineHeight: 1.2 }}>{c.title}{!classOf && <><br /><span style={{ fontWeight: 400, color: '#666' }}>{new Date(c.s.created_at).toLocaleDateString('sl-SI', { day: 'numeric', month: 'numeric', year: '2-digit' })}</span></>}</th>; }
             return <th key={k} style={{ maxWidth: '24mm', lineHeight: 1.2 }}>{manualOf(k).name}</th>;
           })}
           {Array.from({ length: blank }, (_, i) => <th key={`b${i}`} style={{ minWidth: '14mm' }} />)}
         </tr></thead>
         <tbody>
-          {shown.map(s => { const g = avg(s); return (
+          {shown.map((s, si) => { const g = avg(s); return (
             <tr key={s.id}>
-              <td className="num">{numberOf(s, students)}</td>
+              <td className="num">{classOf ? si + 1 : numberOf(s, students)}</td>
               <td className="left name">{anon ? initialsName(s.name) : s.name}</td>
+              {classOf && <td style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{classOf.get(s.id) ?? ''}</td>}
               <td className="res" style={{ color: tint(g), borderRight: SEP }}>{fmt(g)}</td>
               {keys.map(k => {
                 if (k === 'gender') return <td key={k}>{s.gender || '–'}</td>;
@@ -69,7 +75,7 @@ export default function RosterPrintSheet({ className, students, quizCols, cfg, s
           ); })}
         </tbody>
         <tfoot><tr>
-          <td /><td className="left"><b>Povprečje{minPct != null ? ' izpisanih' : ' razreda'}</b></td>
+          <td /><td className="left"><b>Povprečje{minPct != null ? ' izpisanih' : classOf ? ' generacije' : ' razreda'}</b></td>{classOf && <td />}
           <td className="res" style={{ color: tint(classAvg), borderRight: SEP }}>{fmt(classAvg)}</td>
           {keys.map(k => {
             if (k.startsWith('q:')) {

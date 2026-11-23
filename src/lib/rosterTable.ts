@@ -105,3 +105,45 @@ export function readColCfg(classId: string): ColCfg {
 export function readRosterStudents(classId: string): Student[] {
   try { const r = localStorage.getItem(`ucni-nacrt-roster-${classId}`); return r ? JSON.parse(r) : []; } catch { return []; }
 }
+
+/**
+ * Več razredov v eno tabelo (tisk »vsi razredi na en list«): učenci z id-ji »razred:učenec«, kvizi združeni po kvizu
+ * (ista vsebina v različnih razredih = en stolpec), ročni stolpci po imenu; vidni so stolpci, ki so vidni vsaj v enem razredu.
+ */
+export function mergeClasses(parts: { classId: string; label: string; students: Student[]; quizCols: QuizCol[]; cfg: ColCfg }[]) {
+  const students: Student[] = [];
+  const classOf = new Map<string, string>();
+  const quiz = new Map<string, QuizCol>();
+  const manual = new Map<string, ManualCol>();
+  const visible = new Set<string>();
+  const order: string[] = [];
+  for (const p of parts) {
+    const pid = (id: string) => `${p.classId}:${id}`;
+    for (const st of p.students) {
+      students.push({ ...st, id: pid(st.id), no: undefined, apartFrom: st.apartFrom?.map(pid) });
+      classOf.set(pid(st.id), p.label);
+    }
+    const { visibleKeys } = columnsOf(p.cfg, p.quizCols);
+    for (const k of visibleKeys) if (!k.startsWith('q:') && !k.startsWith('m:')) visible.add(k);
+    for (const c of p.quizCols) {
+      const key = c.s.quiz_id ?? `naslov:${c.title}`;
+      const m = quiz.get(key) ?? { s: c.s, title: c.title, res: new Map<string, R>(), byName: new Map<string, R>() };
+      for (const st of p.students) { const r = resOf(c, st); if (r) m.res.set(pid(st.id), r); }
+      quiz.set(key, m);
+      if (visibleKeys.includes(`q:${c.s.id}`)) visible.add(`q:${m.s.id}`);
+      if (!order.includes(`q:${m.s.id}`)) order.push(`q:${m.s.id}`);
+    }
+    for (const mc of p.cfg.manual) {
+      const key = mc.name.trim().toLowerCase();
+      const m = manual.get(key) ?? { id: `x${manual.size}`, name: mc.name, values: {} };
+      for (const [sid, v] of Object.entries(mc.values)) m.values[pid(sid)] = v;
+      manual.set(key, m);
+      if (visibleKeys.includes(`m:${mc.id}`)) visible.add(`m:${m.id}`);
+    }
+  }
+  const quizCols = [...quiz.values()].sort((a, b) => a.s.created_at.localeCompare(b.s.created_at));
+  const cfg: ColCfg = { manual: [...manual.values()], order: [] };
+  const all = columnsOf(cfg, quizCols).colKeys;
+  cfg.hidden = all.filter(k => !visible.has(k));
+  return { students, classOf, quizCols, cfg };
+}
