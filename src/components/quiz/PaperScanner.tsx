@@ -128,7 +128,7 @@ export default function PaperScanner() {
     return () => root.classList.remove('scanner-full');
   }, [running]);
 
-  // zanka skeniranja (~4× na sekundo)
+  // zanka branja okvirja (nekajkrat na sekundo; slika kamere je prikazana neodvisno kot video)
   useEffect(() => {
     if (!running) return;
     let stop = false;
@@ -187,12 +187,12 @@ export default function PaperScanner() {
             } catch (e) { setStatus(`Seje ni bilo mogoče naložiti: ${e instanceof Error ? e.message : String(e)}`); }
           }
         }
-        // prikaz: sličica z oznakami
+        // prikaz: oznake čez živo sliko (sama slika je video, zato teče gladko)
         const view = viewRef.current;
         if (view) {
-          view.width = w; view.height = h;
+          if (view.width !== w || view.height !== h) { view.width = w; view.height = h; }
           const vc = view.getContext('2d')!;
-          vc.drawImage(c, 0, 0);
+          vc.clearRect(0, 0, w, h);
           if (drawn) {
             const { reading, geom } = drawn;
             vc.lineWidth = Math.max(2, w / 500);
@@ -210,7 +210,7 @@ export default function PaperScanner() {
           }
         }
       }
-      timer = setTimeout(() => void tick(), 220);
+      timer = setTimeout(() => void tick(), 120);
     };
     void tick();
     return () => { stop = true; clearTimeout(timer); };
@@ -285,7 +285,11 @@ export default function PaperScanner() {
   return (
     <div style={{ maxWidth: '760px', margin: '0 auto', padding: '12px', fontFamily: 'var(--font-sans)' }}>
       {!running && <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '24px', fontWeight: 400, margin: '4px 0 8px' }}>Skener natisnjenih kvizov</h1>}
-      <video ref={videoRef} playsInline muted style={{ display: 'none' }} />
+      {/* živa slika kamere (tekoč video); oznake prebranega okvirja v prozorni plasti čez */}
+      <div style={{ position: 'relative', display: running && !hit ? 'block' : 'none', borderRadius: '10px', overflow: 'hidden', background: '#000' }}>
+        <video ref={videoRef} playsInline muted style={{ display: 'block', width: '100%' }} />
+        <canvas ref={viewRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }} />
+      </div>
       {!running ? (
         <div style={{ padding: '20px 0' }}>
           <p style={{ fontSize: '14px', color: 'var(--muted)', lineHeight: 1.5 }}>
@@ -295,7 +299,6 @@ export default function PaperScanner() {
         </div>
       ) : (
         <>
-          <canvas ref={viewRef} style={{ width: '100%', borderRadius: '10px', background: '#000', display: hit ? 'none' : 'block' }} />
           {!hit && <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '8px 0' }}>
             <p style={{ fontSize: '13px', color: 'var(--muted)', margin: 0, flex: 1 }}>{status}</p>
             <button onClick={stopCamera} style={{ ...btnS(), fontSize: '13px', padding: '8px 12px', flexShrink: 0 }}>✕ Ustavi kamero</button>
