@@ -311,9 +311,10 @@ export default function PaperScanner() {
             </span>}
           </div>
           <p style={{ fontSize: '13px', color: 'var(--muted)', margin: '0 0 12px' }}>Primerjaj z listom. Tapni črko, da popraviš. Oranžna vrstica = negotovo branje.</p>
-          <div style={{ display: 'grid', gridTemplateColumns: turned ? 'repeat(auto-fill, minmax(230px, 1fr))' : 'repeat(2, minmax(0, 1fr))', gap: '4px 10px' }}>
+          {/* ležeče: kot okvir na listu (4 stolpci, naloge po stolpcih od zgoraj navzdol); pokončno: 2 stolpca */}
+          <div style={{ display: 'grid', gridTemplateColumns: turned ? 'repeat(4, minmax(0, 1fr))' : 'repeat(2, minmax(0, 1fr))', gap: '4px 14px' }}>
             {score.map((r, qi) => (
-              <div key={r.n} style={{ display: 'flex', alignItems: 'center', gap: '3px', padding: '5px 2px', borderRadius: '6px', background: r.uncertain ? '#fff1d6' : 'transparent', borderBottom: '1px solid var(--hairline)' }}>
+              <div key={r.n} style={{ ...(turned ? { gridColumn: Math.floor(qi / hit.geom.rows) + 1, gridRow: (qi % hit.geom.rows) + 1 } : {}), display: 'flex', alignItems: 'center', gap: '3px', padding: '5px 2px', borderRadius: '6px', background: r.uncertain ? '#fff1d6' : 'transparent', borderBottom: '1px solid var(--hairline)' }}>
                 <span style={{ width: '24px', flexShrink: 0, textAlign: 'right', fontSize: '13px', fontWeight: 700, marginRight: '2px' }}>{r.n}{r.multi ? '+' : ''}</span>
                 {Array.from({ length: r.nOpts }, (_, k) => {
                   const on = hit.chosen[qi].includes(k);
