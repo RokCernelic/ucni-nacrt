@@ -222,7 +222,7 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
     fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500, color: 'var(--muted)', whiteSpace: 'nowrap', textAlign: 'center', userSelect: 'none' };
   const TD: React.CSSProperties = { borderBottom: '1px solid var(--hairline)', padding: '7px 12px', verticalAlign: 'middle' };
   const DIV = '2px solid var(--hairline)';
-  // ▼ = od največjega proti najmanjšemu: številski stolpci (Skupaj %, kvizi, ročni) so pri dir 1 razvrščeni od največjega
+  // ▼ = od največjega proti najmanjšemu: številski stolpci (Povprečje, kvizi, ročni) so pri dir 1 razvrščeni od največjega
   const arrow = (k: string) => {
     if (sort.key !== k) return '';
     const bigFirst = k === 'avg' || k.startsWith('q:') || k.startsWith('m:');
@@ -473,7 +473,7 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
                       background: dragW != null ? 'linear-gradient(to right, transparent 3px, var(--forest) 3px, var(--forest) 5px, transparent 5px)' : undefined }} />
                 </th>
                 <th onClick={() => clickSort('avg')} title={`Povprečje odstotkov: ${[...(quizCols.length ? [`kvizi (${quizCols.length})`] : []), ...pctCols.map(m => m.name)].join(', ') || 'rezultati kvizov in ročni stolpci z odstotki'} — klik: razvrsti`}
-                  style={{ ...TH, cursor: 'pointer', borderRight: AVG_SEP, fontWeight: 700, color: sort.key === 'avg' ? 'var(--forest)' : 'var(--ink)' }}>Skupaj %{arrow('avg')}</th>
+                  style={{ ...TH, cursor: 'pointer', borderRight: AVG_SEP, fontWeight: 700, color: sort.key === 'avg' ? 'var(--forest)' : 'var(--ink)' }}>Povprečje{arrow('avg')}</th>
                 {visibleKeys.map(headCell)}
               </tr>
             </thead>
@@ -542,7 +542,7 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
                 <table className="prs-table">
                   <thead><tr>
                     <th className="num">#</th><th className="left">{printOpts.anon ? 'Učenec (okrajšano)' : 'Učenec'}</th>
-                    <th style={{ borderRight: '1mm double #8f9b92' }}>Skupaj %</th>
+                    <th style={{ borderRight: '1mm double #8f9b92' }}>Povprečje</th>
                     {printKeys.map(k => {
                       if (k === 'gender') return <th key={k}>Spol</th>;
                       if (k === 'pin') return <th key={k}>PIN</th>;
