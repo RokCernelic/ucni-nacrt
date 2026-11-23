@@ -10,6 +10,7 @@ import { loadAllHistory, joinStatsChannel, isLive, participated, type QuizSessio
 import { scoreAnswers, isScored, answerFraction } from '@/lib/quiz/scoring';
 import { SessionResults } from './LiveSession';
 import ResultsPrintSheet from './ResultsPrint';
+import { readResultsSort } from '@/lib/quiz/resultsSort';
 import { createPortal } from 'react-dom';
 import { ceilPct, questionsLabel, pointsLabel, dateTimeLabel } from '@/lib/quiz/format';
 import { gradeColor } from '@/lib/quiz/format';
@@ -172,7 +173,7 @@ export default function QuizStats() {
                         for (const a of data.answersBySession.get(r.s.id) ?? []) by.set(a.student_id, { ...(by.get(a.student_id) ?? {}), [a.question_id]: a.value });
                         return <ResultsPrintSheet key={r.s.id} session={r.s} students={data.studentsBySession.get(r.s.id) ?? []} answersByStudent={by}
                           questions={questions} excluded={r.s.quiz.excluded ?? []} title={g.title} anon={anon}
-                          byPoints={(() => { try { return localStorage.getItem('rezultati-razvrsti') === 'points'; } catch { return false; } })()} />;
+                          sort={readResultsSort()} />;
                       })}
                     </div>,
                     document.body,

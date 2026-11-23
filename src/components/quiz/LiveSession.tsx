@@ -14,9 +14,9 @@ import { isCorrect, answerStatus, scoreAnswers, parseNumber, numericValue, choic
 import { formatNumber, pointsLabel, studentsLabel } from '@/lib/quiz/format';
 import { sessionResultsCsv, downloadCsv, safeFilename } from '@/lib/quiz/csv';
 import type { Question } from '@/lib/quiz/types';
-import { compareByLastName } from '@/lib/names';
 import { createPortal } from 'react-dom';
 import ResultsPrintSheet from './ResultsPrint';
+import { readResultsSort, saveResultsSort, nextResultsSort, compareResults, type ResultsSort } from '@/lib/quiz/resultsSort';
 import { layoutSheet, sheetSeed, shuffleOpts } from '@/lib/quiz/printSheet';
 import type { PaperInfo } from '@/lib/quiz/paperSession';
 import { ceilPct } from '@/lib/quiz/format';
@@ -275,9 +275,9 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
     try { await syncSessionScoring(libQuiz.id, libQuiz.questions); window.location.reload(); }
     catch (e) { alert(`Točkovanja ni bilo mogoče posodobiti: ${e instanceof Error ? e.message : String(e)}`); setSyncing(false); }
   };
-  // razvrščanje se zapomni (velja za vse rezultate, tudi za tisk)
-  const [sortBy, setSortByState] = useState<'name' | 'points'>(() => { try { return localStorage.getItem('rezultati-razvrsti') === 'points' ? 'points' : 'name'; } catch { return 'name'; } });
-  const setSortBy = (v: 'name' | 'points') => { setSortByState(v); try { localStorage.setItem('rezultati-razvrsti', v); } catch { /* ignore */ } };
+  // razvrščanje (stolpec + smer) se zapomni; velja za vse rezultate in za tisk
+  const [sortBy, setSortByState] = useState<ResultsSort>(readResultsSort);
+  const setSortBy = (by: ResultsSort['by']) => setSortByState(cur => { const n = nextResultsSort(cur, by); saveResultsSort(n); return n; });
   // ročno točkovane naloge starejših izvedb nimajo besedila — vzemi ga iz kviza v knjižnici
   const questions = useMemo(() => session.quiz.questions.map(q => (q.prompt || !libQuiz ? q : { ...q, prompt: libQuiz.questions.find(x => x.id === q.id)?.prompt ?? '' })), [session.quiz.questions, libQuiz]);
   // naloge, izvzete iz točkovanja (velja za to izvedbo; pri združenih rezultatih za vse prikazane izvedbe)
@@ -372,7 +372,7 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
 
   const rows = useMemo(() => {
     const withScore = students.map(s => ({ s, ans: answersByStudent.get(s.student_id) ?? {}, sc: scoreAnswers(scoredQuiz, answersByStudent.get(s.student_id) ?? {}) }));
-    return withScore.sort((a, b) => sortBy === 'points' ? b.sc.points - a.sc.points || compareByLastName(a.s.name, b.s.name) : compareByLastName(a.s.name, b.s.name));
+    return withScore.sort((a, b) => compareResults(sortBy, { name: a.s.name, points: a.sc.points }, { name: b.s.name, points: b.sc.points }));
   }, [students, answersByStudent, scoredQuiz, sortBy]);
 
   // povprečje razreda po nalogah: delež pravilnih med učenci, ki so sodelovali (odprta vprašanja niso točkovana)
@@ -474,10 +474,10 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
           <table style={{ borderCollapse: 'collapse', fontSize: '15px', minWidth: '100%' }}>
             <thead><tr>
               <th style={{ position: 'sticky', left: 0, top: 0, zIndex: 3, background: 'var(--canvas)', padding: '8px 12px', textAlign: 'left', borderBottom: '1px solid var(--hairline)', whiteSpace: 'nowrap' }}>
-                <button style={sortBtn(sortBy === 'name')} onClick={() => setSortBy('name')}>Učenec</button>
+                <button style={sortBtn(sortBy.by === 'name')} onClick={() => setSortBy('name')} title="Razvrsti po priimku; ponoven klik obrne smer">Učenec{sortBy.by === 'name' ? (sortBy.desc ? ' ↑' : ' ↓') : ''}</button>
               </th>
               <th style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--canvas)', padding: '8px 12px', textAlign: 'left', borderBottom: '1px solid var(--hairline)', borderRight: '2px solid var(--hairline)', whiteSpace: 'nowrap' }}>
-                <button style={sortBtn(sortBy === 'points')} onClick={() => setSortBy('points')}>Točke · %</button>
+                <button style={sortBtn(sortBy.by === 'points')} onClick={() => setSortBy('points')} title="Razvrsti po točkah (najprej največ); ponoven klik obrne smer">Točke · %{sortBy.by === 'points' ? (sortBy.desc ? ' ↓' : ' ↑') : ''}</button>
               </th>
               {questions.map((q, i) => <th key={q.id} title={perStudentOrder ? `Naloga ${i + 1} na listu posameznega učenca` : `${q.prompt}${!perStudentOrder && excluded.includes(q.id) ? ' (izvzeto iz točkovanja)' : ''}`} style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--canvas)', padding: '8px 6px', borderBottom: '1px solid var(--hairline)', minWidth: '38px', color: 'var(--muted)', fontWeight: 600, textDecoration: !perStudentOrder && excluded.includes(q.id) ? 'line-through' : 'none' }}>{i + 1}</th>)}
             </tr></thead>
@@ -571,7 +571,7 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
       {printing && typeof document !== 'undefined' && createPortal(
         <div className="print-results">
           <ResultsPrintSheet session={session} students={students} answersByStudent={answersByStudent} questions={questions} excluded={excluded}
-            title={quizTitle} anon={anon} isOn={isOn} sessionsByStudent={sessionsByStudent} byPoints={sortBy === 'points'} />
+            title={quizTitle} anon={anon} isOn={isOn} sessionsByStudent={sessionsByStudent} sort={sortBy} />
         </div>,
         document.body,
       )}

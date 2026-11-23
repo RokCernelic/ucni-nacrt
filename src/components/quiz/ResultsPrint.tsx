@@ -5,7 +5,8 @@ import { participated, type QuizSession, type SessionStudent } from '@/lib/quiz/
 import { answerStatus, scoreAnswers, choiceIds, isScored, answerFraction, manualPoints } from '@/lib/quiz/scoring';
 import { formatNumber, studentsLabel, ceilPct } from '@/lib/quiz/format';
 import type { Question } from '@/lib/quiz/types';
-import { compareByLastName, initialsName } from '@/lib/names';
+import { initialsName } from '@/lib/names';
+import { compareResults, type ResultsSort } from '@/lib/quiz/resultsSort';
 import { layoutSheet, sheetSeed, shuffleOpts } from '@/lib/quiz/printSheet';
 import type { PaperInfo } from '@/lib/quiz/paperSession';
 
@@ -15,7 +16,7 @@ const LETTERS = 'ABCDEF';
  * Tabela rezultatov ene izvedbe za tisk na A4 (glava z razredom in datumom, vrstica na učenca, povprečje razreda).
  * Uporablja jo »Natisni« pri rezultatih izvedbe in »Natisni vse izvedbe« (vsak razred na svoj list).
  */
-export default function ResultsPrintSheet({ session, students, answersByStudent, questions, excluded, title, anon, isOn = participated, sessionsByStudent, byPoints }: {
+export default function ResultsPrintSheet({ session, students, answersByStudent, questions, excluded, title, anon, isOn = participated, sessionsByStudent, sort = { by: 'name', desc: false } }: {
   session: QuizSession;
   students: SessionStudent[];
   answersByStudent: Map<string, Record<string, string>>;
@@ -27,8 +28,8 @@ export default function ResultsPrintSheet({ session, students, answersByStudent,
   isOn?: (st: SessionStudent) => boolean;
   /** pri združenih rezultatih več sej: seja posameznega učenca */
   sessionsByStudent?: Map<string, QuizSession>;
-  /** razvrsti po točkah (sicer po priimku) */
-  byPoints?: boolean;
+  /** razvrščanje vrstic (kot v tabeli rezultatov) */
+  sort?: ResultsSort;
 }) {
   const sessOf = (sid: string) => sessionsByStudent?.get(sid) ?? session;
   const paperLayouts = useMemo(() => {
@@ -69,7 +70,7 @@ export default function ResultsPrintSheet({ session, students, answersByStudent,
   const scoredQuiz = { questions, excluded };
   const rows = [...students]
     .map(s => ({ s, ans: answersByStudent.get(s.student_id) ?? {}, sc: scoreAnswers(scoredQuiz, answersByStudent.get(s.student_id) ?? {}) }))
-    .sort((a, b) => (byPoints ? b.sc.points - a.sc.points : 0) || compareByLastName(a.s.name, b.s.name));
+    .sort((a, b) => compareResults(sort, { name: a.s.name, points: a.sc.points }, { name: b.s.name, points: b.sc.points }));
   const part = rows.filter(r => isOn(r.s));
   const avgPct = part.length ? ceilPct(part.reduce((t, r) => t + r.sc.percent, 0) / part.length) : 0;
   const perQuestion = new Map(questions.map(q => {
