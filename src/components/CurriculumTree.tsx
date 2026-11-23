@@ -992,7 +992,7 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
 
   return (
     <div data-tl-chapter data-tl-hours={totalHours + pauseHours} data-tl-pause={pauseHours > 0 ? '1' : undefined} data-tl-dated={datedPauses.length ? JSON.stringify(datedPauses) : undefined} style={{ borderBottom: '1px solid var(--hairline)' }}>
-      <div ref={chapterHeaderRef} onDragOver={armOpen} onDragLeave={disarmOpen} onDrop={disarmOpen} style={{ display: 'flex', alignItems: 'center', background: 'transparent' }}>
+      <div ref={chapterHeaderRef} onDragOver={armOpen} onDragLeave={disarmOpen} onDrop={disarmOpen} style={{ display: 'flex', alignItems: 'center', background: allDone ? '#f4fbf4' : 'transparent', transition: 'background 0.2s' }}>
         <span
           draggable
           onDragStart={(e) => {
@@ -1013,7 +1013,7 @@ function PoglavjeRow({ poglavje, index, predmetId, checked, onToggle, isOpen, on
             {allDone ? <CheckIcon /> : <ChevronIcon open={isOpen} />}
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: 'var(--font-serif)', fontSize: '20px', fontWeight: 400, color: 'var(--ink)', letterSpacing: '0.01em' }}>
+            <div style={{ fontFamily: 'var(--font-serif)', fontSize: '20px', fontWeight: 400, color: allDone ? 'var(--green-ok)' : 'var(--ink)', letterSpacing: '0.01em' }}>
               <span style={{ fontWeight: 300, color: 'var(--muted)', marginRight: '10px' }}>{index}</span>{poglavje.naslov}
             </div>
           </div>
