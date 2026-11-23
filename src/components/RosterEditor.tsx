@@ -212,7 +212,12 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
     fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500, color: 'var(--muted)', whiteSpace: 'nowrap', textAlign: 'center', userSelect: 'none' };
   const TD: React.CSSProperties = { borderBottom: '1px solid var(--hairline)', padding: '7px 12px', verticalAlign: 'middle' };
   const DIV = '2px solid var(--hairline)';
-  const arrow = (k: string) => (sort.key === k ? (sort.dir === 1 ? ' ▲' : ' ▼') : '');
+  // ▼ = od največjega proti najmanjšemu: številski stolpci (⌀ %, kvizi, ročni) so pri dir 1 razvrščeni od največjega
+  const arrow = (k: string) => {
+    if (sort.key !== k) return '';
+    const bigFirst = k === 'avg' || k.startsWith('q:') || k.startsWith('m:');
+    return (bigFirst ? sort.dir === 1 : sort.dir === -1) ? ' ▼' : ' ▲';
+  };
   const dateShort = (iso: string) => new Date(iso).toLocaleDateString('sl-SI', { day: 'numeric', month: 'numeric' });
 
   /** Glava premakljivega stolpca: klik = razvrsti, povleci = premakni. */
