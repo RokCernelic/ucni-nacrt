@@ -1,15 +1,15 @@
 'use client';
 
-import RoundToggle from '@/components/RoundToggle';
+import RoundToggle, { DONE_BG } from '@/components/RoundToggle';
 import { offerUndo, snapshotStorage } from '@/lib/undoStore';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import ActiveSessions from '@/components/quiz/ActiveSessions';
 import { useQuizLibrary, QuizStorageFullError } from '@/hooks/useQuizLibrary';
 import { questionProblems } from '@/lib/quiz/scoring';
-import { deleteEmptySessionsOfQuiz } from '@/lib/quiz/sessionApi';
+import { deleteEmptySessionsOfQuiz, loadQuizRunStatus } from '@/lib/quiz/sessionApi';
 import { questionsLabel, pointsLabel, dateTimeLabel } from '@/lib/quiz/format';
 import StartSessionDialog from '@/components/quiz/StartSessionDialog';
 import type { Quiz, QuizFolder } from '@/lib/quiz/types';
@@ -50,6 +50,17 @@ export default function QuizLibrary() {
   const [renaming, setRenaming] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState<string | null>(null);
+  // izvedbe po kvizih: mapa je zelena (zaključena), ko so vsi njeni kvizi izvedeni in vse izvedbe zaključene
+  const [runs, setRuns] = useState<Map<string, { runs: number; open: boolean }> | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    let alive = true;
+    const load = () => loadQuizRunStatus().then(m => { if (alive) setRuns(m); }).catch(() => {});
+    void load();
+    const onVis = () => { if (document.visibilityState === 'visible') void load(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { alive = false; document.removeEventListener('visibilitychange', onVis); };
+  }, [user]);
   const [draggingQuiz, setDraggingQuiz] = useState<string | null>(null);
   const [dragOverFolder, setDragOverFolder] = useState<string | null>(null); // '' pomeni koren
   const dragQuizId = useRef<string | null>(null);
@@ -94,6 +105,8 @@ export default function QuizLibrary() {
   const quizzesIn = (folderId: string | null) => sortQuizzes(lib.quizzes.filter(q => q.folderId === folderId));
   const foldersIn = (parentId: string | null) => lib.folders.filter(f => f.parentId === parentId).sort((a, b) => a.name.localeCompare(b.name, 'sl'));
   const allFolders = flatFolders(lib.folders);
+  /** vsi kvizi v mapi, tudi v podmapah */
+  const allQuizzesIn = (folderId: string): Quiz[] => [...lib.quizzes.filter(q => q.folderId === folderId), ...lib.folders.filter(f => f.parentId === folderId).flatMap(f => allQuizzesIn(f.id))];
   const countIn = (folderId: string): number => {
     const direct = lib.quizzes.filter(q => q.folderId === folderId).length;
     return direct + lib.folders.filter(f => f.parentId === folderId).reduce((n, f) => n + countIn(f.id), 0);
@@ -150,15 +163,18 @@ export default function QuizLibrary() {
 
   const renderFolder = (f: QuizFolder, depth: number): React.ReactNode => {
     const isOpen = openFolders.has(f.id);
+    const inside = allQuizzesIn(f.id);
+    const done = !!runs && inside.length > 0 && inside.every(q => { const r = runs.get(q.id); return !!r && r.runs > 0 && !r.open; });
     const subs = foldersIn(f.id), qs = quizzesIn(f.id);
     return (
       <div key={f.id} style={{ border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', background: depth ? 'transparent' : 'var(--canvas)', overflow: 'hidden' }}>
         <div data-folder-id={f.id} onDragOver={onFolderDragOver} onDragLeave={onFolderDragLeave} onDrop={onFolderDrop}
           onClick={() => { if (renaming !== f.id) toggleFolder(f.id); }}
           style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', cursor: 'pointer', fontFamily: 'var(--font-sans)',
-            background: dragOverFolder === f.id ? '#e9f2ea' : 'transparent' }}>
-          <RoundToggle open={isOpen} />
-          <span style={{ color: 'var(--forest)', display: 'flex' }}><FolderIcon /></span>
+            background: dragOverFolder === f.id ? '#e9f2ea' : done ? DONE_BG : 'transparent', transition: 'background 0.2s' }}
+          title={done ? 'Vsi kvizi v mapi so izvedeni in vse izvedbe zaključene' : undefined}>
+          <RoundToggle open={isOpen} done={done} />
+          <span style={{ color: done ? 'var(--green-ok)' : 'var(--forest)', display: 'flex' }}><FolderIcon /></span>
           {renaming === f.id ? (
             <input autoFocus defaultValue={f.name} onClick={e => e.stopPropagation()}
               onFocus={e => e.currentTarget.select()}
@@ -166,7 +182,7 @@ export default function QuizLibrary() {
               onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') setRenaming(null); }}
               style={{ flex: 1, minWidth: 0, fontFamily: 'var(--font-sans)', fontSize: '14px', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', padding: '4px 6px' }} />
           ) : (
-            <span style={{ flex: 1, minWidth: 0, fontFamily: 'var(--font-serif)', fontSize: '20px', fontWeight: 400, letterSpacing: '0.01em', color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <span style={{ flex: 1, minWidth: 0, fontFamily: 'var(--font-serif)', fontSize: '20px', fontWeight: 400, letterSpacing: '0.01em', color: done ? 'var(--green-ok)' : 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {f.name} <span style={{ fontFamily: 'var(--font-sans)', fontWeight: 400, fontSize: '13px', color: 'var(--muted)' }}>· {countIn(f.id)}</span>
             </span>
           )}

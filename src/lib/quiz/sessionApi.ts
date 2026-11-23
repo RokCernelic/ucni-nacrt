@@ -376,6 +376,20 @@ export async function deleteSession(id: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+/** Stanje izvedb po kvizih (za knjižnico): koliko izvedb ima kviz in ali je katera še odprta. */
+export async function loadQuizRunStatus(): Promise<Map<string, { runs: number; open: boolean }>> {
+  const sb = getSupabaseBrowserClient();
+  const { data, error } = await sb.from('quiz_sessions').select('quiz_id, status');
+  if (error) throw new Error(error.message);
+  const m = new Map<string, { runs: number; open: boolean }>();
+  for (const r of (data ?? []) as { quiz_id: string | null; status: string }[]) {
+    if (!r.quiz_id) continue;
+    const cur = m.get(r.quiz_id) ?? { runs: 0, open: false };
+    m.set(r.quiz_id, { runs: cur.runs + 1, open: cur.open || r.status === 'open' });
+  }
+  return m;
+}
+
 export interface ActiveSession {
   session: QuizSession;
   /** povezani učenci (natisnjen kviz: učenci z vsaj enim skeniranim listom) */
