@@ -18,7 +18,8 @@ export interface QuizSession {
   code: string;
   quiz_id: string | null;
   quiz_title: string;
-  quiz: { questions: Question[] };
+  /** `excluded`: naloge, izvzete iz točkovanja v tej izvedbi */
+  quiz: { questions: Question[]; excluded?: string[] };
   class_id: string;
   class_name: string;
   mode: SessionMode;
@@ -137,6 +138,20 @@ export function withManualQuestions<T extends Pick<QuizSession, 'quiz' | 'paper'
   const have = new Set(s.quiz.questions.map(q => q.id));
   const add: Question[] = items.filter(i => !have.has(i.id) && i.points > 0).map(i => ({ id: i.id, kind: 'open', manual: true, prompt: '', points: i.points }));
   return add.length ? { ...s, quiz: { ...s.quiz, questions: [...s.quiz.questions, ...add] } } : s;
+}
+
+/** Nalogo izvzame iz točkovanja (ali jo vrne) v danih izvedbah; ne spremeni odgovorov. */
+export async function setQuestionExcluded(sessionIds: string[], questionId: string, excluded: boolean) {
+  const sb = getSupabaseBrowserClient();
+  for (const id of sessionIds) {
+    const { data, error } = await sb.from('quiz_sessions').select('quiz').eq('id', id).single();
+    if (error) throw new Error(error.message);
+    const quiz = (data as { quiz: QuizSession['quiz'] }).quiz;
+    const cur = new Set(quiz.excluded ?? []);
+    if (excluded) cur.add(questionId); else cur.delete(questionId);
+    const { error: e } = await sb.from('quiz_sessions').update({ quiz: { ...quiz, excluded: [...cur] } }).eq('id', id);
+    if (e) throw new Error(e.message);
+  }
 }
 
 /** Ročno vpisane točke ene naloge enega učenca (null = pobriši). Učenec šteje kot oddan (sodeloval). */

@@ -123,9 +123,10 @@ export interface QuizScore {
 }
 
 /** Točke za odgovore enega učenca (ključ = id vprašanja). Številski: vse ali nič. */
-export function scoreAnswers(quiz: Pick<Quiz, 'questions'>, answers: Record<string, string | undefined>): QuizScore {
+export function scoreAnswers(quiz: Pick<Quiz, 'questions'> & { excluded?: string[] }, answers: Record<string, string | undefined>): QuizScore {
   let points = 0, maxPoints = 0, correct = 0, wrong = 0, unanswered = 0;
   for (const q of quiz.questions) {
+    if (quiz.excluded?.includes(q.id)) continue; // izvzeto iz točkovanja
     if (q.kind === 'open' && q.manual) { // ročno vpisane točke (delne točke so mogoče)
       maxPoints += q.points;
       const p = manualPoints(q, answers[q.id]);

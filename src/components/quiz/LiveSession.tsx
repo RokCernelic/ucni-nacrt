@@ -6,7 +6,7 @@ import QRCode from 'qrcode';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuizLibrary } from '@/hooks/useQuizLibrary';
 import {
-  loadSession, updateSession, deleteSession, resetStudentResult, snapshotSession, restoreSessionSnapshot, syncSessionScoring, resolveDevice, joinChannel, isLive, participated, setManualPoints, TEACHER_NAME,
+  loadSession, updateSession, deleteSession, resetStudentResult, snapshotSession, restoreSessionSnapshot, syncSessionScoring, resolveDevice, joinChannel, isLive, participated, setManualPoints, setQuestionExcluded, TEACHER_NAME,
   type QuizSession, type SessionStudent, type SessionAnswer,
 } from '@/lib/quiz/sessionApi';
 import { offerPersistentUndo } from '@/lib/undoStore';
@@ -102,7 +102,7 @@ export function QuestionView({ q, index, total, revealed, counts, answeredCount 
 }
 
 /** Statistika enega vprašanja: % pravilno + porazdelitev odgovorov. */
-function QuestionStats({ q, index, answers, totalStudents }: { q: Question; index: number; answers: SessionAnswer[]; totalStudents: number }) {
+function QuestionStats({ q, index, answers, totalStudents, excluded, onToggleExcluded }: { q: Question; index: number; answers: SessionAnswer[]; totalStudents: number; excluded?: boolean; onToggleExcluded?: () => void }) {
   const relevant = answers.filter(a => a.question_id === q.id);
   const answeredCount = relevant.length;
   const correctCount = relevant.filter(a => isCorrect(q, a.value)).length;
@@ -117,9 +117,10 @@ function QuestionStats({ q, index, answers, totalStudents }: { q: Question; inde
   }
 
   return (
-    <div style={{ border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', padding: '16px 18px', background: 'var(--canvas)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '12px', marginBottom: '10px' }}>
+    <div style={{ border: `1px solid ${excluded ? '#d8d4cb' : 'var(--hairline)'}`, borderRadius: 'var(--r-md)', padding: '16px 18px', background: excluded ? '#f4f2ee' : 'var(--canvas)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '12px', marginBottom: '10px', opacity: excluded ? 0.6 : 1 }}>
         <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--ink)' }}>{index + 1}. {q.prompt || '(brez besedila)'}</div>
+        {excluded && <span style={{ fontSize: '12px', fontWeight: 700, color: '#8a5a00', background: '#fdf6e3', border: '1px solid #ecd9a8', borderRadius: '999px', padding: '2px 10px', whiteSpace: 'nowrap' }}>izvzeto iz točkovanja</span>}
         <div style={{ fontSize: '15px', fontWeight: 700, color: pctColor, whiteSpace: 'nowrap' }}>
           {q.kind === 'open' && q.manual ? (answeredCount ? `povprečno ${formatNumber(Math.round((relevant.reduce((t, a) => t + (manualPoints(q, a.value) ?? 0), 0) / answeredCount) * 10) / 10)} / ${formatNumber(q.points)} točk` : 'točke še niso vpisane')
             : q.kind === 'open' ? 'ročni pregled' : answeredCount ? `${pct} % pravilno` : 'brez odgovorov'}
@@ -157,7 +158,17 @@ function QuestionStats({ q, index, answers, totalStudents }: { q: Question; inde
           {answeredCount === 0 && <span style={{ fontSize: '13px', color: 'var(--muted)' }}>Nihče ni odgovoril.</span>}
         </div>
       )}
-      <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '10px' }}>{answeredCount} / {totalStudents} odgovorilo</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '10px' }}>
+        <span style={{ fontSize: '11px', color: 'var(--muted)', flex: 1 }}>{answeredCount} / {totalStudents} odgovorilo</span>
+        {onToggleExcluded && (
+          <button onClick={onToggleExcluded}
+            title={excluded ? 'Naloga spet šteje v točke in odstotke' : 'Naloga ne šteje v točke in odstotke (npr. snov ni bila obravnavana); odgovori ostanejo shranjeni'}
+            style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 600, padding: '5px 10px', borderRadius: 'var(--r-sm)', cursor: 'pointer',
+              border: `1px solid ${excluded ? 'var(--forest)' : 'var(--hairline)'}`, background: 'transparent', color: excluded ? 'var(--forest)' : 'var(--muted)' }}>
+            {excluded ? '↺ Vključi v točkovanje' : '⊘ Izvzemi iz točkovanja'}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -265,6 +276,18 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
   const [sortBy, setSortBy] = useState<'name' | 'points'>('name');
   // ročno točkovane naloge starejših izvedb nimajo besedila — vzemi ga iz kviza v knjižnici
   const questions = useMemo(() => session.quiz.questions.map(q => (q.prompt || !libQuiz ? q : { ...q, prompt: libQuiz.questions.find(x => x.id === q.id)?.prompt ?? '' })), [session.quiz.questions, libQuiz]);
+  // naloge, izvzete iz točkovanja (velja za to izvedbo; pri združenih rezultatih za vse prikazane izvedbe)
+  const [excluded, setExcludedState] = useState<string[]>(session.quiz.excluded ?? []);
+  const scoredQuiz = useMemo(() => ({ ...session.quiz, excluded }), [session.quiz, excluded]);
+  const toggleExcluded = (qid: string) => {
+    const on = !excluded.includes(qid);
+    setExcludedState(x => (on ? [...x, qid] : x.filter(id => id !== qid)));
+    const ids = [...new Set([session.id, ...[...(sessionsByStudent?.values() ?? [])].map(x => x.id)])];
+    setQuestionExcluded(ids, qid, on).catch(e => {
+      alert(`Ni bilo mogoče shraniti: ${e instanceof Error ? e.message : String(e)}`);
+      setExcludedState(x => (on ? x.filter(id => id !== qid) : [...x, qid]));
+    });
+  };
   // ročno vpisane točke (natisnjen kviz): takoj vidne, shranijo se v ozadju
   const [manualEdits, setManualEdits] = useState<Record<string, string | null>>({});
   const editedIds = useMemo(() => new Set(Object.entries(manualEdits).filter(([, v]) => v !== null).map(([k]) => k.split('|')[0])), [manualEdits]);
@@ -344,23 +367,23 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
   }, [answers, manualEdits]);
 
   const rows = useMemo(() => {
-    const withScore = students.map(s => ({ s, ans: answersByStudent.get(s.student_id) ?? {}, sc: scoreAnswers(session.quiz, answersByStudent.get(s.student_id) ?? {}) }));
+    const withScore = students.map(s => ({ s, ans: answersByStudent.get(s.student_id) ?? {}, sc: scoreAnswers(scoredQuiz, answersByStudent.get(s.student_id) ?? {}) }));
     return withScore.sort((a, b) => sortBy === 'points' ? b.sc.points - a.sc.points || compareByLastName(a.s.name, b.s.name) : compareByLastName(a.s.name, b.s.name));
-  }, [students, answersByStudent, session.quiz, sortBy]);
+  }, [students, answersByStudent, scoredQuiz, sortBy]);
 
   // povprečje razreda po nalogah: delež pravilnih med učenci, ki so sodelovali (odprta vprašanja niso točkovana)
   const perQuestion = useMemo(() => {
     const part = rows.filter(r => participated(r.s) || editedIds.has(r.s.student_id));
     return new Map(session.quiz.questions.map(q => {
-      if (!isScored(q) || !part.length) return [q.id, null] as const;
+      if (!isScored(q) || excluded.includes(q.id) || !part.length) return [q.id, null] as const;
       const ok = part.reduce((t, r) => t + answerFraction(q, r.ans[q.id]), 0);
       return [q.id, ceilPct((ok / part.length) * 100)] as const;
     }));
-  }, [rows, session.quiz.questions, editedIds]);
+  }, [rows, session.quiz.questions, editedIds, excluded]);
 
   // učitelj (testna oseba) — prikazan pod učenci, ne šteje v povprečje
   const teacherScore = teacher?.device_id
-    ? scoreAnswers(session.quiz, Object.fromEntries(teacherAnswers.map(a => [a.question_id, a.value])))
+    ? scoreAnswers(scoredQuiz, Object.fromEntries(teacherAnswers.map(a => [a.question_id, a.value])))
     : null;
 
   // povprečje le med učenci, ki so sodelovali (neskenirani / nepovezani ne štejejo kot 0 %)
@@ -369,7 +392,7 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
   const avgPct = partRows.length ? ceilPct(partRows.reduce((s, r) => s + r.sc.percent, 0) / partRows.length) : 0;
 
   const exportCsv = () => {
-    const csv = sessionResultsCsv(session.quiz, students.map(s => ({ name: s.name, participated: participated(s), answers: answersByStudent.get(s.student_id) ?? {} })));
+    const csv = sessionResultsCsv(scoredQuiz, students.map(s => ({ name: s.name, participated: participated(s), answers: answersByStudent.get(s.student_id) ?? {} })));
     const date = new Date(session.ended_at ?? session.created_at).toISOString().slice(0, 10);
     downloadCsv(`${safeFilename(quizTitle, session.class_name, date)}.csv`, csv);
   };
@@ -433,7 +456,7 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
               <th style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--canvas)', padding: '8px 12px', textAlign: 'left', borderBottom: '1px solid var(--hairline)', borderRight: '2px solid var(--hairline)', whiteSpace: 'nowrap' }}>
                 <button style={sortBtn(sortBy === 'points')} onClick={() => setSortBy('points')}>Točke · %</button>
               </th>
-              {questions.map((q, i) => <th key={q.id} title={perStudentOrder ? `Naloga ${i + 1} na listu posameznega učenca` : q.prompt} style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--canvas)', padding: '8px 6px', borderBottom: '1px solid var(--hairline)', minWidth: '38px', color: 'var(--muted)', fontWeight: 600 }}>{i + 1}</th>)}
+              {questions.map((q, i) => <th key={q.id} title={perStudentOrder ? `Naloga ${i + 1} na listu posameznega učenca` : `${q.prompt}${!perStudentOrder && excluded.includes(q.id) ? ' (izvzeto iz točkovanja)' : ''}`} style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--canvas)', padding: '8px 6px', borderBottom: '1px solid var(--hairline)', minWidth: '38px', color: 'var(--muted)', fontWeight: 600, textDecoration: !perStudentOrder && excluded.includes(q.id) ? 'line-through' : 'none' }}>{i + 1}</th>)}
             </tr></thead>
             <tbody>
               {rows.map(({ s, ans, sc }) => {
@@ -527,7 +550,8 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
         <div style={{ marginTop: '32px' }}>
           <h2 style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted)', margin: '0 0 10px' }}>Vprašanja{perStudentOrder ? ' (v izvirnem vrstnem redu kviza)' : ''}</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {questions.map((q, i) => <QuestionStats key={q.id} q={q} index={i} answers={answers} totalStudents={students.length} />)}
+            {questions.map((q, i) => <QuestionStats key={q.id} q={q} index={i} answers={answers} totalStudents={students.length}
+              excluded={excluded.includes(q.id)} onToggleExcluded={isScored(q) ? () => toggleExcluded(q.id) : undefined} />)}
           </div>
         </div>
       )}

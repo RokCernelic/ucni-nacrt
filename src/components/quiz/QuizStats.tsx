@@ -86,7 +86,7 @@ export default function QuizStats() {
         live: isLive(s), open: s.status === 'open',
         deleted: !!s.quiz_id && lib.loaded && !lib.quizzes.some(q => q.id === s.quiz_id),
         nQ: s.paper ? ((s.paper as { items?: unknown[] }).items?.length ?? s.quiz.questions.length) : s.quiz.questions.length,
-        maxPts: s.quiz.questions.filter(isScored).reduce((t, q) => t + q.points, 0),
+        maxPts: s.quiz.questions.filter(q => isScored(q) && !s.quiz.excluded?.includes(q.id)).reduce((t, q) => t + q.points, 0),
         quizCreated: libQuiz?.createdAt ?? null,
         scoringChanged,
       };
@@ -221,7 +221,7 @@ export default function QuizStats() {
       const by = new Map<string, Record<string, string>>();
       for (const a of data.answersBySession.get(r.s.id) ?? []) by.set(a.student_id, { ...(by.get(a.student_id) ?? {}), [a.question_id]: a.value });
       for (const q of r.s.quiz.questions) {
-        if (!isScored(q)) continue;
+        if (!isScored(q) || r.s.quiz.excluded?.includes(q.id)) continue;
         const c = okBy.get(q.id) ?? { ok: 0, n: 0 };
         for (const st of part) { c.n++; c.ok += answerFraction(q, by.get(st.student_id)?.[q.id]); }
         okBy.set(q.id, c);
