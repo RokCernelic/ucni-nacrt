@@ -418,3 +418,5 @@ html.drawer-resizing { cursor: col-resize; user-select: none; }
 
 /* tisk kviza »Brez glave«: brez vrstice z razredom, naslovom, datumom in imenom (stran z rešitvami ostane z glavo) */
 .pqz-nohead .pqz-sheet > .pqz-head, .pqz-nohead .pqz-half > .pqz-head { display: none !important; }
+/* tisk kviza »Brez okvirja z odgovori«: brez krogcev, kvadratkov in QR kode (lista ni mogoče skenirati) */
+.pqz-noframe .pqz-grid, .pqz-noframe .pqz-scanhint { display: none !important; }

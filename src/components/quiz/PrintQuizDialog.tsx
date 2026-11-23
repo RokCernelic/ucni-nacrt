@@ -50,6 +50,11 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
   /** brez glave lista (razred, naslov, datum, ime); zapomni se za naslednji tisk */
   const [noHead, setNoHeadRaw] = useState(() => { try { return localStorage.getItem('kviz-tisk-brez-glave') === '1'; } catch { return false; } });
   const setNoHead = (v: boolean) => { setNoHeadRaw(v); try { localStorage.setItem('kviz-tisk-brez-glave', v ? '1' : '0'); } catch { /* ignore */ } };
+  /** brez okvirja z odgovori (krogci, kvadratki, QR) — lista ni mogoče skenirati; zapomni se za naslednji tisk */
+  const [noFrame, setNoFrameRaw] = useState(() => { try { return localStorage.getItem('kviz-tisk-brez-okvirja') === '1'; } catch { return false; } });
+  const setNoFrame = (v: boolean) => { setNoFrameRaw(v); try { localStorage.setItem('kviz-tisk-brez-okvirja', v ? '1' : '0'); } catch { /* ignore */ } };
+  /** razredi korena tiska / predogleda za skrito glavo in okvir */
+  const hideCls = `${noHead ? ' pqz-nohead' : ''}${noFrame ? ' pqz-noframe' : ''}`;
   /** stran z rešitvami (za učitelja) kot zadnja stran natisa — če rešitve obstajajo */
   const hasSolutions = useMemo(() => items.some(hasSolutionText), [items]);
   const [withSolutions, setWithSolutions] = useState(true);
@@ -219,6 +224,14 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
           </span>
         </span>
       </label>
+      <label style={{ ...labelStyle, margin: '10px 0 4px' }}>
+        <input type="checkbox" checked={noFrame} onChange={e => setNoFrame(e.target.checked)} style={{ marginTop: '3px' }} />
+        <span>Brez okvirja z odgovori
+          <span style={{ display: 'block', fontSize: '12px', color: noFrame ? '#b7791f' : 'var(--muted)' }}>
+            Ne natisne okvirja s krogci, črnimi kvadratki in QR kodo — izbirne naloge učenci rešijo kar ob možnostih (npr. obkrožijo črko).{noFrame ? ' ⚠ Takega lista ni mogoče skenirati; rezultate vpišeš ročno.' : ''}
+          </span>
+        </span>
+      </label>
       {hasSolutions && (
         <label style={{ ...labelStyle, margin: '14px 0 4px' }}>
           <input type="checkbox" checked={withSolutions} onChange={e => setWithSolutions(e.target.checked)} style={{ marginTop: '3px' }} />
@@ -272,11 +285,11 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
           </div>
           <div onClick={e => e.stopPropagation()} style={{ flex: 1, overflow: 'auto', padding: '16px' }}>
             {preview.halves && hp.plan ? (
-              <div className={`pqz-preview${noHead ? ' pqz-nohead' : ''}`} style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap', zoom: 0.6 }}>
+              <div className={`pqz-preview${hideCls}`} style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap', zoom: 0.6 }}>
                 <HalvesPages sheets={preview.sheets} plan={hp.plan} title={title} placeholder duplicate={!perStudent} />
               </div>
             ) : (
-              <div className={`pqz-preview${noHead ? ' pqz-nohead' : ''}`} style={{ width: 'fit-content', margin: '0 auto' }}>
+              <div className={`pqz-preview${hideCls}`} style={{ width: 'fit-content', margin: '0 auto' }}>
                 <QuizSheet sheet={preview.sheets[preview.idx]} title={title} placeholder colGap={colGap} />
               </div>
             )}
@@ -291,7 +304,7 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
       )}
 
       {sheets && createPortal(
-        <div className={`print-questions pqz${noHead ? ' pqz-nohead' : ''}`} aria-hidden>
+        <div className={`print-questions pqz${hideCls}`} aria-hidden>
           {printPlan
             ? <HalvesPages sheets={sheets} plan={printPlan} title={title} className={cls?.name} duplicate={!perStudent} />
             : sheets.map(sh => <QuizSheet key={sh.key} sheet={sh} title={title} className={cls?.name} colGap={colGap} />)}
