@@ -140,6 +140,13 @@ export function withManualQuestions<T extends Pick<QuizSession, 'quiz' | 'paper'
   return add.length ? { ...s, quiz: { ...s.quiz, questions: [...s.quiz.questions, ...add] } } : s;
 }
 
+/** Naloge, izvzete iz točkovanja v izvedbi (sveže iz baze). */
+export async function loadExcluded(sessionId: string): Promise<string[]> {
+  const { data, error } = await getSupabaseBrowserClient().from('quiz_sessions').select('quiz').eq('id', sessionId).single();
+  if (error) throw new Error(error.message);
+  return (data as { quiz: QuizSession['quiz'] }).quiz.excluded ?? [];
+}
+
 /** Nalogo izvzame iz točkovanja (ali jo vrne) v danih izvedbah; ne spremeni odgovorov. */
 export async function setQuestionExcluded(sessionIds: string[], questionId: string, excluded: boolean) {
   const sb = getSupabaseBrowserClient();

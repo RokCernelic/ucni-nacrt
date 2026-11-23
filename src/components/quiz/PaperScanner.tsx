@@ -4,7 +4,7 @@ import { joinChoiceIds, parseNumber } from '@/lib/quiz/scoring';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
-import { joinChannel, joinStatsChannel, setManualPoints } from '@/lib/quiz/sessionApi';
+import { joinChannel, joinStatsChannel, setManualPoints, loadExcluded } from '@/lib/quiz/sessionApi';
 import { loadPaperSession, savePaperAnswers, isPaperOpen, paperScannedAt, loadStudentAnswers, type PaperSession } from '@/lib/quiz/paperSession';
 import { layoutSheet, frameGeometry, parseToken, sheetSeed, shuffleOpts, type FrameGeometry, type SheetLayout, type LayoutItem } from '@/lib/quiz/printSheet';
 import { toGray, locate, readLocated, project, type SheetReading } from '@/lib/quiz/omr';
@@ -21,6 +21,8 @@ interface Hit {
   /** vpisane točke (besedilo polja); `loaded` = prej shranjene vrednosti so naložene */
   manualVals: Record<string, string>;
   manualSaved: Record<string, string> | null;
+  /** naloge, izvzete iz točkovanja (ne štejejo v točke) */
+  excluded: string[];
 }
 
 const sig = (h: { studentId: string; reading: SheetReading }) => `${h.studentId}|${h.reading.cells.map(c => c.chosen.join(',')).join(';')}`;
@@ -170,7 +172,8 @@ export default function PaperScanner() {
                     const nOf = new Map([...layout.choice, ...layout.free].map(c => [c.item.id, c.n]));
                     const manual = s.session.quiz.questions.filter(q => q.kind === 'open' && q.manual)
                       .map(q => ({ id: q.id, n: nOf.get(q.id) ?? 0, prompt: q.prompt, points: q.points })).sort((a, b) => a.n - b.n);
-                    setHit({ sessionId: tok.sessionId, studentId: tok.studentId, name: st.name, layout, geom, reading, chosen: reading.cells.map(c => c.chosen), manual, manualVals: {}, manualSaved: null });
+                    setHit({ sessionId: tok.sessionId, studentId: tok.studentId, name: st.name, layout, geom, reading, chosen: reading.cells.map(c => c.chosen), manual, manualVals: {}, manualSaved: null, excluded: s.session.quiz.excluded ?? [] });
+                    void loadExcluded(tok.sessionId).then(ex => setHit(h => (h && h.sessionId === tok.sessionId ? { ...h, excluded: ex } : h))).catch(() => {});
                     if (manual.length) void loadStudentAnswers(tok.sessionId, tok.studentId).then(prev => {
                       const saved = Object.fromEntries(manual.filter(m => prev[m.id] != null).map(m => [m.id, String(prev[m.id]).replace('.', ',')]));
                       setHit(h => (h && h.studentId === tok.studentId && h.sessionId === tok.sessionId ? { ...h, manualSaved: saved, manualVals: { ...saved, ...h.manualVals } } : h));
@@ -218,7 +221,7 @@ export default function PaperScanner() {
     const ids = hit.chosen[i].map(k => c.options[k]?.id).filter(Boolean) as string[];
     const correct = c.item.correct;
     const ok = correct.length > 0 && ids.length === correct.length && ids.every(id => correct.includes(id));
-    return { n: c.n, letters: hit.chosen[i].map(k => c.options[k]?.letter).join(''), right: c.options.filter(o => correct.includes(o.id)).map(o => o.letter).join(''), ok, points: c.item.points, uncertain: hit.reading.cells[i].uncertain, nOpts: c.options.length, multi: !!c.item.multi };
+    return { excluded: hit.excluded.includes(c.item.id), n: c.n, letters: hit.chosen[i].map(k => c.options[k]?.letter).join(''), right: c.options.filter(o => correct.includes(o.id)).map(o => o.letter).join(''), ok, points: c.item.points, uncertain: hit.reading.cells[i].uncertain, nOpts: c.options.length, multi: !!c.item.multi };
   }) : [];
   const manualOf = (m: { id: string; points: number }) => {
     const raw = hit?.manualVals[m.id]?.trim();
@@ -227,8 +230,10 @@ export default function PaperScanner() {
     return n === null || n < 0 || n > m.points ? NaN : n;
   };
   const manualBad = hit ? hit.manual.filter(m => Number.isNaN(manualOf(m))) : [];
-  const got = score.reduce((s, r) => s + (r.ok ? r.points : 0), 0) + (hit?.manual.reduce((s, m) => s + (manualOf(m) || 0), 0) ?? 0);
-  const max = score.reduce((s, r) => s + r.points, 0) + (hit?.manual.reduce((s, m) => s + m.points, 0) ?? 0);
+  // izvzete naloge (v rezultatih »Izvzemi iz točkovanja«) ne štejejo
+  const manualIn = hit ? hit.manual.filter(m => !hit.excluded.includes(m.id)) : [];
+  const got = score.reduce((s, r) => s + (r.ok && !r.excluded ? r.points : 0), 0) + manualIn.reduce((s, m) => s + (manualOf(m) || 0), 0);
+  const max = score.reduce((s, r) => s + (r.excluded ? 0 : r.points), 0) + manualIn.reduce((s, m) => s + m.points, 0);
 
   const toggle = (qi: number, k: number) => setHit(h => {
     if (!h) return h;
@@ -310,26 +315,30 @@ export default function PaperScanner() {
               že skeniran{scannedAt ? ` (${new Date(scannedAt).toLocaleTimeString('sl-SI', { hour: '2-digit', minute: '2-digit' })}${saved[hit.studentId] === undefined ? ', na drugi napravi' : ''})` : ''} — shranitev prepiše
             </span>}
           </div>
-          <p style={{ fontSize: '13px', color: 'var(--muted)', margin: '0 0 12px' }}>Primerjaj z listom. Tapni črko, da popraviš. Oranžna vrstica = negotovo branje.</p>
+          <p style={{ fontSize: '13px', color: 'var(--muted)', margin: '0 0 12px' }}>Primerjaj z listom. Tapni črko, da popraviš. Zelena = pravilno, rdeča = napačno, rumena = negotovo branje ali brez odgovora.</p>
           {/* ležeče: kot okvir na listu (4 stolpci, naloge po stolpcih od zgoraj navzdol); pokončno: 2 stolpca */}
-          <div style={{ display: 'grid', gridTemplateColumns: turned ? 'repeat(4, minmax(0, 1fr))' : 'repeat(2, minmax(0, 1fr))', gap: '4px 14px' }}>
-            {score.map((r, qi) => (
-              <div key={r.n} style={{ ...(turned ? { gridColumn: Math.floor(qi / hit.geom.rows) + 1, gridRow: (qi % hit.geom.rows) + 1 } : {}), display: 'flex', alignItems: 'center', gap: '3px', padding: '5px 2px', borderRadius: '6px', background: r.uncertain ? '#fff1d6' : 'transparent', borderBottom: '1px solid var(--hairline)' }}>
-                <span style={{ width: '24px', flexShrink: 0, textAlign: 'right', fontSize: '13px', fontWeight: 700, marginRight: '2px' }}>{r.n}{r.multi ? '+' : ''}</span>
+          <div style={{ display: 'grid', gridTemplateColumns: turned ? 'repeat(4, minmax(0, 1fr))' : 'repeat(2, minmax(0, 1fr))', gap: turned ? '3px 8px' : '4px 10px' }}>
+            {score.map((r, qi) => {
+              // barva vrstice = povratna informacija: zelena pravilno, rdeča napačno, rumena negotovo branje ali prazno
+              const empty = hit.chosen[qi].length === 0;
+              const bg = r.uncertain || empty ? '#fff1d6' : !r.right || r.excluded ? 'transparent' : r.ok ? '#e2f3df' : '#fbe2df';
+              const bub = turned ? 23 : 27;
+              return (
+              <div key={r.n} title={r.excluded ? 'Izvzeto iz točkovanja' : r.right && !r.ok ? `Pravilno: ${r.right}` : undefined}
+                style={{ ...(turned ? { gridColumn: Math.floor(qi / hit.geom.rows) + 1, gridRow: (qi % hit.geom.rows) + 1 } : {}), display: 'flex', alignItems: 'center', gap: turned ? '2px' : '3px', padding: turned ? '3px 2px' : '5px 2px', borderRadius: '6px', background: bg, borderBottom: '1px solid var(--hairline)', minWidth: 0, opacity: r.excluded ? 0.45 : 1 }}>
+                <span style={{ width: turned ? '20px' : '24px', flexShrink: 0, textAlign: 'right', fontSize: '13px', fontWeight: 700, marginRight: '2px' }}>{r.n}{r.multi ? '+' : ''}</span>
                 {Array.from({ length: r.nOpts }, (_, k) => {
                   const on = hit.chosen[qi].includes(k);
                   return (
                     <button key={k} onClick={() => toggle(qi, k)}
-                      style={{ width: '27px', height: '27px', flexShrink: 0, borderRadius: '50%', border: '1.5px solid var(--ink)', fontSize: '11px', fontWeight: 700, padding: 0, cursor: 'pointer', background: on ? 'var(--ink)' : 'transparent', color: on ? '#fff' : 'var(--muted)' }}>
+                      style={{ width: `${bub}px`, height: `${bub}px`, flexShrink: 0, borderRadius: '50%', border: '1.5px solid var(--ink)', fontSize: '11px', fontWeight: 700, padding: 0, cursor: 'pointer', background: on ? 'var(--ink)' : 'transparent', color: on ? '#fff' : 'var(--muted)' }}>
                       {'ABCDEFGHIJKL'[k]}
                     </button>
                   );
                 })}
-                <span style={{ marginLeft: 'auto', paddingLeft: '2px', fontSize: '15px', fontWeight: 800, color: !r.right ? 'var(--muted)' : r.ok ? 'var(--green-ok)' : '#c0392b', whiteSpace: 'nowrap' }}>
-                  {r.right ? (r.ok ? '✓' : <>✗<span style={{ fontSize: '12px', fontWeight: 600 }}>{r.right}</span></>) : '·'}
-                </span>
               </div>
-            ))}
+              );
+            })}
           </div>
           {hit.manual.length > 0 && (
             <div style={{ marginTop: '14px' }}>
@@ -339,7 +348,7 @@ export default function PaperScanner() {
                   const v = manualOf(m);
                   const bad = Number.isNaN(v);
                   return (
-                    <label key={m.id} title={m.prompt} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 2px', borderBottom: '1px solid var(--hairline)' }}>
+                    <label key={m.id} title={hit.excluded.includes(m.id) ? 'Izvzeto iz točkovanja' : m.prompt} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 2px', borderBottom: '1px solid var(--hairline)', opacity: hit.excluded.includes(m.id) ? 0.45 : 1 }}>
                       <span style={{ width: '24px', flexShrink: 0, textAlign: 'right', fontSize: '13px', fontWeight: 700 }}>{m.n || '·'}</span>
                       <span style={{ flex: 1, minWidth: 0, fontSize: '12px', color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.prompt}</span>
                       <input value={hit.manualVals[m.id] ?? ''} inputMode="decimal" placeholder="–"
@@ -364,9 +373,9 @@ export default function PaperScanner() {
         const barStyle: React.CSSProperties = { display: 'flex', gap: '8px', background: 'var(--canvas)', borderTop: '1px solid var(--hairline)', boxShadow: '0 -6px 24px rgba(0,0,0,.12)' };
         if (turned) return (
           // telefon drži ležeče (zaslon zaklenjen pokončno): stran zasukana za 90° v desno čez cel zaslon
-          <div style={{ position: 'fixed', top: 0, left: 0, width: '100vh', height: '100vw', zIndex: 60, background: 'var(--canvas)',
+          <div style={{ position: 'fixed', top: 0, left: 0, width: '100dvh', height: '100vw', zIndex: 60, background: 'var(--canvas)',
             transformOrigin: 'top left', transform: 'rotate(90deg) translateY(-100%)', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px' }}>{body}</div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '8px 10px' }}>{body}</div>
             <div style={{ ...barStyle, padding: '10px 14px' }}>{buttons}</div>
           </div>
         );
