@@ -214,14 +214,16 @@ const badgeStyle = (bg: string, color = '#fff'): React.CSSProperties => ({
 });
 
 /** Vprašanje v enakem pogledu kot naloga v bazi nalog (oznake iz povezane naloge), z gumbi za urejanje. */
-function QuestionView({ q, index, total, task, onEdit, onMove, onDuplicate, onDelete }: {
+function QuestionView({ q, index, total, task, active, onEdit, onGenerate, onMove, onDuplicate, onDelete }: {
   q: Question; index: number; total: number; task?: Task;
-  onEdit: () => void; onMove: (dir: -1 | 1) => void; onDuplicate: () => void; onDelete: () => void;
+  /** odprta v stranskem oknu */
+  active?: boolean;
+  onEdit: () => void; onGenerate: () => void; onMove: (dir: -1 | 1) => void; onDuplicate: () => void; onDelete: () => void;
 }) {
   const problems = questionProblems(q);
   const small: React.CSSProperties = { ...btn(), padding: '3px 9px', fontSize: '11px' };
   return (
-    <div style={{ border: `1px solid ${problems.length ? '#ecd9a8' : 'var(--hairline)'}`, borderRadius: 'var(--r-md)', background: 'var(--canvas)', padding: '10px 12px', fontSize: '13px', color: 'var(--body)', lineHeight: 1.5, fontFamily: 'var(--font-sans)' }}>
+    <div style={{ border: `1px solid ${active ? '#6f9bd1' : problems.length ? '#ecd9a8' : 'var(--hairline)'}`, boxShadow: active ? '0 0 0 1px #6f9bd1' : undefined, borderRadius: 'var(--r-md)', background: active ? '#f3f8fe' : 'var(--canvas)', padding: '10px 12px', fontSize: '13px', color: 'var(--body)', lineHeight: 1.5, fontFamily: 'var(--font-sans)' }}>
       <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
         <span style={{ color: 'var(--muted)', minWidth: '22px', fontVariantNumeric: 'tabular-nums' }}>{index + 1}.</span>
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -256,6 +258,7 @@ function QuestionView({ q, index, total, task, onEdit, onMove, onDuplicate, onDe
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flexShrink: 0 }}>
           <button onClick={onEdit} style={small}>✎ Uredi</button>
+          <button onClick={onGenerate} style={small} title="Z umetno inteligenco (Claude) ustvari novo nalogo iz te: podobno, težjo, lažjo, drugačne oblike …">✨ Generiraj</button>
           <div style={{ display: 'flex', gap: '4px' }}>
             <button title="Premakni gor" disabled={index === 0} onClick={() => onMove(-1)} style={{ ...small, flex: 1, opacity: index === 0 ? 0.35 : 1 }}>↑</button>
             <button title="Premakni dol" disabled={index === total - 1} onClick={() => onMove(1)} style={{ ...small, flex: 1, opacity: index === total - 1 ? 0.35 : 1 }}>↓</button>
@@ -295,7 +298,9 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   /** vsako odprtje = svež urejevalnik (tudi za isto nalogo) */
   const [openSeq, setOpenSeq] = useState(0);
-  const setActive = (id: string | null) => { if (id) { setActiveId(id); setDrawerOpen(true); setOpenSeq(n => n + 1); } else setDrawerOpen(false); };
+  /** stransko okno v načinu »✨ Generiraj« */
+  const [drawerGen, setDrawerGen] = useState(false);
+  const setActive = (id: string | null, gen = false) => { if (id) { setActiveId(id); setDrawerGen(gen); setDrawerOpen(true); setOpenSeq(n => n + 1); } else setDrawerOpen(false); };
   /** vprašanja, posodobljena iz baze nalog ob odprtju kviza (z možnostjo razveljavitve) */
   const [bankSync, setBankSync] = useState<{ n: number; prev: Question[] } | null>(null);
   const synced = useRef(false);
@@ -496,6 +501,16 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
     else if (active) { const q = d.questions.find(x => x.id === active); if (q) replaceQById(active, questionFromTask(saved, q)); }
     setActive(null);
   };
+  /** generirana naloga: dopolnjena zamenja vprašanje, nova se doda takoj za njim */
+  const onGenerated = (saved: Task, mode: 'similar' | 'variant' | 'complete') => {
+    const d = draftRef.current;
+    const q = d && active ? d.questions.find(x => x.id === active) : undefined;
+    if (d && q) {
+      if (mode === 'complete') replaceQById(q.id, questionFromTask(saved, q));
+      else { const i = d.questions.indexOf(q); update({ ...d, questions: [...d.questions.slice(0, i + 1), questionFromTask(saved), ...d.questions.slice(i + 1)] }); }
+    }
+    setActive(null);
+  };
   /** številka naloge na listu (izbirne najprej) */
   const sheetNumber = (id: string) => {
     const items = itemsFromQuiz(draft, taskById);
@@ -677,15 +692,18 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
                 onError={msg => setError(msg)} onDone={() => void finishEditing(i)} />
             ) : (
               <QuestionView key={q.id} q={q} index={i} total={draft.questions.length} task={q.taskId ? taskById.get(q.taskId) : undefined}
-                onEdit={() => toggleEditing(q.id, true)} onMove={dir => moveQ(i, dir)} onDuplicate={dup} onDelete={del} />
+                active={drawerOpen && active === q.id}
+                onEdit={() => { flush(); setActive(q.id); }} onGenerate={() => { flush(); setActive(q.id, true); }} onMove={dir => moveQ(i, dir)} onDuplicate={dup} onDelete={del} />
             );
           })}
         </div>}
       </div>
       {starting && <StartSessionDialog quiz={draft} onClose={() => setStarting(false)} />}
       {picking && <BankPickerShell title={draft.title} onAdd={addFromBank} onClose={() => setPicking(false)} />}
-      {active && view !== 'list' && (
-        <QuestionTaskDrawer open={drawerOpen} editorKey={`${active}-${openSeq}`} question={activeQ} number={activeQ ? sheetNumber(activeQ.id) : null}
+      {active && (
+        <QuestionTaskDrawer open={drawerOpen} editorKey={`${active}-${openSeq}`} question={activeQ}
+          number={activeQ ? (view === 'list' ? draft.questions.indexOf(activeQ) + 1 : sheetNumber(activeQ.id)) : null}
+          generate={drawerGen} onGenerated={onGenerated}
           task={activeQ?.taskId ? taskById.get(activeQ.taskId) : undefined} quizId={draft.id}
           save={saveTask} onSaved={onTaskSaved} onClose={() => setActive(null)} />
       )}

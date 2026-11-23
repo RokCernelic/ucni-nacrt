@@ -6,6 +6,7 @@ import type { Question } from '@/lib/quiz/types';
 import { questionToDraft, quizTag } from '@/lib/tasks/fromQuestion';
 import { tasksToQuestions } from '@/lib/tasks/toQuiz';
 import SideDrawer from '@/components/SideDrawer';
+import GeneratePanel, { type GenMode } from '@/components/tasks/GeneratePanel';
 
 /** Vprašanje kviza iz (shranjene) naloge; ohrani id vprašanja in razmike na listu. */
 export function questionFromTask(task: Task, prev?: Question): Question {
@@ -22,7 +23,7 @@ export function questionFromTask(task: Task, prev?: Question): Question {
  * Privzeto shranjevanje zamenja izvirno nalogo v bazi (sprememba se pokaže v vseh kvizih z njo);
  * »Shrani kot novo različico« naredi kopijo pod izvirnikom in jo poveže s tem vprašanjem.
  */
-export default function QuestionTaskDrawer({ open, editorKey, question, number, task, quizId, save, onSaved, onClose }: {
+export default function QuestionTaskDrawer({ open, editorKey, question, number, task, quizId, save, onSaved, onClose, generate, onGenerated }: {
   open: boolean;
   /** ključ urejevalnika (nov ob vsakem odprtju) */
   editorKey: string;
@@ -34,6 +35,10 @@ export default function QuestionTaskDrawer({ open, editorKey, question, number, 
   save: (d: TaskDraft) => Promise<Task>;
   onSaved: (saved: Task) => void;
   onClose: () => void;
+  /** okno »✨ Generiraj« namesto urejevalnika */
+  generate?: boolean;
+  /** generirana naloga je shranjena v bazo: 'complete' = dopolnjena ta naloga, sicer nova naloga (pod izvirno) */
+  onGenerated?: (saved: Task, mode: GenMode) => void;
 }) {
   const tag = quizTag(quizId);
   const initial: TaskDraft | undefined = task ?? (question && (question.prompt.trim() || question.image) ? questionToDraft(question, { tag }) : question ? { ...questionToDraft(question, { tag }), body: '' } : undefined);
@@ -43,6 +48,23 @@ export default function QuestionTaskDrawer({ open, editorKey, question, number, 
     void _id; void _c; void _u;
     return rest;
   };
+
+  const withTag = (d: TaskDraft): TaskDraft => ({ ...d, tags: [...new Set([...d.tags, tag])] });
+
+  if (generate && initial) {
+    return (
+      <SideDrawer open={open} onClose={onClose} title={`✨ Generiraj iz naloge${number != null ? ` ${number}` : ''}`}
+        subtitle="nova naloga se shrani v bazo nalog in doda v kviz za to nalogo">
+        <GeneratePanel key={editorKey} source={initial} onCancel={onClose}
+          onSave={async (d, mode) => {
+            const saved = mode === 'complete'
+              ? (task ? await save({ ...d, id: task.id, parent_id: task.parent_id }) : await save(withTag(withoutId(d))))
+              : await save(withTag({ ...withoutId(d), parent_id: task ? task.parent_id ?? task.id : null }));
+            onGenerated?.(saved, mode);
+          }} />
+      </SideDrawer>
+    );
+  }
 
   return (
     <SideDrawer open={open} onClose={onClose} title={number != null ? `Naloga ${number}` : 'Nova naloga'}

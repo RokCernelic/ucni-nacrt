@@ -3,13 +3,13 @@
 import { useState } from 'react';
 import { useTasks } from '@/hooks/useTasks';
 import { useTaskSelection } from '@/hooks/useTaskSelection';
-import { isChoice, correctIds, LETTERS, type Task, type TaskDraft } from '@/lib/tasks/types';
+import { isChoice, correctIds, LETTERS, type Task } from '@/lib/tasks/types';
 import { nestUnderParents, isNested } from '@/lib/tasks/order';
 import { offerUndo } from '@/lib/undoStore';
-import { GEN_GROUPS } from '@/lib/tasks/genOptions';
 import TaskEditor from './TaskEditor';
+import GeneratePanel from './GeneratePanel';
 import SideDrawer from '@/components/SideDrawer';
-import { Rich, TaskBadges, TaskAnswer, Chip, btn, tinyLabel, input } from './ui';
+import { Rich, TaskBadges, TaskAnswer, btn } from './ui';
 
 /** Seznam nalog (vsaka v svojem okvirju): kljukica za izbor, Uredi, Izbriši, + Nova naloga. */
 export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyText, showAdd = true, startIndex = 0, hideTopic, hideChapter, extraAction, leading, flat, showDate }: {
@@ -45,30 +45,9 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
   const adding = drawerOpen && editingId === '__new';
   const setAdding = (on: boolean) => setEditingId(on ? '__new' : null);
   const [error, setError] = useState<string | null>(null);
-  /** naloga, ki ima odprto okno ✨ Generiraj */
-  const [mods, setMods] = useState<Record<string, string>>({});   // skupina → izbrana možnost
-  const [kindMode, setKindMode] = useState<'similar' | 'variant' | 'complete'>('similar');
-  const variant = kindMode === 'variant';
-  const complete = kindMode === 'complete';
-  const [extra, setExtra] = useState('');
-  const [genBusy, setGenBusy] = useState<string | null>(null);
-  /** generiran osnutek, prikazan pod nalogo `forId`, preden ga shraniš */
-  const [gen, setGen] = useState<{ forId: string; draft: TaskDraft; note: string; mode: 'similar' | 'variant' | 'complete' } | null>(null);
-
-  const openGen = (t: Task) => { setMods({}); setKindMode('similar'); setExtra(''); setGen(null); setEditingId(`gen:${t.id}`); };
-
-  const generate = async (t: Task) => {
-    setGenBusy(t.id); setError(null);
-    try {
-      const { id: _id, created_at: _c, updated_at: _u, ...task } = t; // eslint-disable-line @typescript-eslint/no-unused-vars
-      const res = await fetch('/api/tasks/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ task, mode: kindMode, mods: Object.values(mods), extra }) });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error ?? `Napaka ${res.status}`);
-      setGen({ forId: t.id, draft: data.draft, note: data.note ?? '', mode: kindMode });
-    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
-    finally { setGenBusy(null); }
-  };
+  /** med generiranjem so gumbi ✨ Generiraj onemogočeni */
+  const [genBusy, setGenBusy] = useState(false);
+  const openGen = (t: Task) => setEditingId(`gen:${t.id}`);
 
   const del = async (t: Task) => {
     if (!confirm('Izbrišem to nalogo iz baze? Izgine povsod (učni načrt, izbor). ')) return;
@@ -129,9 +108,9 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flexShrink: 0 }}>
                   <button onClick={() => setEditingId(t.id)} style={{ ...btn(), padding: '3px 9px', fontSize: '11px' }}>✎ Uredi</button>
-                  <button onClick={() => openGen(t)} disabled={genBusy !== null}
+                  <button onClick={() => openGen(t)} disabled={genBusy}
                     title="Z umetno inteligenco (Claude) ustvari novo nalogo iz te: podobno, težjo, lažjo, drugačne oblike …"
-                    style={{ ...btn(drawerOpen && editingId === `gen:${t.id}`), padding: '3px 9px', fontSize: '11px', opacity: genBusy !== null ? 0.5 : 1 }}>
+                    style={{ ...btn(drawerOpen && editingId === `gen:${t.id}`), padding: '3px 9px', fontSize: '11px', opacity: genBusy ? 0.5 : 1 }}>
                     ✨ Generiraj
                   </button>
                   <button onClick={() => void del(t)} style={{ ...btn(), padding: '3px 9px', fontSize: '11px', color: '#c0392b', borderColor: '#e0b4ae' }}>× Izbriši</button>
@@ -156,60 +135,13 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
       )}
       <SideDrawer open={drawerOpen} onClose={() => setEditingId(null)}
         title={editingId?.startsWith('gen:') ? '✨ Generiraj iz naloge' : editingId === '__new' ? 'Nova naloga' : 'Urejanje naloge'}
-        subtitle={editingId?.startsWith('gen:') ? (gen ? 'preveri, popravi in shrani' : 'izberi možnosti in generiraj') : editingId === '__new' ? undefined : 'sprememba se shrani v bazo nalog in povsod, kjer je naloga uporabljena'}>
+        subtitle={editingId?.startsWith('gen:') ? 'izberi možnosti, generiraj, preveri in shrani' : editingId === '__new' ? undefined : 'sprememba se shrani v bazo nalog in povsod, kjer je naloga uporabljena'}>
         {editingId?.startsWith('gen:') ? (() => {
           const t = tasks.find(x => `gen:${x.id}` === editingId);
           if (!t) return null;
           return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div style={{ fontSize: '12px', color: 'var(--muted)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', padding: '8px 10px', background: 'var(--canvas)', maxHeight: '160px', overflow: 'auto' }}>
-                <div style={{ ...tinyLabel, marginBottom: '4px' }}>Izhodiščna naloga</div>
-                <Rich html={t.body} />
-              </div>
-              {gen?.forId === t.id ? (
-              <div style={{ marginTop: '10px' }}>
-                <div style={{ fontSize: '12px', color: '#1f4f8a', fontWeight: 600, marginBottom: '6px' }}>{gen.mode === 'complete' ? '✨ Dopolnjena naloga (preveri in shrani — prepiše to nalogo)' : '✨ Predlagana naloga (osnutek — preveri, popravi in shrani)'}</div>
-                {gen.note && <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '8px' }}>{gen.note}</div>}
-                <TaskEditor key={`gen-${drawerSeq}-${gen.note.length}`} initial={gen.draft} onCancel={() => setEditingId(null)} onSave={async d => { await save(gen.mode === 'complete' ? { ...d, id: t.id, parent_id: t.parent_id } : { ...d, parent_id: t.parent_id ?? t.id }); setEditingId(null); }} />
-              </div>
-              ) : (
-              <div style={{ marginTop: '10px', border: '2px solid #6f9bd1', borderRadius: 'var(--r-md)', padding: '14px 16px', background: '#e9f1fb', boxShadow: '0 4px 18px rgba(31,79,138,0.14)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <div style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#1f4f8a' }}>✨ Generiraj iz te naloge</div>
-                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-                  <span style={{ ...tinyLabel, minWidth: '120px' }}>Osnova</span>
-                  <Chip active={kindMode === 'similar'} onClick={() => setKindMode('similar')} title="Nova, podobna naloga (druga situacija, podatki, izid)">podobna naloga</Chip>
-                  <Chip active={variant} onClick={() => setKindMode('variant')} title="Minimalna sprememba: zamenja številke (po potrebi kakšno besedo)">le zamenjaj številke</Chip>
-                  <Chip active={complete} onClick={() => setKindMode('complete')} title="Ista naloga: dopolni manjkajoče (rešitev, pojasnilo, težavnost, Bloom, oblika odgovora, poglavje, standardi) in uredi obliko">dopolni to nalogo</Chip>
-                </div>
-                {kindMode === 'similar' && GEN_GROUPS.map(g => (
-                  <div key={g.id} style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-                    <span style={{ ...tinyLabel, minWidth: '120px' }}>{g.label}</span>
-                    {g.options.map(o => (
-                      <Chip key={o.id} active={mods[g.id] === o.id} title={o.instruction}
-                        onClick={() => setMods(m => { const n = { ...m }; if (n[g.id] === o.id) delete n[g.id]; else n[g.id] = o.id; return n; })}>
-                        {o.label}
-                      </Chip>
-                    ))}
-                  </div>
-                ))}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <span style={tinyLabel}>Pojasnila in opombe (neobvezno)</span>
-                  <textarea value={extra} onChange={e => setExtra(e.target.value)} maxLength={1500} rows={3}
-                    placeholder={complete
-                      ? 'npr. »pravilni odgovor je 450 J«, »rešitev naj bo po korakih z obrazcem«, »spada v 6.3 Delo z orodji«, »težavnost srednja«'
-                      : variant ? 'npr. »rezultat naj bo celo število«, »uporabi maso v gramih«'
-                      : 'npr. »naj gre za dvigalo na gradbišču«, »brez pretvarjanja enot«, »za učence z učnimi težavami«'}
-                    style={{ ...input, width: '100%', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'var(--font-sans)', lineHeight: 1.5 }} />
-                </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button onClick={() => void generate(t)} disabled={genBusy !== null} style={{ ...btn(true), padding: '5px 14px', opacity: genBusy !== null ? 0.6 : 1 }}>
-                    {genBusy === t.id ? '… generiram' : complete ? 'Dopolni' : 'Generiraj'}
-                  </button>
-                  <button onClick={() => setEditingId(null)} disabled={genBusy !== null} style={{ ...btn(), padding: '5px 12px' }}>Prekliči</button>
-                </div>
-              </div>
-              )}
-            </div>
+            <GeneratePanel key={`gen-${drawerSeq}`} source={t} onBusy={setGenBusy} onCancel={() => setEditingId(null)}
+              onSave={async (d, mode) => { await save(mode === 'complete' ? { ...d, id: t.id, parent_id: t.parent_id } : { ...d, parent_id: t.parent_id ?? t.id }); setEditingId(null); }} />
           );
         })() : editingId === '__new' ? (
           <TaskEditor key={`nova-${drawerSeq}`} fixedTopic={fixedTopic} onCancel={() => setAdding(false)} onSave={async d => { await save(d); setAdding(false); }} />
