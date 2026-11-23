@@ -141,8 +141,8 @@ export default function QuizLibrary() {
                           <option value="">📁 Vsi kvizi (koren)</option>
                           {allFolders.map(({ f, depth }) => <option key={f.id} value={f.id}>{'  '.repeat(depth)}📁 {f.name}</option>)}
                         </select>
-                        <button style={{ ...btn(true), padding: '7px 11px' }} disabled={incomplete > 0} title={incomplete > 0 ? 'Najprej dokončaj vsa vprašanja' : 'Zaženi kot projekcijo z razredom ali natisni'}
-                          onClick={() => setStarting(q.id)}>▶ Zaženi / natisni</button>
+                        <button style={{ ...btn(), padding: '7px 10px', opacity: incomplete > 0 ? 0.5 : 1 }} disabled={incomplete > 0} title={incomplete > 0 ? 'Najprej dokončaj vsa vprašanja' : 'Zaženi kot projekcijo z razredom ali natisni'}
+                          onClick={() => setStarting(q.id)}>Zaženi</button>
                         <Link href={`/kvizi/${q.id}`} style={{ ...btn(), padding: '7px 10px', textDecoration: 'none' }}>Uredi</Link>
                         <Link href={`/kvizi/statistika?k=${encodeURIComponent(q.id)}`} style={{ ...btn(), padding: '7px 10px', textDecoration: 'none' }} title="Rezultati izvedb tega kviza">Rezultati</Link>
                         <button style={{ ...btn(), padding: '7px 10px' }} onClick={() => guard(() => lib.duplicateQuiz(q.id))}>Podvoji</button>
