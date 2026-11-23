@@ -303,7 +303,8 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
   };
 
   // tisk seznama: izbor stolpcev; med tiskom je viden le .print-roster (globals.css, html.printing-roster)
-  const [printSel, setPrintSel] = useState({ pin: false, rules: false, quizzes: true, manual: true, blank: 0 });
+  // natisnejo se stolpci, ki so vidni v tabeli (meni Stolpci ▾), v istem vrstnem redu; dodatno le prazni stolpci
+  const [printSel, setPrintSel] = useState({ blank: 0 });
   const [printOpts, setPrintOpts] = useState<typeof printSel | null>(null);
   const printRoster = () => {
     setPrintOpts(printSel);
@@ -350,8 +351,7 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
     }));
 
   // stolpci za tisk: isti vrstni red kot na zaslonu, le izbrane vrste
-  const printKeys = printOpts ? visibleKeys.filter(k => k === 'gender' || (k === 'pin' && printOpts.pin) || (k === 'seat' && printOpts.rules)
-    || (k.startsWith('q:') && printOpts.quizzes) || (k.startsWith('m:') && printOpts.manual)) : [];
+  const printKeys = printOpts ? visibleKeys : [];
 
   return (
     <div>
@@ -366,19 +366,14 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
             <br /><b>✎</b> — tipkarske napake v imenu popravi tukaj, ne v besedilnem polju zgoraj (tam bi učenec dobil nov PIN).
           </p>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap' }}>
-            <button onClick={printRoster}
+            <button onClick={printRoster} title="Natisne stolpce, ki so vidni v tabeli (izbor v meniju Stolpci ▾)"
               style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 600, color: '#fff', background: 'var(--forest)', border: 'none', borderRadius: 'var(--r-sm)', padding: '7px 14px', cursor: 'pointer' }}>
               🖨 Natisni seznam
             </button>
             <span style={{ display: 'inline-flex', gap: '10px', alignItems: 'center', fontSize: '12px', color: 'var(--muted)', flexWrap: 'wrap' }}>
-              {([['pin', 'PIN'], ['rules', 'pravila sedenja'], ['quizzes', 'rezultati kvizov'], ['manual', 'ročni stolpci']] as const).map(([k, label]) => (
-                <label key={k} style={{ display: 'inline-flex', gap: '4px', alignItems: 'center', cursor: 'pointer' }}>
-                  <input type="checkbox" checked={printSel[k]} onChange={e => setPrintSel(p => ({ ...p, [k]: e.target.checked }))} />{label}
-                </label>
-              ))}
               <label style={{ display: 'inline-flex', gap: '4px', alignItems: 'center' }} title="Prazni stolpci za ročne zapiske (npr. ocene, prisotnost)">
                 prazni stolpci
-                <input type="number" min={0} max={20} value={printSel.blank} onChange={e => setPrintSel(p => ({ ...p, blank: Math.max(0, Math.min(20, Number(e.target.value) || 0)) }))}
+                <input type="number" min={0} max={20} value={printSel.blank} onChange={e => setPrintSel(() => ({ blank: Math.max(0, Math.min(20, Number(e.target.value) || 0)) }))}
                   style={{ width: '46px', fontSize: '12px', padding: '2px 4px', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)' }} />
               </label>
             </span>
