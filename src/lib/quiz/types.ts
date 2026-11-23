@@ -60,6 +60,8 @@ export interface OpenQuestion extends QuestionBase {
   answer?: string;
   /** prostor za odgovor na natisnjenem listu (mm) */
   space?: number;
+  /** v izvedbi natisnjenega kviza: točke vpiše učitelj (naloga, ki je skener ne prebere); odgovor = število točk */
+  manual?: boolean;
 }
 
 export type Question = McQuestion | NumericQuestion | OpenQuestion;

@@ -3,7 +3,7 @@
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import type { Question } from './types';
 import type { LayoutItem, PrintItem } from './printSheet';
-import type { QuizSession } from './sessionApi';
+import { withManualQuestions, type QuizSession } from './sessionApi';
 import { sortByLastName } from '@/lib/names';
 
 /** Podatki natisnjenega kviza v seji (stolpec `paper`): dovolj, da skener obnovi razpored vsakega lista. */
@@ -39,6 +39,9 @@ export async function createPaperSession(opts: {
   const questions: Question[] = opts.items
     .filter(i => i.choice && (i.multi ? i.correct.length >= 1 : i.correct.length === 1))
     .map(i => ({ id: i.id, kind: 'mc', prompt: i.prompt, points: i.points, options: i.options, correct: i.multi ? [...i.correct].sort().join(',') : i.correct[0], ...(i.multi ? { multi: true } : {}) }));
+  // ostale naloge (račun, kratek odgovor …): točke vpiše učitelj
+  const scanned = new Set(questions.map(q => q.id));
+  for (const i of opts.items) if (!scanned.has(i.id) && i.points > 0) questions.push({ id: i.id, kind: 'open', manual: true, prompt: i.prompt, points: i.points });
   const paper: PaperInfo = {
     salt, shuffle: opts.shuffleQuestions || opts.shuffleOptions, shuffleQuestions: opts.shuffleQuestions, shuffleOptions: opts.shuffleOptions, ...(opts.orders ? { orders: opts.orders } : {}),
     items: opts.items.map(i => ({ id: i.id, choice: i.choice, multi: i.multi, options: i.options.map(o => ({ id: o.id, text: '', ...(o.keepPlace ? { keepPlace: true } : {}) })), noShuffle: i.noShuffle, correct: i.correct, points: i.points })),
@@ -63,11 +66,11 @@ export async function loadPaperSession(id: string) {
     sb.from('quiz_session_students').select('student_id, name, submitted_at').eq('session_id', id),
   ]);
   if (s.error) throw new Error(s.error.message);
-  return { session: s.data as PaperSession, students: sortByLastName((st.data ?? []) as { student_id: string; name: string; submitted_at: string | null }[]) };
+  return { session: withManualQuestions(s.data as PaperSession), students: sortByLastName((st.data ?? []) as { student_id: string; name: string; submitted_at: string | null }[]) };
 }
 
 /** Shrani prebrane odgovore enega lista (prepiše prejšnje skeniranje tega učenca). */
-export async function savePaperAnswers(sessionId: string, studentId: string, answers: { questionId: string; value: string }[]) {
+export async function savePaperAnswers(sessionId: string, studentId: string, answers: { questionId: string; value: string }[], keep: string[] = []) {
   // Več naprav lahko skenira hkrati (isti račun na več telefonih): upsert namesto »izbriši + vstavi«, da se sočasni
   // shranitvi istega lista ne spotakneta ob podvojene ključe — obvelja zadnja; nato odstrani odgovore, ki jih na listu ni več.
   const sb = getSupabaseBrowserClient();
@@ -79,11 +82,20 @@ export async function savePaperAnswers(sessionId: string, studentId: string, ans
     if (error) throw new Error(error.message);
   }
   let del = sb.from('quiz_answers').delete().eq('session_id', sessionId).eq('student_id', studentId);
-  if (answers.length) del = del.not('question_id', 'in', `(${answers.map(a => `"${a.questionId.replace(/"/g, '')}"`).join(',')})`);
+  // `keep`: odgovori, ki jih to shranjevanje ne sme pobrisati (npr. ročno vpisane točke, ki jih skener ni spremenil)
+  const ids = [...answers.map(a => a.questionId), ...keep];
+  if (ids.length) del = del.not('question_id', 'in', `(${ids.map(id => `"${id.replace(/"/g, '')}"`).join(',')})`);
   const { error: d } = await del;
   if (d) throw new Error(d.message);
   const { error: e3 } = await sb.from('quiz_session_students').update({ submitted_at: now, joined_at: now }).eq('session_id', sessionId).eq('student_id', studentId);
   if (e3) throw new Error(e3.message);
+}
+
+/** Shranjeni odgovori enega učenca (npr. ročno vpisane točke) — id vprašanja → vrednost. */
+export async function loadStudentAnswers(sessionId: string, studentId: string): Promise<Record<string, string>> {
+  const { data, error } = await getSupabaseBrowserClient().from('quiz_answers').select('question_id, value').eq('session_id', sessionId).eq('student_id', studentId);
+  if (error) throw new Error(error.message);
+  return Object.fromEntries(((data ?? []) as { question_id: string; value: string }[]).map(a => [a.question_id, a.value]));
 }
 
 /** Kdaj je bil list tega učenca nazadnje shranjen (tudi z druge naprave); null = še ni skeniran. */

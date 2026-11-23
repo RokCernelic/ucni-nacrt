@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { layoutSheet, sheetSeed, shuffleOpts } from '@/lib/quiz/printSheet';
-import { scoreAnswers, isCorrect, choiceIds } from '@/lib/quiz/scoring';
+import { scoreAnswers, isCorrect, choiceIds, manualPoints } from '@/lib/quiz/scoring';
 import { formatNumber, gradeColor, dateTimeLabel, ceilPct } from '@/lib/quiz/format';
 import type { PaperInfo } from '@/lib/quiz/paperSession';
+import { withManualQuestions } from '@/lib/quiz/sessionApi';
 import type { Question, McQuestion } from '@/lib/quiz/types';
 
 type Result =
@@ -42,14 +43,18 @@ export default function PaperResult({ sessionId, studentId }: { sessionId: strin
   if (res.status === 'not_found') return msg('Rezultata ni mogoče najti.', 'Preveri, ali si skeniral QR kodo na svojem listu.');
   if (res.status === 'open') return msg(res.title, 'Kviz še ni zaključen. Rezultati bodo vidni, ko ga učitelj zaključi.');
 
-  const { paper, quiz, answers } = res;
+  const { paper, answers } = res;
+  // naloge, ki jih skener ne prebere: točke vpiše učitelj (štejejo v rezultat)
+  const quiz = withManualQuestions({ quiz: res.quiz, paper: res.paper as never }).quiz;
+  const manualQs = quiz.questions.filter(q => q.kind === 'open' && q.manual);
   const lay = layoutSheet(paper.items, paper.shuffle ? sheetSeed(paper.salt, studentId) : null, { ...shuffleOpts(paper), order: paper.orders?.[studentId] });
+  const manualCells = lay.free.flatMap(c => { const q = manualQs.find(x => x.id === c.item.id); return q ? [{ c, q }] : []; });
   const byId = new Map(quiz.questions.map(q => [q.id, q]));
   const rows = lay.choice.map(c => ({ c, q: byId.get(c.item.id) as McQuestion | undefined })).filter((r): r is { c: typeof r.c; q: McQuestion } => !!r.q && r.q.kind === 'mc');
   const sc = scoreAnswers(quiz, answers);
   /** list tega učenca ni bil skeniran: prazna vrstica (– / največ točk), ostalo kot pri drugih */
   const took = Object.keys(answers).length > 0;
-  const freeCount = lay.free.length;
+  const freeCount = lay.free.filter(c => !manualQs.some(q => q.id === c.item.id)).length;
   const cls = res.classAnswers ?? [];
   const classAvg = cls.length ? ceilPct(cls.reduce((t, a) => t + scoreAnswers(quiz, a).percent, 0) / cls.length) : null;
   const label: React.CSSProperties = { fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted)', margin: '0 0 12px' };
@@ -88,13 +93,18 @@ export default function PaperResult({ sessionId, studentId }: { sessionId: strin
         <div style={{ overflowX: 'auto' }}>
           <table style={{ borderCollapse: 'collapse' }}>
             <tbody>
-              <tr>{rows.map(({ c }) => <td key={c.n} style={{ textAlign: 'center', padding: '2px 8px', color: 'var(--muted)', fontWeight: 600, fontSize: '14px' }}>{c.n}</td>)}</tr>
+              <tr>{[...rows.map(r => r.c), ...manualCells.map(m => m.c)].map(c => <td key={c.n} style={{ textAlign: 'center', padding: '2px 8px', color: 'var(--muted)', fontWeight: 600, fontSize: '14px' }}>{c.n}</td>)}</tr>
               <tr>
                 {rows.map(({ c, q }) => {
                   const v = answers[q.id];
                   const ok = !!v && isCorrect(q, v);
                   const right = c.options.filter(o => choiceIds(q.correct).includes(o.id)).map(o => o.letter).join('');
                   return <td key={c.n} style={{ textAlign: 'center', padding: '4px 8px', fontWeight: 800, fontSize: '24px', color: !v ? 'var(--hairline)' : ok ? 'var(--green-ok)' : '#c0392b' }}>{!v ? '–' : ok ? '✓' : right}</td>;
+                })}
+                {manualCells.map(({ c, q }) => {
+                  const p = manualPoints(q, answers[q.id]);
+                  return <td key={c.n} title="Točke za to nalogo (pregledal učitelj)" style={{ textAlign: 'center', padding: '4px 8px', fontWeight: 800, fontSize: '16px', whiteSpace: 'nowrap',
+                    color: p === null ? 'var(--hairline)' : p >= q.points ? 'var(--green-ok)' : p > 0 ? '#b7791f' : '#c0392b' }}>{p === null ? '–' : `${formatNumber(p)}/${formatNumber(q.points)}`}</td>;
                 })}
               </tr>
             </tbody>
@@ -103,7 +113,7 @@ export default function PaperResult({ sessionId, studentId }: { sessionId: strin
         <p style={{ fontSize: '12px', color: 'var(--muted)', margin: '8px 0 0', lineHeight: 1.5 }}>
           <b>Legenda:</b> <span style={{ color: 'var(--green-ok)', fontWeight: 700 }}>✓</span> pravilen odgovor ·{' '}
           <span style={{ color: '#c0392b', fontWeight: 700 }}>rdeča črka</span> = pravilni odgovor pri nalogi, ki si jo imel napačno ·{' '}
-          – brez odgovora. Številke so številke nalog na tvojem listu.
+          – brez odgovora · pri ostalih nalogah dobljene točke. Številke so številke nalog na tvojem listu.
         </p>
       </div>
 

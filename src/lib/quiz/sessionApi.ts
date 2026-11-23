@@ -126,6 +126,34 @@ export async function startSession(opts: {
   throw new Error('Kode seje ni bilo mogoče ustvariti. Poskusi znova.');
 }
 
+/**
+ * Natisnjen kviz: naloge, ki jih skener ne prebere (odprte, številske, izbirne brez pravilnega odgovora), dobijo v izvedbi
+ * ročno točkovano vprašanje — učitelj vpiše točke v skenerju ali v rezultatih. Starejše izvedbe jih nimajo shranjenih,
+ * zato jih dopolnimo ob branju (iz postavk lista).
+ */
+export function withManualQuestions<T extends Pick<QuizSession, 'quiz' | 'paper'>>(s: T): T {
+  const items = (s.paper as { items?: { id: string; points: number }[] } | null | undefined)?.items;
+  if (!items?.length) return s;
+  const have = new Set(s.quiz.questions.map(q => q.id));
+  const add: Question[] = items.filter(i => !have.has(i.id) && i.points > 0).map(i => ({ id: i.id, kind: 'open', manual: true, prompt: '', points: i.points }));
+  return add.length ? { ...s, quiz: { ...s.quiz, questions: [...s.quiz.questions, ...add] } } : s;
+}
+
+/** Ročno vpisane točke ene naloge enega učenca (null = pobriši). Učenec šteje kot oddan (sodeloval). */
+export async function setManualPoints(sessionId: string, studentId: string, questionId: string, points: number | null) {
+  const sb = getSupabaseBrowserClient();
+  if (points === null) {
+    const { error } = await sb.from('quiz_answers').delete().eq('session_id', sessionId).eq('student_id', studentId).eq('question_id', questionId);
+    if (error) throw new Error(error.message);
+    return;
+  }
+  const now = new Date().toISOString();
+  const { error } = await sb.from('quiz_answers').upsert({ session_id: sessionId, student_id: studentId, question_id: questionId, value: String(points), answered_at: now },
+    { onConflict: 'session_id,student_id,question_id' });
+  if (error) throw new Error(error.message);
+  await sb.from('quiz_session_students').update({ submitted_at: now }).eq('session_id', sessionId).eq('student_id', studentId).is('submitted_at', null);
+}
+
 export async function loadSession(id: string) {
   const sb = getSupabaseBrowserClient();
   const [s, st, a] = await Promise.all([
@@ -137,7 +165,7 @@ export async function loadSession(id: string) {
   const allStudents = (st.data ?? []) as SessionStudent[];
   const allAnswers = (a.data ?? []) as SessionAnswer[];
   return {
-    session: s.data as QuizSession,
+    session: withManualQuestions(s.data as QuizSession),
     students: sortByLastName(allStudents.filter(x => !isTeacherRow(x))),
     answers: allAnswers.filter(x => !isTeacherRow(x)),
     teacher: allStudents.find(isTeacherRow) ?? null,
@@ -154,7 +182,7 @@ export async function loadQuizHistory(quizId: string) {
   const sb = getSupabaseBrowserClient();
   const { data, error } = await sb.from('quiz_sessions').select('*').eq('quiz_id', quizId).order('created_at', { ascending: false });
   if (error) throw new Error(error.message);
-  const sessions = (data ?? []) as QuizSession[];
+  const sessions = ((data ?? []) as QuizSession[]).map(withManualQuestions);
   const ids = sessions.map(s => s.id);
   if (ids.length === 0) return { sessions: [] as QuizSession[], studentsBySession: new Map<string, SessionStudent[]>(), answersBySession: new Map<string, SessionAnswer[]>() };
 
@@ -200,7 +228,7 @@ export async function loadAllHistory() {
   const sb = getSupabaseBrowserClient();
   const { data, error } = await sb.from('quiz_sessions').select('*').order('created_at', { ascending: false });
   if (error) throw new Error(error.message);
-  const sessions = (data ?? []) as QuizSession[];
+  const sessions = ((data ?? []) as QuizSession[]).map(withManualQuestions);
   const ids = sessions.map(s => s.id);
   const studentsBySession = new Map<string, SessionStudent[]>();
   const answersBySession = new Map<string, SessionAnswer[]>();
@@ -219,7 +247,7 @@ export async function loadClassHistory(classId: string) {
   const sb = getSupabaseBrowserClient();
   const { data, error } = await sb.from('quiz_sessions').select('*').eq('class_id', classId).order('created_at', { ascending: true });
   if (error) throw new Error(error.message);
-  const sessions = (data ?? []) as QuizSession[];
+  const sessions = ((data ?? []) as QuizSession[]).map(withManualQuestions);
   const ids = sessions.map(s => s.id);
   const studentsBySession = new Map<string, SessionStudent[]>();
   const answersBySession = new Map<string, SessionAnswer[]>();
@@ -277,6 +305,10 @@ export async function syncSessionScoring(quizId: string, questions: Question[]):
     let changed = false;
     const qs = row.quiz.questions.map(sq => {
       const q = byId.get(sq.id);
+      if (q && sq.kind === 'open' && sq.manual) { // ročno točkovano: le točke
+        if (q.points !== sq.points) { changed = true; return { ...sq, points: q.points }; }
+        return sq;
+      }
       if (q && sq.kind === 'mc' && sq.multi && q.kind === 'open') { // »več možnosti«: v kvizu odprto, v izvedbi izbirno
         if (q.points !== sq.points) { changed = true; return { ...sq, points: q.points }; }
         return sq;
@@ -376,7 +408,7 @@ export async function loadStudentHistory(studentId: string): Promise<StudentHist
   const answersBySession = new Map<string, SessionAnswer[]>();
   for (const a of (allAnswers ?? []) as SessionAnswer[]) answersBySession.set(a.session_id, [...(answersBySession.get(a.session_id) ?? []), a]);
 
-  return rows.map(r => ({ session: r.quiz_sessions, student: r, answers: answersBySession.get(r.session_id) ?? [] }));
+  return rows.map(r => ({ session: withManualQuestions(r.quiz_sessions), student: r, answers: answersBySession.get(r.session_id) ?? [] }));
 }
 
 export async function updateSession(id: string, patch: Partial<Pick<QuizSession, 'phase' | 'current_index' | 'status' | 'ended_at'>>) {

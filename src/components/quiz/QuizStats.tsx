@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useQuizLibrary } from '@/hooks/useQuizLibrary';
 import type { QuizFolder } from '@/lib/quiz/types';
 import { loadAllHistory, joinStatsChannel, isLive, participated, type QuizSession, type SessionStudent, type SessionAnswer } from '@/lib/quiz/sessionApi';
-import { scoreAnswers, isCorrect } from '@/lib/quiz/scoring';
+import { scoreAnswers, isScored, answerFraction } from '@/lib/quiz/scoring';
 import { SessionResults } from './LiveSession';
 import { ceilPct, questionsLabel, pointsLabel, dateTimeLabel } from '@/lib/quiz/format';
 import { gradeColor } from '@/lib/quiz/format';
@@ -79,14 +79,14 @@ export default function QuizStats() {
       const libQuiz = lib.quizzes.find(q => q.id === s.quiz_id);
       const title = libQuiz?.title || s.quiz_title;
       // točke v kvizu so bile spremenjene, izvedba pa še ni potrdila novega točkovanja
-      const scoringChanged = !!libQuiz && s.quiz.questions.some(sq => { const q = libQuiz.questions.find(x => x.id === sq.id); return !!q && sq.kind !== 'open' && q.points !== sq.points; });
+      const scoringChanged = !!libQuiz && s.quiz.questions.some(sq => { const q = libQuiz.questions.find(x => x.id === sq.id); return !!q && isScored(sq) && q.points !== sq.points; });
       return {
         s: title === s.quiz_title ? s : { ...s, quiz_title: title }, key: keyOf(s), people: part.length, total: students.length,
         avg: part.length ? ceilPct(sum / part.length) : null,
         live: isLive(s), open: s.status === 'open',
         deleted: !!s.quiz_id && lib.loaded && !lib.quizzes.some(q => q.id === s.quiz_id),
         nQ: s.paper ? ((s.paper as { items?: unknown[] }).items?.length ?? s.quiz.questions.length) : s.quiz.questions.length,
-        maxPts: s.quiz.questions.filter(q => q.kind !== 'open').reduce((t, q) => t + q.points, 0),
+        maxPts: s.quiz.questions.filter(isScored).reduce((t, q) => t + q.points, 0),
         quizCreated: libQuiz?.createdAt ?? null,
         scoringChanged,
       };
@@ -221,9 +221,9 @@ export default function QuizStats() {
       const by = new Map<string, Record<string, string>>();
       for (const a of data.answersBySession.get(r.s.id) ?? []) by.set(a.student_id, { ...(by.get(a.student_id) ?? {}), [a.question_id]: a.value });
       for (const q of r.s.quiz.questions) {
-        if (q.kind === 'open') continue;
+        if (!isScored(q)) continue;
         const c = okBy.get(q.id) ?? { ok: 0, n: 0 };
-        for (const st of part) { c.n++; if (isCorrect(q, by.get(st.student_id)?.[q.id])) c.ok++; }
+        for (const st of part) { c.n++; c.ok += answerFraction(q, by.get(st.student_id)?.[q.id]); }
         okBy.set(q.id, c);
       }
     }

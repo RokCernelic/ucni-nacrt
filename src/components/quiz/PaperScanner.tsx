@@ -1,11 +1,11 @@
 'use client';
 
-import { joinChoiceIds } from '@/lib/quiz/scoring';
+import { joinChoiceIds, parseNumber } from '@/lib/quiz/scoring';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
-import { joinChannel, joinStatsChannel } from '@/lib/quiz/sessionApi';
-import { loadPaperSession, savePaperAnswers, isPaperOpen, paperScannedAt, type PaperSession } from '@/lib/quiz/paperSession';
+import { joinChannel, joinStatsChannel, setManualPoints } from '@/lib/quiz/sessionApi';
+import { loadPaperSession, savePaperAnswers, isPaperOpen, paperScannedAt, loadStudentAnswers, type PaperSession } from '@/lib/quiz/paperSession';
 import { layoutSheet, frameGeometry, parseToken, sheetSeed, shuffleOpts, type FrameGeometry, type SheetLayout, type LayoutItem } from '@/lib/quiz/printSheet';
 import { toGray, locate, readLocated, project, type SheetReading } from '@/lib/quiz/omr';
 
@@ -16,6 +16,11 @@ interface Hit {
   layout: SheetLayout<Item>; geom: FrameGeometry; reading: SheetReading;
   /** izbrani krogci po vprašanjih (indeksi), po potrebi popravljeni ročno */
   chosen: number[][];
+  /** naloge, ki jih skener ne prebere: točke vpiše učitelj (n = številka na listu tega učenca) */
+  manual: { id: string; n: number; prompt: string; points: number }[];
+  /** vpisane točke (besedilo polja); `loaded` = prej shranjene vrednosti so naložene */
+  manualVals: Record<string, string>;
+  manualSaved: Record<string, string> | null;
 }
 
 const sig = (h: { studentId: string; reading: SheetReading }) => `${h.studentId}|${h.reading.cells.map(c => c.chosen.join(',')).join(';')}`;
@@ -43,6 +48,18 @@ export default function PaperScanner() {
   const [scannedAt, setScannedAt] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // rezultati ležeče (zasukani za 90° v levo), ko je zaslon pokončen — telefon med skeniranjem drži ležeče
+  const [landscape, setLandscapeState] = useState(true);
+  const [portraitScreen, setPortraitScreen] = useState(true);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- branje nastavitve in usmerjenosti zaslona ob prvem izrisu
+    try { if (localStorage.getItem('skener-lezece') === '0') setLandscapeState(false); } catch { /* ignore */ }
+    const mq = window.matchMedia('(orientation: portrait)');
+    const on = () => setPortraitScreen(mq.matches);
+    on(); mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  const setLandscape = (v: boolean) => { setLandscapeState(v); try { localStorage.setItem('skener-lezece', v ? '1' : '0'); } catch { /* ignore */ } };
   const paused = useRef(false);
   useEffect(() => { paused.current = !!hit; }, [hit]);
 
@@ -150,7 +167,14 @@ export default function PaperScanner() {
                   lastSig.current = lastSig.current.s === sg ? { s: sg, n: lastSig.current.n + 1 } : { s: sg, n: 1 };
                   setStatus(`${st.name}: berem …`);
                   if (lastSig.current.n >= 2) {
-                    setHit({ sessionId: tok.sessionId, studentId: tok.studentId, name: st.name, layout, geom, reading, chosen: reading.cells.map(c => c.chosen) });
+                    const nOf = new Map([...layout.choice, ...layout.free].map(c => [c.item.id, c.n]));
+                    const manual = s.session.quiz.questions.filter(q => q.kind === 'open' && q.manual)
+                      .map(q => ({ id: q.id, n: nOf.get(q.id) ?? 0, prompt: q.prompt, points: q.points })).sort((a, b) => a.n - b.n);
+                    setHit({ sessionId: tok.sessionId, studentId: tok.studentId, name: st.name, layout, geom, reading, chosen: reading.cells.map(c => c.chosen), manual, manualVals: {}, manualSaved: null });
+                    if (manual.length) void loadStudentAnswers(tok.sessionId, tok.studentId).then(prev => {
+                      const saved = Object.fromEntries(manual.filter(m => prev[m.id] != null).map(m => [m.id, String(prev[m.id]).replace('.', ',')]));
+                      setHit(h => (h && h.studentId === tok.studentId && h.sessionId === tok.sessionId ? { ...h, manualSaved: saved, manualVals: { ...saved, ...h.manualVals } } : h));
+                    }).catch(() => {});
                     setScannedAt(null);
                     void paperScannedAt(tok.sessionId, tok.studentId).then(setScannedAt).catch(() => {});
                     try { navigator.vibrate?.(60); } catch { /* ignore */ }
@@ -196,8 +220,15 @@ export default function PaperScanner() {
     const ok = correct.length > 0 && ids.length === correct.length && ids.every(id => correct.includes(id));
     return { n: c.n, letters: hit.chosen[i].map(k => c.options[k]?.letter).join(''), right: c.options.filter(o => correct.includes(o.id)).map(o => o.letter).join(''), ok, points: c.item.points, uncertain: hit.reading.cells[i].uncertain, nOpts: c.options.length, multi: !!c.item.multi };
   }) : [];
-  const got = score.reduce((s, r) => s + (r.ok ? r.points : 0), 0);
-  const max = score.reduce((s, r) => s + r.points, 0);
+  const manualOf = (m: { id: string; points: number }) => {
+    const raw = hit?.manualVals[m.id]?.trim();
+    if (!raw) return null;
+    const n = parseNumber(raw);
+    return n === null || n < 0 || n > m.points ? NaN : n;
+  };
+  const manualBad = hit ? hit.manual.filter(m => Number.isNaN(manualOf(m))) : [];
+  const got = score.reduce((s, r) => s + (r.ok ? r.points : 0), 0) + (hit?.manual.reduce((s, m) => s + (manualOf(m) || 0), 0) ?? 0);
+  const max = score.reduce((s, r) => s + r.points, 0) + (hit?.manual.reduce((s, m) => s + m.points, 0) ?? 0);
 
   const toggle = (qi: number, k: number) => setHit(h => {
     if (!h) return h;
@@ -209,6 +240,7 @@ export default function PaperScanner() {
 
   const save = async () => {
     if (!hit) return;
+    if (manualBad.length) { setError(`Točke pri nalogi ${manualBad.map(m => m.n).join(', ')} niso veljavne (od 0 do največ točk naloge).`); return; }
     setBusy(true); setError(null);
     try {
       if (!(await sessionOpen(hit.sessionId, true))) {
@@ -224,7 +256,11 @@ export default function PaperScanner() {
         if (!ids.length) return [];
         return [{ questionId: c.item.id, value: c.item.multi ? joinChoiceIds(ids) : ids.length === 1 ? ids[0] : 'X' }];
       });
-      await savePaperAnswers(hit.sessionId, hit.studentId, answers);
+      // ročno vpisane točke (prazno = ne spreminjaj; izbrisano polje = pobriši prej shranjene točke)
+      for (const m of hit.manual) { const v = manualOf(m); if (v !== null && !Number.isNaN(v)) answers.push({ questionId: m.id, value: String(v) }); }
+      const keep = hit.manual.filter(m => manualOf(m) === null).map(m => m.id);
+      await savePaperAnswers(hit.sessionId, hit.studentId, answers, keep);
+      for (const m of hit.manual) if (manualOf(m) === null && hit.manualSaved?.[m.id]) await setManualPoints(hit.sessionId, hit.studentId, m.id, null);
       s.channel.send('answers');
       statsCh.current?.send('answers');
       setSaved(m => ({ ...m, [hit.studentId]: got }));
@@ -263,9 +299,10 @@ export default function PaperScanner() {
       )}
       {error && <p style={{ color: '#c0392b', fontSize: '13px' }}>{error}</p>}
 
-      {hit && (
+      {hit && (() => {
         // brez posnetka: učitelj ima list pred sabo — samo prebrani odgovori in ročni popravki
-        <div style={{ paddingBottom: '84px' }}>
+        const turned = landscape && portraitScreen;
+        const body = (<>
           <div style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: '6px 12px', margin: '4px 0 6px' }}>
             <b style={{ fontSize: '20px' }}>{hit.name}</b>
             <span style={{ fontSize: '20px', color: 'var(--forest)', fontWeight: 700 }}>{String(got).replace('.', ',')} / {String(max).replace('.', ',')}</span>
@@ -274,7 +311,7 @@ export default function PaperScanner() {
             </span>}
           </div>
           <p style={{ fontSize: '13px', color: 'var(--muted)', margin: '0 0 12px' }}>Primerjaj z listom. Tapni črko, da popraviš. Oranžna vrstica = negotovo branje.</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '4px 10px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: turned ? 'repeat(auto-fill, minmax(230px, 1fr))' : 'repeat(2, minmax(0, 1fr))', gap: '4px 10px' }}>
             {score.map((r, qi) => (
               <div key={r.n} style={{ display: 'flex', alignItems: 'center', gap: '3px', padding: '5px 2px', borderRadius: '6px', background: r.uncertain ? '#fff1d6' : 'transparent', borderBottom: '1px solid var(--hairline)' }}>
                 <span style={{ width: '24px', flexShrink: 0, textAlign: 'right', fontSize: '13px', fontWeight: 700, marginRight: '2px' }}>{r.n}{r.multi ? '+' : ''}</span>
@@ -293,12 +330,52 @@ export default function PaperScanner() {
               </div>
             ))}
           </div>
-          <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 50, display: 'flex', gap: '8px', background: 'var(--canvas)', borderTop: '1px solid var(--hairline)', boxShadow: '0 -6px 24px rgba(0,0,0,.12)', padding: '12px 14px calc(12px + env(safe-area-inset-bottom))' }}>
-            <button onClick={() => void save()} disabled={busy} style={{ ...btnS(true), flex: 1, opacity: busy ? 0.6 : 1 }}>{busy ? 'Shranjujem …' : '✓ Shrani in naprej'}</button>
-            <button onClick={() => { lastSig.current = { s: '', n: 0 }; setHit(null); }} disabled={busy} style={btnS()}>Skeniraj znova</button>
+          {hit.manual.length > 0 && (
+            <div style={{ marginTop: '14px' }}>
+              <div style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--muted)', margin: '0 0 6px' }}>Točke za ostale naloge (vpiši ročno)</div>
+              <div style={{ display: 'grid', gridTemplateColumns: turned ? 'repeat(auto-fill, minmax(230px, 1fr))' : 'repeat(2, minmax(0, 1fr))', gap: '4px 10px' }}>
+                {hit.manual.map(m => {
+                  const v = manualOf(m);
+                  const bad = Number.isNaN(v);
+                  return (
+                    <label key={m.id} title={m.prompt} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 2px', borderBottom: '1px solid var(--hairline)' }}>
+                      <span style={{ width: '24px', flexShrink: 0, textAlign: 'right', fontSize: '13px', fontWeight: 700 }}>{m.n || '·'}</span>
+                      <span style={{ flex: 1, minWidth: 0, fontSize: '12px', color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.prompt}</span>
+                      <input value={hit.manualVals[m.id] ?? ''} inputMode="decimal" placeholder="–"
+                        onChange={e => { const val = e.target.value.slice(0, 5); setHit(h => (h ? { ...h, manualVals: { ...h.manualVals, [m.id]: val } } : h)); }}
+                        style={{ width: '48px', flexShrink: 0, textAlign: 'center', fontSize: '17px', fontWeight: 700, padding: '5px 2px', borderRadius: '8px', fontFamily: 'var(--font-sans)',
+                          border: `1.5px solid ${bad ? '#c0392b' : 'var(--hairline)'}`, color: bad ? '#c0392b' : 'var(--ink)', background: '#fff' }} />
+                      <span style={{ fontSize: '13px', color: 'var(--muted)', whiteSpace: 'nowrap' }}>/ {String(m.points).replace('.', ',')}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              <p style={{ fontSize: '12px', color: 'var(--muted)', margin: '6px 0 0' }}>Prazno polje = še ni pregledano. Točke lahko vpišeš ali popraviš tudi kasneje v rezultatih.</p>
+            </div>
+          )}
+        </>);
+        const buttons = (<>
+          <button onClick={() => void save()} disabled={busy} style={{ ...btnS(true), flex: 1, opacity: busy ? 0.6 : 1 }}>{busy ? 'Shranjujem …' : '✓ Shrani in naprej'}</button>
+          <button onClick={() => { lastSig.current = { s: '', n: 0 }; setHit(null); }} disabled={busy} style={btnS()}>Skeniraj znova</button>
+          {portraitScreen && <button onClick={() => setLandscape(!landscape)} title={landscape ? 'Prikaži pokončno' : 'Prikaži ležeče (zasukano za 90° v levo)'}
+            style={{ ...btnS(), padding: '12px 14px' }}>{landscape ? '▯' : '▭'}</button>}
+        </>);
+        const barStyle: React.CSSProperties = { display: 'flex', gap: '8px', background: 'var(--canvas)', borderTop: '1px solid var(--hairline)', boxShadow: '0 -6px 24px rgba(0,0,0,.12)' };
+        if (turned) return (
+          // telefon drži ležeče (zaslon zaklenjen pokončno): stran zasukana za 90° v levo čez cel zaslon
+          <div style={{ position: 'fixed', top: 0, left: 0, width: '100vh', height: '100vw', zIndex: 60, background: 'var(--canvas)',
+            transformOrigin: 'top left', transform: 'rotate(-90deg) translateX(-100%)', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px' }}>{body}</div>
+            <div style={{ ...barStyle, padding: '10px 14px' }}>{buttons}</div>
           </div>
-        </div>
-      )}
+        );
+        return (
+          <div style={{ paddingBottom: '84px' }}>
+            {body}
+            <div style={{ ...barStyle, position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 50, padding: '12px 14px calc(12px + env(safe-area-inset-bottom))' }}>{buttons}</div>
+          </div>
+        );
+      })()}
 
       {Object.keys(saved).length > 0 && !hit && (
         <p style={{ fontSize: '13px', color: 'var(--forest)' }}>Skeniranih v tej seji: {Object.keys(saved).length}</p>

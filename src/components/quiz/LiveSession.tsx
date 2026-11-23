@@ -6,11 +6,11 @@ import QRCode from 'qrcode';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuizLibrary } from '@/hooks/useQuizLibrary';
 import {
-  loadSession, updateSession, deleteSession, resetStudentResult, snapshotSession, restoreSessionSnapshot, syncSessionScoring, resolveDevice, joinChannel, isLive, participated, TEACHER_NAME,
+  loadSession, updateSession, deleteSession, resetStudentResult, snapshotSession, restoreSessionSnapshot, syncSessionScoring, resolveDevice, joinChannel, isLive, participated, setManualPoints, TEACHER_NAME,
   type QuizSession, type SessionStudent, type SessionAnswer,
 } from '@/lib/quiz/sessionApi';
 import { offerPersistentUndo } from '@/lib/undoStore';
-import { isCorrect, answerStatus, scoreAnswers, parseNumber, numericValue, choiceIds } from '@/lib/quiz/scoring';
+import { isCorrect, answerStatus, scoreAnswers, parseNumber, numericValue, choiceIds, isScored, answerFraction, manualPoints } from '@/lib/quiz/scoring';
 import { formatNumber, pointsLabel, studentsLabel } from '@/lib/quiz/format';
 import { sessionResultsCsv, downloadCsv, safeFilename } from '@/lib/quiz/csv';
 import type { Question } from '@/lib/quiz/types';
@@ -121,7 +121,8 @@ function QuestionStats({ q, index, answers, totalStudents }: { q: Question; inde
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '12px', marginBottom: '10px' }}>
         <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--ink)' }}>{index + 1}. {q.prompt || '(brez besedila)'}</div>
         <div style={{ fontSize: '15px', fontWeight: 700, color: pctColor, whiteSpace: 'nowrap' }}>
-          {q.kind === 'open' ? 'ročni pregled' : answeredCount ? `${pct} % pravilno` : 'brez odgovorov'}
+          {q.kind === 'open' && q.manual ? (answeredCount ? `povprečno ${formatNumber(Math.round((relevant.reduce((t, a) => t + (manualPoints(q, a.value) ?? 0), 0) / answeredCount) * 10) / 10)} / ${formatNumber(q.points)} točk` : 'točke še niso vpisane')
+            : q.kind === 'open' ? 'ročni pregled' : answeredCount ? `${pct} % pravilno` : 'brez odgovorov'}
         </div>
       </div>
 
@@ -174,6 +175,21 @@ function Mark({ q, value, top, right }: { q: Question; value: string | undefined
   );
 }
 
+/** Celica z ročno vpisanimi točkami (natisnjen kviz, naloge, ki jih skener ne prebere): vpis + Enter ali klik drugam. */
+function ManualCell({ q, value, onSave }: { q: Question; value: string | undefined; onSave: (raw: string) => void }) {
+  const p = manualPoints(q, value);
+  const color = p === null ? 'var(--muted)' : p >= q.points - 1e-9 ? 'var(--green-ok)' : p > 0 ? '#b7791f' : '#c0392b';
+  return (
+    <td style={{ textAlign: 'center', padding: '3px 4px', borderBottom: '1px solid var(--hairline)', background: '#fbfaf6' }}>
+      <input defaultValue={value ? formatNumber(Number(value)) : ''} inputMode="decimal" placeholder={`/${formatNumber(q.points)}`}
+        title={`Točke za to nalogo (0–${formatNumber(q.points)}); prazno = še ni pregledano`}
+        onBlur={e => { if (e.target.value.trim() !== (value ? formatNumber(Number(value)) : '')) onSave(e.target.value.replace(',', '.')); }}
+        onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+        style={{ width: '40px', textAlign: 'center', fontSize: '15px', fontWeight: 700, color, border: '1px solid var(--hairline)', borderRadius: '6px', padding: '4px 2px', background: '#fff', fontFamily: 'var(--font-sans)' }} />
+    </td>
+  );
+}
+
 /** Podrobna stran rezultatov: tabela učencev, statistika po vprašanjih, mreža učenec × vprašanje, CSV. */
 export function SessionResults({ session, students, answers, teacher, teacherAnswers, back, subtitle, note, sessionsByStudent, overall }: {
   session: QuizSession; students: SessionStudent[]; answers: SessionAnswer[];
@@ -207,7 +223,7 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
   };
   /** Trajno izbriše to izvedbo (z vsemi odgovori) — vedno s potrditvijo. */
   const removeResult = async () => {
-    const n = students.filter(participated).length;
+    const n = students.filter(isOn).length;
     if (!confirm(`Trajno izbrišem rezultat »${quizTitle}« (${session.class_name}, ${new Date(session.created_at).toLocaleString('sl-SI', { day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })})?\n\nIzbrisani bodo odgovori ${n} ${n === 1 ? 'učenca' : 'učencev'}.`)) return;
     setDeleting(true);
     try {
@@ -227,7 +243,7 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
     const byId = new Map(libQuiz.questions.map(q => [q.id, q]));
     let oldMax = 0, newMax = 0, diff = false, matched = 0;
     for (const sq of session.quiz.questions) {
-      if (sq.kind === 'open') continue;
+      if (!isScored(sq)) continue;
       oldMax += sq.points;
       const q = byId.get(sq.id);
       if (!q) { newMax += sq.points; continue; }
@@ -247,8 +263,20 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
     catch (e) { alert(`Točkovanja ni bilo mogoče posodobiti: ${e instanceof Error ? e.message : String(e)}`); setSyncing(false); }
   };
   const [sortBy, setSortBy] = useState<'name' | 'points'>('name');
-  const questions = session.quiz.questions;
-  const joinedCount = students.filter(participated).length;
+  // ročno točkovane naloge starejših izvedb nimajo besedila — vzemi ga iz kviza v knjižnici
+  const questions = useMemo(() => session.quiz.questions.map(q => (q.prompt || !libQuiz ? q : { ...q, prompt: libQuiz.questions.find(x => x.id === q.id)?.prompt ?? '' })), [session.quiz.questions, libQuiz]);
+  // ročno vpisane točke (natisnjen kviz): takoj vidne, shranijo se v ozadju
+  const [manualEdits, setManualEdits] = useState<Record<string, string | null>>({});
+  const editedIds = useMemo(() => new Set(Object.entries(manualEdits).filter(([, v]) => v !== null).map(([k]) => k.split('|')[0])), [manualEdits]);
+  const isOn = (st: SessionStudent) => participated(st) || editedIds.has(st.student_id);
+  const saveManual = (sid: string, q: Question, raw: string) => {
+    const t = raw.trim();
+    const n = t === '' ? null : parseNumber(t);
+    if (t !== '' && (n === null || n < 0 || n > q.points)) { alert(`Vpiši število točk med 0 in ${formatNumber(q.points)}.`); return; }
+    setManualEdits(m => ({ ...m, [`${sid}|${q.id}`]: n === null ? null : String(n) }));
+    setManualPoints(sessOf(sid).id, sid, q.id, n).catch(e => alert(`Točk ni bilo mogoče shraniti: ${e instanceof Error ? e.message : String(e)}`));
+  };
+  const joinedCount = students.filter(isOn).length;
 
   // pravilni odgovor namesto križca: pri natisnjenem kvizu s črko, kot jo ima učenec na svojem listu (mešani odgovori),
   // pri kvizu v živo z izvirnim vrstnim redom (če so bili odgovori premešani, črke ne poznamo — ostane križec)
@@ -306,8 +334,14 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
       rec[a.question_id] = a.value;
       m.set(a.student_id, rec);
     }
+    for (const [k, v] of Object.entries(manualEdits)) {
+      const [sid, qid] = k.split('|');
+      const rec = m.get(sid) ?? {};
+      if (v === null) delete rec[qid]; else rec[qid] = v;
+      m.set(sid, rec);
+    }
     return m;
-  }, [answers]);
+  }, [answers, manualEdits]);
 
   const rows = useMemo(() => {
     const withScore = students.map(s => ({ s, ans: answersByStudent.get(s.student_id) ?? {}, sc: scoreAnswers(session.quiz, answersByStudent.get(s.student_id) ?? {}) }));
@@ -316,13 +350,13 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
 
   // povprečje razreda po nalogah: delež pravilnih med učenci, ki so sodelovali (odprta vprašanja niso točkovana)
   const perQuestion = useMemo(() => {
-    const part = rows.filter(r => participated(r.s));
+    const part = rows.filter(r => participated(r.s) || editedIds.has(r.s.student_id));
     return new Map(session.quiz.questions.map(q => {
-      if (q.kind === 'open' || !part.length) return [q.id, null] as const;
-      const ok = part.filter(r => isCorrect(q, r.ans[q.id])).length;
+      if (!isScored(q) || !part.length) return [q.id, null] as const;
+      const ok = part.reduce((t, r) => t + answerFraction(q, r.ans[q.id]), 0);
       return [q.id, ceilPct((ok / part.length) * 100)] as const;
     }));
-  }, [rows, session.quiz.questions]);
+  }, [rows, session.quiz.questions, editedIds]);
 
   // učitelj (testna oseba) — prikazan pod učenci, ne šteje v povprečje
   const teacherScore = teacher?.device_id
@@ -330,7 +364,7 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
     : null;
 
   // povprečje le med učenci, ki so sodelovali (neskenirani / nepovezani ne štejejo kot 0 %)
-  const partRows = rows.filter(r => participated(r.s));
+  const partRows = rows.filter(r => isOn(r.s));
   const overallLabel = overall ? `${overall.sessions} izvedb${overall.sessions === 2 ? 'i' : overall.sessions < 5 ? 'e' : ''}, ${overall.people} učencev` : '';
   const avgPct = partRows.length ? ceilPct(partRows.reduce((s, r) => s + r.sc.percent, 0) / partRows.length) : 0;
 
@@ -403,7 +437,7 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
             </tr></thead>
             <tbody>
               {rows.map(({ s, ans, sc }) => {
-                const on = participated(s);
+                const on = isOn(s);
                 return (
                   <tr key={s.student_id}>
                     <td style={{ position: 'sticky', left: 0, background: '#fff', padding: '7px 12px', borderBottom: '1px solid var(--hairline)', whiteSpace: 'nowrap', color: on ? 'var(--ink)' : 'var(--muted)' }}>
@@ -419,12 +453,14 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
                         <span style={{ marginLeft: '10px', fontWeight: 700, color: pctColor(sc.percent) }}>{formatNumber(sc.percent)} %</span>
                       </>) : <span style={{ color: 'var(--muted)' }}>– <span>/ {formatNumber(sc.maxPoints)}</span></span>}
                     </td>
-                    {colsFor(s.student_id).map((q, i) => <Mark key={i} q={q} value={ans[q.id]} right={rightFor(s.student_id, q)} />)}
+                    {colsFor(s.student_id).map((q, i) => q.kind === 'open' && q.manual
+                      ? <ManualCell key={`${i}:${ans[q.id] ?? ''}`} q={q} value={ans[q.id]} onSave={raw => saveManual(s.student_id, q, raw)} />
+                      : <Mark key={i} q={q} value={ans[q.id]} right={rightFor(s.student_id, q)} />)}
                   </tr>
                 );
               })}
               {/* povprečje razreda po nalogah — le če so stolpci v istem vrstnem redu za vse učence */}
-              {!perStudentOrder && rows.some(r => participated(r.s)) && (
+              {!perStudentOrder && rows.some(r => isOn(r.s)) && (
                 <tr>
                   <td style={{ position: 'sticky', left: 0, background: '#f7f6f3', padding: '7px 12px', borderTop: '2px solid var(--hairline)', whiteSpace: 'nowrap', fontWeight: 700, color: 'var(--ink)' }}>Povprečje razreda</td>
                   <td style={{ padding: '7px 12px', borderTop: '2px solid var(--hairline)', borderRight: '2px solid var(--hairline)', background: '#f7f6f3', whiteSpace: 'nowrap', fontWeight: 700, color: gradeColor(avgPct) }}>{avgPct} %</td>
@@ -457,7 +493,7 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
       </div>
 
       {/* povprečje po nalogah pri premešanih listih (vrstni red kviza); pri več izvedbah čez vse izvedbe */}
-      {perStudentOrder && rows.some(r => participated(r.s)) && (
+      {perStudentOrder && rows.some(r => isOn(r.s)) && (
         <div style={{ marginTop: '24px' }}>
           <h2 style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted)', margin: '0 0 10px' }}>
             {overall ? `Povprečje po nalogah — vse izvedbe (${overallLabel})` : 'Povprečje razreda po nalogah'} (izvirni vrstni red kviza)

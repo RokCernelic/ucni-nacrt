@@ -63,8 +63,19 @@ export const choiceIds = (v: string | null | undefined) => (v ?? '').split(',').
 /** Zapis več izbranih možnosti v en odgovor (urejeno, da je primerjava enolična). */
 export const joinChoiceIds = (ids: string[]) => [...new Set(ids)].sort().join(',');
 
+/** Ročno vpisane točke (natisnjen kviz): število med 0 in največ točk naloge, sicer null. */
+export function manualPoints(q: Question, value: string | null | undefined): number | null {
+  if (q.kind !== 'open' || !q.manual || value == null || value === '') return null;
+  const n = parseNumber(value);
+  return n === null ? null : Math.max(0, Math.min(q.points, n));
+}
+
+/** Ali vprašanje šteje v točke (izbirna, številska in ročno točkovana; odprta v kvizu v živo ne). */
+export const isScored = (q: Question) => q.kind !== 'open' || !!q.manual;
+
 export function isCorrect(q: Question, value: string | null | undefined): boolean {
   if (value == null || value === '') return false;
+  if (q.kind === 'open' && q.manual) { const p = manualPoints(q, value); return p !== null && p >= q.points - 1e-9; }
   if (q.kind === 'mc') {
     if (q.correct === null) return false;
     if (!q.multi) return value === q.correct;
@@ -89,6 +100,12 @@ export function isCorrect(q: Question, value: string | null | undefined): boolea
   return false;
 }
 
+/** Delež točk naloge (0–1) za odgovor: ročno točkovane po vpisanih točkah, ostale pravilno = 1. */
+export const answerFraction = (q: Question, value: string | null | undefined): number => {
+  if (q.kind === 'open' && q.manual) { const p = manualPoints(q, value); return p === null || !(q.points > 0) ? 0 : p / q.points; }
+  return isCorrect(q, value) ? 1 : 0;
+};
+
 export type AnswerStatus = 'correct' | 'wrong' | 'unanswered';
 
 export function answerStatus(q: Question, value: string | null | undefined): AnswerStatus {
@@ -109,6 +126,13 @@ export interface QuizScore {
 export function scoreAnswers(quiz: Pick<Quiz, 'questions'>, answers: Record<string, string | undefined>): QuizScore {
   let points = 0, maxPoints = 0, correct = 0, wrong = 0, unanswered = 0;
   for (const q of quiz.questions) {
+    if (q.kind === 'open' && q.manual) { // ročno vpisane točke (delne točke so mogoče)
+      maxPoints += q.points;
+      const p = manualPoints(q, answers[q.id]);
+      if (p === null) unanswered++;
+      else { points += p; if (p >= q.points - 1e-9) correct++; else wrong++; }
+      continue;
+    }
     if (q.kind === 'open') continue; // ne točkuje se samodejno
     maxPoints += q.points;
     const st = answerStatus(q, answers[q.id]);
