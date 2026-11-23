@@ -119,20 +119,18 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
     saveCfg({ ...cfg, manual: cfg.manual.map(x => (x.id === id ? { ...x, values } : x)) });
   };
   const numVal = (v: string | undefined) => { if (!v) return null; const n = parseFloat(v.replace(',', '.')); return Number.isFinite(n) && /^\s*[-+]?\d+([.,]\d+)?\s*$/.test(v) ? n : null; };
-  // povprečna ocena: ročni stolpci, v katerih so vpisane same ocene 1–5 (dovoljeno tudi 4+, 3-),
-  // in rezultati kvizov, pretvorjeni v oceno (90 / 78 / 64 / 45 % — iste meje kot barve odstotkov)
-  const gradeOf = (v: string | undefined) => { const m = /^\s*([1-5])\s*[+-]?\s*$/.exec(v ?? ''); return m ? Number(m[1]) : null; };
-  const gradeCols = cfg.manual.filter(m => { const vs = Object.values(m.values).filter(v => v.trim()); return vs.length > 0 && vs.every(v => gradeOf(v) != null); });
-  const pctGrade = (p: number) => (p >= 90 ? 5 : p >= 78 ? 4 : p >= 64 ? 3 : p >= 45 ? 2 : 1);
+  // povprečje odstotkov: rezultati kvizov in ročni stolpci, v katere so vpisani odstotki (npr. 85 %)
+  const pctOf = (v: string | undefined) => { const m = /^\s*(\d{1,3}(?:[.,]\d+)?)\s*%\s*$/.exec(v ?? ''); const n = m ? Number(m[1].replace(',', '.')) : NaN; return n >= 0 && n <= 100 ? n : null; };
+  const pctCols = cfg.manual.filter(m => { const vs = Object.values(m.values).filter(v => v.trim()); return vs.length > 0 && vs.every(v => pctOf(v) != null); });
   const avgGrade = (st: { id: string; name: string }): number | null => {
-    const gs = [
-      ...gradeCols.map(m => gradeOf(m.values[st.id])),
-      ...quizCols.map(c => { const r = resOf(c, st); return r ? pctGrade(r.pct) : null; }),
+    const ps = [
+      ...quizCols.map(c => resOf(c, st)?.pct ?? null),
+      ...pctCols.map(m => pctOf(m.values[st.id])),
     ].filter((n): n is number => n != null);
-    return gs.length ? gs.reduce((a, b) => a + b, 0) / gs.length : null;
+    return ps.length ? ps.reduce((a, b) => a + b, 0) / ps.length : null;
   };
-  const gradeTint = (g: number | null) => (g == null ? 'var(--muted)' : g >= 4.5 ? '#2e8b3e' : g >= 3.5 ? '#7aa82a' : g >= 2.5 ? '#cf9e00' : g >= 1.5 ? '#e06a1b' : '#c0392b');
-  const fmtGrade = (g: number | null) => (g == null ? '–' : formatNumber(Math.round(g * 100) / 100));
+  const gradeTint = (p: number | null) => (p == null ? 'var(--muted)' : gradeColor(ceilPct(p)));
+  const fmtGrade = (p: number | null) => (p == null ? '–' : `${ceilPct(p)} %`);
   const AVG_SEP = '3px double #aeb8b0';
 
   // vrstni red stolpcev: shranjeni vrstni red, novi stolpci (nov kviz, nov ročni stolpec) na konec
@@ -452,8 +450,8 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
                     style={{ position: 'absolute', top: 0, right: -4, width: '9px', height: '100%', cursor: 'col-resize', zIndex: 4, touchAction: 'none',
                       background: dragW != null ? 'linear-gradient(to right, transparent 3px, var(--forest) 3px, var(--forest) 5px, transparent 5px)' : undefined }} />
                 </th>
-                <th onClick={() => clickSort('avg')} title={`Povprečna ocena: ${[...gradeCols.map(m => m.name), ...(quizCols.length ? [`kvizi (${quizCols.length}; % → ocena: 90 / 78 / 64 / 45 %)`] : [])].join(', ') || 'ročni stolpci z ocenami 1–5 in rezultati kvizov'} — klik: razvrsti`}
-                  style={{ ...TH, cursor: 'pointer', borderRight: AVG_SEP, fontWeight: 700, color: sort.key === 'avg' ? 'var(--forest)' : 'var(--ink)' }}>Ocena ⌀{arrow('avg')}</th>
+                <th onClick={() => clickSort('avg')} title={`Povprečje odstotkov: ${[...(quizCols.length ? [`kvizi (${quizCols.length})`] : []), ...pctCols.map(m => m.name)].join(', ') || 'rezultati kvizov in ročni stolpci z odstotki'} — klik: razvrsti`}
+                  style={{ ...TH, cursor: 'pointer', borderRight: AVG_SEP, fontWeight: 700, color: sort.key === 'avg' ? 'var(--forest)' : 'var(--ink)' }}>⌀ %{arrow('avg')}</th>
                 {visibleKeys.map(headCell)}
               </tr>
             </thead>
@@ -488,7 +486,7 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
               </tr>
             ); })}
             {/* povprečje razreda po kvizih (le učenci, ki so sodelovali) in po ročnih stolpcih s števili */}
-            {(quizCols.length > 0 || cfg.manual.length > 0 || gradeCols.length > 0) && (
+            {(quizCols.length > 0 || cfg.manual.length > 0) && (
               <tr style={focusId ? { filter: 'blur(5px)', opacity: 0.45 } : undefined}>
                 <td style={{ position: 'sticky', left: 0, zIndex: 1, background: '#f7f6f3', padding: '7px 12px', borderTop: DIV, borderRight: DIV, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: nameW, maxWidth: nameW, boxSizing: 'border-box', fontWeight: 700, color: 'var(--ink)' }}>Povprečje razreda</td>
                 {(() => { const gs = students.map(x => avgGrade(x)).filter((n): n is number => n != null); const g = gs.length ? gs.reduce((a, b) => a + b, 0) / gs.length : null; return (
@@ -513,7 +511,7 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
           <table className="pr-table">
             <thead>
               <tr>
-                <th className="num">#</th><th className="left">Učenec</th><th className="avg">Ocena ⌀</th>
+                <th className="num">#</th><th className="left">Učenec</th><th className="avg">⌀ %</th>
                 {printKeys.map(k => {
                   if (k === 'gender') return <th key={k}>Spol</th>;
                   if (k === 'pin') return <th key={k}>PIN</th>;
