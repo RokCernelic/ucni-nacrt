@@ -112,7 +112,7 @@ html { scroll-behavior: smooth; }
   .print-results .prs-table .num { width: 7mm; color: #777; }
   .print-results .prs-table td.name { font-weight: 600; white-space: nowrap; }
   .print-results .prs-table td.res { font-weight: 700; white-space: nowrap; }
-  .print-results .prs-table td.ok { color: #2e7d32; font-weight: 700; }
+  .print-results .prs-table td.ok { color: #2d6a31; font-weight: 700; }
   .print-results .prs-table td.bad { color: #c0392b; font-weight: 700; }
   .print-results .prs-table td.none, .print-results .prs-table td.avg { color: #888; }
   .print-results .prs-table td.pts { font-weight: 700; }

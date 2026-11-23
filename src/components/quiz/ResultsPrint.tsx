@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import { participated, type QuizSession, type SessionStudent } from '@/lib/quiz/sessionApi';
 import { answerStatus, scoreAnswers, choiceIds, isScored, answerFraction, manualPoints } from '@/lib/quiz/scoring';
-import { formatNumber, studentsLabel, ceilPct } from '@/lib/quiz/format';
+import { formatNumber, studentsLabel, ceilPct, gradeColor } from '@/lib/quiz/format';
 import type { Question } from '@/lib/quiz/types';
 import { initialsName } from '@/lib/names';
 import { compareResults, type ResultsSort } from '@/lib/quiz/resultsSort';
@@ -85,7 +85,7 @@ export default function ResultsPrintSheet({ session, students, answersByStudent,
           <div className="prs-cls">{session.class_name} · {new Date(session.created_at).toLocaleDateString('sl-SI')}</div>
           <div className="prs-title">{title}</div>
         </div>
-        <div className="prs-meta">{studentsLabel(part.length)} od {students.length} · povprečje {avgPct} %</div>
+        <div className="prs-meta">{studentsLabel(part.length)} od {students.length} · povprečje <b style={{ color: gradeColor(avgPct) }}>{avgPct} %</b></div>
       </div>
       <table className="prs-table">
         <thead><tr>
@@ -100,10 +100,10 @@ export default function ResultsPrintSheet({ session, students, answersByStudent,
                 <td className="num">{ri + 1}</td>
                 <td className="left name">{anon ? initialsName(st.name) : st.name}</td>
                 <td className="res">{on ? `${formatNumber(sc.points)} / ${formatNumber(sc.maxPoints)}` : '–'}</td>
-                <td className="res">{on ? `${formatNumber(sc.percent)} %` : ''}</td>
+                <td className="res" style={on ? { color: gradeColor(sc.percent) } : undefined}>{on ? `${formatNumber(sc.percent)} %` : ''}</td>
                 {colsFor(st.student_id).map((q, i) => {
                   if (!on) return <td key={i} />;
-                  if (q.kind === 'open' && q.manual) { const p = manualPoints(q, ans[q.id]); return <td key={i} className="pts">{p === null ? '–' : formatNumber(p)}</td>; }
+                  if (q.kind === 'open' && q.manual) { const p = manualPoints(q, ans[q.id]); return <td key={i} className="pts" style={{ color: p === null ? '#888' : p >= q.points - 1e-9 ? '#2d6a31' : p > 0 ? '#b7791f' : '#c0392b' }}>{p === null ? '–' : formatNumber(p)}</td>; }
                   const stt = answerStatus(q, ans[q.id]);
                   const right = rightFor(st.student_id, q);
                   return <td key={i} className={stt === 'correct' ? 'ok' : stt === 'wrong' ? 'bad' : 'none'}>{stt === 'correct' ? '✓' : stt === 'wrong' ? (right ?? '✗') : '–'}</td>;
@@ -114,8 +114,8 @@ export default function ResultsPrintSheet({ session, students, answersByStudent,
         </tbody>
         {!perStudentOrder && (
           <tfoot><tr>
-            <td /><td className="left"><b>Povprečje razreda</b></td><td /><td className="res">{avgPct} %</td>
-            {questions.map(q => { const p = perQuestion.get(q.id); return <td key={q.id} className="avg">{p == null ? '–' : `${p}`}</td>; })}
+            <td /><td className="left"><b>Povprečje razreda</b></td><td /><td className="res" style={{ color: gradeColor(avgPct) }}>{avgPct} %</td>
+            {questions.map(q => { const p = perQuestion.get(q.id); return <td key={q.id} className="avg" style={p == null ? undefined : { color: gradeColor(p), fontWeight: 700 }}>{p == null ? '–' : `${p}`}</td>; })}
           </tr></tfoot>
         )}
       </table>
