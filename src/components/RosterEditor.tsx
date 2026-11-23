@@ -181,19 +181,17 @@ export default function RosterEditor({ classId, className, shade }: { classId: s
   };
 
   // razvrščanje seznama s klikom na ime stolpca (ponovni klik obrne smer)
-  // razvrščanje (stolpec + smer) se zapomni za vsak razred posebej
+  // razvrščanje (stolpec + smer) se zapomni in velja za vse razrede (menjava zavihka razreda ga ohrani)
   type Sort = { key: string; dir: 1 | -1 };
-  const sortKey = `ucni-nacrt-roster-sort-${classId}`;
-  const readSort = (): Sort => {
-    try { const v = JSON.parse(localStorage.getItem(sortKey) ?? 'null'); if (v && typeof v.key === 'string' && (v.dir === 1 || v.dir === -1)) return v; } catch { /* ignore */ }
+  const SORT_KEY = 'ucni-nacrt-roster-sort';
+  const [sort, setSort] = useState<Sort>(() => {
+    try { const v = JSON.parse(localStorage.getItem(SORT_KEY) ?? 'null'); if (v && typeof v.key === 'string' && (v.dir === 1 || v.dir === -1)) return v; } catch { /* ignore */ }
     return { key: 'name', dir: 1 };
-  };
-  const [sortState, setSortState] = useState<{ cid: string; s: Sort }>(() => ({ cid: classId, s: typeof window === 'undefined' ? { key: 'name', dir: 1 } : readSort() }));
-  const sort = sortState.cid === classId ? sortState.s : readSort();
+  });
   const clickSort = (key: string) => {
     const n: Sort = sort.key === key ? { key, dir: sort.dir === 1 ? -1 : 1 } : { key, dir: 1 };
-    setSortState({ cid: classId, s: n });
-    try { localStorage.setItem(sortKey, JSON.stringify(n)); } catch { /* ignore */ }
+    setSort(n);
+    try { localStorage.setItem(SORT_KEY, JSON.stringify(n)); } catch { /* ignore */ }
   };
   const sortValue = (key: string, st: (typeof students)[number]): string | number => {
     if (key === 'gender') return st.gender || '~';
