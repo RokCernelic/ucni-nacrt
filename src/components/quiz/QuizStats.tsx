@@ -10,6 +10,7 @@ import { loadAllHistory, joinStatsChannel, isLive, participated, type QuizSessio
 import { scoreAnswers, isScored, answerFraction } from '@/lib/quiz/scoring';
 import { SessionResults } from './LiveSession';
 import ResultsPrintSheet from './ResultsPrint';
+import RoundToggle, { DONE_BG } from '@/components/RoundToggle';
 import { readResultsSort } from '@/lib/quiz/resultsSort';
 import { createPortal } from 'react-dom';
 import { ceilPct, questionsLabel, pointsLabel, dateTimeLabel } from '@/lib/quiz/format';
@@ -134,10 +135,10 @@ export default function QuizStats() {
           return (
             <div key={g.key} style={{ border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', background: 'var(--canvas)', overflow: 'hidden' }}>
               <div onClick={() => !selected && toggleQuiz(g.key)}
-                style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', padding: '12px 16px', cursor: selected ? 'default' : 'pointer', background: isOpen ? 'rgba(45,106,49,0.06)' : 'transparent' }}>
-                <span style={{ color: 'var(--muted)', fontSize: '14px', width: '12px', display: 'inline-block', transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}>›</span>
+                style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', padding: '12px 16px', cursor: selected ? 'default' : 'pointer', background: !g.open ? DONE_BG : 'transparent', transition: 'background 0.2s' }}>
+                <RoundToggle open={isOpen} done={!g.open} />
                 <div style={{ flex: '1 1 240px', minWidth: 0 }}>
-                  <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--ink)' }}>
+                  <div style={{ fontFamily: 'var(--font-serif)', fontSize: '20px', fontWeight: 400, letterSpacing: '0.01em', color: !g.open ? 'var(--green-ok)' : 'var(--ink)' }}>
                     {g.title}{g.deleted && <span style={{ fontSize: '11px', fontWeight: 500, color: '#b7791f', marginLeft: '8px' }}>izbrisan kviz</span>}
                     {g.live ? <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--green-ok)', marginLeft: '8px' }}>● v teku</span>
                       : g.open ? <span style={{ fontSize: '11px', fontWeight: 600, color: '#b7791f', marginLeft: '8px' }}>nezaključeno</span>
@@ -222,14 +223,16 @@ export default function QuizStats() {
   const foldersIn = (parentId: string | null) => lib.folders.filter(f => f.parentId === parentId && countIn(f.id) > 0).sort((a, b) => a.name.localeCompare(b.name, 'sl'));
   const renderFolder = (f: QuizFolder, depth: number): React.ReactNode => {
     const isOpen = openFolders.has(f.id);
+    // mapa je zaključena, ko so zaključene vse izvedbe vseh kvizov v njej (tudi v podmapah)
+    const done = !groups.some(g => g.folderId && folderIds.has(g.folderId) && inFolder(g.folderId, f.id) && g.open);
     return (
       <div key={f.id} style={{ border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', background: depth ? 'transparent' : 'var(--canvas)', overflow: 'hidden' }}>
         <div onClick={() => toggleFolder(f.id)}
-          style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', cursor: 'pointer', background: isOpen ? 'rgba(45,106,49,0.06)' : 'transparent' }}>
-          <span style={{ color: 'var(--muted)', fontSize: '13px', width: '12px', display: 'inline-block', transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}>›</span>
-          <span style={{ color: 'var(--forest)', display: 'flex' }}><FolderIcon /></span>
-          <span style={{ flex: 1, minWidth: 0, fontSize: '15px', fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {f.name} <span style={{ fontWeight: 400, fontSize: '13px', color: 'var(--muted)' }}>· {countIn(f.id)}</span>
+          style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', cursor: 'pointer', background: done ? DONE_BG : 'transparent', transition: 'background 0.2s' }}>
+          <RoundToggle open={isOpen} done={done} />
+          <span style={{ color: done ? 'var(--green-ok)' : 'var(--forest)', display: 'flex' }}><FolderIcon /></span>
+          <span style={{ flex: 1, minWidth: 0, fontFamily: 'var(--font-serif)', fontSize: '20px', fontWeight: 400, letterSpacing: '0.01em', color: done ? 'var(--green-ok)' : 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {f.name} <span style={{ fontFamily: 'var(--font-sans)', fontWeight: 400, fontSize: '13px', color: 'var(--muted)' }}>· {countIn(f.id)}</span>
           </span>
         </div>
         {isOpen && (

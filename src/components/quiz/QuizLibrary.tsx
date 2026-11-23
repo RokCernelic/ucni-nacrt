@@ -1,5 +1,6 @@
 'use client';
 
+import RoundToggle from '@/components/RoundToggle';
 import { offerUndo, snapshotStorage } from '@/lib/undoStore';
 import { useState, useRef } from 'react';
 import Link from 'next/link';
@@ -154,9 +155,9 @@ export default function QuizLibrary() {
       <div key={f.id} style={{ border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', background: depth ? 'transparent' : 'var(--canvas)', overflow: 'hidden' }}>
         <div data-folder-id={f.id} onDragOver={onFolderDragOver} onDragLeave={onFolderDragLeave} onDrop={onFolderDrop}
           onClick={() => { if (renaming !== f.id) toggleFolder(f.id); }}
-          style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', cursor: 'pointer', fontFamily: 'var(--font-sans)',
-            background: dragOverFolder === f.id ? '#e9f2ea' : isOpen ? 'rgba(45,106,49,0.06)' : 'transparent' }}>
-          <span style={{ color: 'var(--muted)', fontSize: '13px', width: '12px', display: 'inline-block', transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}>›</span>
+          style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', cursor: 'pointer', fontFamily: 'var(--font-sans)',
+            background: dragOverFolder === f.id ? '#e9f2ea' : 'transparent' }}>
+          <RoundToggle open={isOpen} />
           <span style={{ color: 'var(--forest)', display: 'flex' }}><FolderIcon /></span>
           {renaming === f.id ? (
             <input autoFocus defaultValue={f.name} onClick={e => e.stopPropagation()}
@@ -165,8 +166,8 @@ export default function QuizLibrary() {
               onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') setRenaming(null); }}
               style={{ flex: 1, minWidth: 0, fontFamily: 'var(--font-sans)', fontSize: '14px', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', padding: '4px 6px' }} />
           ) : (
-            <span style={{ flex: 1, minWidth: 0, fontSize: '15px', fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {f.name} <span style={{ fontWeight: 400, fontSize: '13px', color: 'var(--muted)' }}>· {countIn(f.id)}</span>
+            <span style={{ flex: 1, minWidth: 0, fontFamily: 'var(--font-serif)', fontSize: '20px', fontWeight: 400, letterSpacing: '0.01em', color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {f.name} <span style={{ fontFamily: 'var(--font-sans)', fontWeight: 400, fontSize: '13px', color: 'var(--muted)' }}>· {countIn(f.id)}</span>
             </span>
           )}
           <span onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: '2px' }}>
