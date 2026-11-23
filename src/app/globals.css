@@ -224,6 +224,8 @@ body {
   .pqz-title { font-size: 10pt; color: #444; font-weight: 600; }
   .pqz-name { font-size: 13pt; font-weight: 700; flex: 1; overflow: hidden; text-overflow: ellipsis; }
   .pqz-meta { font-size: 9.5pt; color: #444; }
+  .pqz-scanhint { font-size: 9pt; color: #444; }
+  .pqz-scanhint b { font-size: 12pt; line-height: 1; }
   .pqz-grid { position: relative; box-sizing: border-box; border: .3mm solid #999; margin-bottom: 4mm; }
   .pqz-grid > * , .pqz-grid > div > * { position: absolute; }
   .pqz-grid > div:not(.pqz-gridhead) { position: static; }
@@ -295,6 +297,8 @@ html.printing-questions .print-questions.ldn, .ldn.ldn-measure { font-size: 9pt;
 .pqz-preview .pqz-title { font-size: 10pt; color: #444; font-weight: 600; }
 .pqz-preview .pqz-name { font-size: 13pt; font-weight: 700; flex: 1; overflow: hidden; text-overflow: ellipsis; }
 .pqz-preview .pqz-meta { font-size: 9.5pt; color: #444; }
+.pqz-preview .pqz-scanhint { font-size: 9pt; color: #444; }
+.pqz-preview .pqz-scanhint b { font-size: 12pt; line-height: 1; }
 .pqz-preview .pqz-grid { position: relative; box-sizing: border-box; border: .3mm solid #999; margin-bottom: 4mm; }
 .pqz-preview .pqz-grid > *, .pqz-preview .pqz-grid > div > * { position: absolute; }
 .pqz-preview .pqz-grid > div:not(.pqz-gridhead) { position: static; }

@@ -10,13 +10,15 @@ export interface Sheet { key: string; name: string | null; qr: string | null; la
 
 export const todayLabel = () => new Date().toLocaleDateString('sl-SI', { day: 'numeric', month: 'numeric', year: 'numeric' });
 
-/** Glava lista: naslov, ime in priimek, razred in datum. */
+/** Glava lista: naslov, razred in datum, ime in priimek ter (z QR kodo) napis nad kodo. */
 export function SheetHead({ sheet: sh, title, className, placeholder, suffix }: { sheet: Sheet; title: string; className?: string; placeholder?: boolean; suffix?: string }) {
   return (
     <header className="pqz-head">
       <b className="pqz-title">{title}{suffix}</b>
-      <span className="pqz-name">{sh.name ?? 'Ime in priimek: ______________________'}</span>
       <span className="pqz-meta">{placeholder && sh.name ? 'RAZRED · DATUM' : <>{sh.name ? (className ? `${className} · ` : '') : 'Razred: ______ · '}{todayLabel()}</>}</span>
+      <span className="pqz-name">{sh.name ?? 'Ime in priimek: ______________________'}</span>
+      {/* nad QR kodo (desno v okvirju): puščica kaže na sredino kode */}
+      {sh.qr && <span className="pqz-scanhint" style={{ paddingRight: `${FRAME.padX + FRAME.qr / 2 - 1.6}mm` }}>Poskeniraj kodo za rezultate <b>↓</b></span>}
     </header>
   );
 }
