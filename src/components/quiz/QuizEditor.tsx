@@ -475,6 +475,11 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
       return { ...x, imgs: imgs.some(Boolean) ? imgs : undefined } as Question;
     }) });
   };
+  /** dvostolpična naloga na listu A4 */
+  const setHalf = (id: string, half: boolean) => {
+    const d = draftRef.current;
+    if (d) update({ ...d, questions: d.questions.map(x => (x.id !== id ? x : ({ ...x, half: half || undefined } as Question))) });
+  };
   const setColGap = (mm: number | null) => {
     const d = draftRef.current;
     if (d) update({ ...d, sheet: { ...d.sheet, colGap: mm ?? undefined } });
@@ -672,7 +677,7 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
           <div style={{ overflowX: 'auto', margin: '0 -32px', padding: '4px 0 8px' }}>
             <QuizPaper quiz={draft} tasksById={taskById} activeId={drawerOpen ? active : null}
               onOpen={id => { flush(); setActive(id); }} onMove={moveOnSheet} onDuplicate={duplicateById} onDelete={deleteById}
-              onSpacing={setSpacing} onColGap={setColGap} onImg={setImg} />
+              onSpacing={setSpacing} onColGap={setColGap} onImg={setImg} onHalf={setHalf} />
           </div>
         )}
         {view === 'halves' && <QuizHalvesPreview quiz={draft} tasksById={taskById} activeId={drawerOpen ? active : null} onOpen={id => { flush(); setActive(id); }}

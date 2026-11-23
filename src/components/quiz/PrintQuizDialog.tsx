@@ -8,7 +8,7 @@ import { useRoster } from '@/hooks/useRoster';
 import { SheetHead, FrameView, ItemBody, type Sheet } from './QuizSheetParts';
 import { HalvesPages, useHalvesPlan, findOrder, type HalvesPlan } from './HalvesSheet';
 import SolutionsPage from './SolutionsPage';
-import { layoutSheet, sheetToken, sheetSeed, frameGeometry, hasSolutionText, type PrintItem, type SheetLayout } from '@/lib/quiz/printSheet';
+import { layoutSheet, sheetToken, sheetSeed, frameGeometry, hasSolutionText, freeRows, type PrintItem, type SheetLayout } from '@/lib/quiz/printSheet';
 import { createPaperSession } from '@/lib/quiz/paperSession';
 import Link from 'next/link';
 import { setPrintTitle } from '@/lib/printTitle';
@@ -47,6 +47,9 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
   const [preview, setPreview] = useState<{ sheets: Sheet[]; idx: number; halves?: boolean } | null>(null);
   /** dva testa na en list A4 (zgoraj / spodaj) */
   const [halves, setHalves] = useState(false);
+  /** brez glave lista (razred, naslov, datum, ime); zapomni se za naslednji tisk */
+  const [noHead, setNoHeadRaw] = useState(() => { try { return localStorage.getItem('kviz-tisk-brez-glave') === '1'; } catch { return false; } });
+  const setNoHead = (v: boolean) => { setNoHeadRaw(v); try { localStorage.setItem('kviz-tisk-brez-glave', v ? '1' : '0'); } catch { /* ignore */ } };
   /** stran z rešitvami (za učitelja) kot zadnja stran natisa — če rešitve obstajajo */
   const hasSolutions = useMemo(() => items.some(hasSolutionText), [items]);
   const [withSolutions, setWithSolutions] = useState(true);
@@ -208,6 +211,14 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
         </div>
       )}
       {hp.node}
+      <label style={{ ...labelStyle, margin: '14px 0 4px' }}>
+        <input type="checkbox" checked={noHead} onChange={e => setNoHead(e.target.checked)} style={{ marginTop: '3px' }} />
+        <span>Brez glave
+          <span style={{ display: 'block', fontSize: '12px', color: 'var(--muted)' }}>
+            Ne natisne vrstice z razredom, naslovom, datumom in imenom (ter napisa nad QR kodo). Okvir z odgovori in QR koda ostaneta, skeniranje deluje.{perStudent ? ' Ime učenca se ne natisne — list prepozna skener po QR kodi.' : ''}
+          </span>
+        </span>
+      </label>
       {hasSolutions && (
         <label style={{ ...labelStyle, margin: '14px 0 4px' }}>
           <input type="checkbox" checked={withSolutions} onChange={e => setWithSolutions(e.target.checked)} style={{ marginTop: '3px' }} />
@@ -261,11 +272,11 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
           </div>
           <div onClick={e => e.stopPropagation()} style={{ flex: 1, overflow: 'auto', padding: '16px' }}>
             {preview.halves && hp.plan ? (
-              <div className="pqz-preview" style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap', zoom: 0.6 }}>
+              <div className={`pqz-preview${noHead ? ' pqz-nohead' : ''}`} style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap', zoom: 0.6 }}>
                 <HalvesPages sheets={preview.sheets} plan={hp.plan} title={title} placeholder duplicate={!perStudent} />
               </div>
             ) : (
-              <div className="pqz-preview" style={{ width: 'fit-content', margin: '0 auto' }}>
+              <div className={`pqz-preview${noHead ? ' pqz-nohead' : ''}`} style={{ width: 'fit-content', margin: '0 auto' }}>
                 <QuizSheet sheet={preview.sheets[preview.idx]} title={title} placeholder colGap={colGap} />
               </div>
             )}
@@ -280,7 +291,7 @@ export function PrintPanel({ items, title, quizId, cls, students, classPicker, o
       )}
 
       {sheets && createPortal(
-        <div className="print-questions pqz" aria-hidden>
+        <div className={`print-questions pqz${noHead ? ' pqz-nohead' : ''}`} aria-hidden>
           {printPlan
             ? <HalvesPages sheets={sheets} plan={printPlan} title={title} className={cls?.name} duplicate={!perStudent} />
             : sheets.map(sh => <QuizSheet key={sh.key} sheet={sh} title={title} className={cls?.name} colGap={colGap} />)}
@@ -338,8 +349,15 @@ export function QuizSheet({ sheet: sh, title, className, placeholder, colGap }: 
       <FrameView sheet={sh} />
       {(['choice', 'free'] as const).map(g => sh.layout[g].length > 0 && (
         <ol className={`pqz-list${g === 'choice' ? ' pqz-cols2' : ''}`} key={g} style={{ listStyle: 'none', padding: 0, ...(g === 'choice' && colGap != null ? { columnGap: `${colGap}mm` } : {}) }}>
-          {sh.layout[g].map(c => (
-            <li className={`pqz-item${g === 'choice' ? ' pqz-c' : ''}`} key={c.n} style={itemGapStyle(c.item.gapAfter)}><ItemBody c={c} /></li>
+          {g === 'choice' ? sh.layout[g].map(c => (
+            <li className="pqz-item pqz-c" key={c.n} style={itemGapStyle(c.item.gapAfter)}><ItemBody c={c} /></li>
+          )) : freeRows(sh.layout.free).map(row => row[0].item.half ? (
+            // dvostolpični nalogi v isti vrstici
+            <li className="pqz-row2" key={`r${row[0].n}`} style={colGap != null ? { columnGap: `${colGap}mm` } : undefined}>
+              {row.map(c => <div className="pqz-item" key={c.n} style={itemGapStyle(c.item.gapAfter)}><ItemBody c={c} /></div>)}
+            </li>
+          ) : (
+            <li className="pqz-item" key={row[0].n} style={itemGapStyle(row[0].item.gapAfter)}><ItemBody c={row[0]} /></li>
           ))}
         </ol>
       ))}

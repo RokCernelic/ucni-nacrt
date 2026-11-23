@@ -32,6 +32,8 @@ export interface PrintItem {
   gapHalf?: number;
   /** brez okvirčka za točke (nastavitev kviza) */
   hidePoints?: boolean;
+  /** dvostolpična naloga (pol širine lista; dve zaporedni v isti vrsti) */
+  half?: boolean;
   /** postavitev slik v nalogi (širina, odmik; mm) */
   imgs?: (ImgLayout | null)[];
 }
@@ -84,7 +86,7 @@ export function itemsFromQuiz(quiz: Quiz, tasksById?: Map<string, Task>): PrintI
     const bankHtml = fromBank ? (stripDuplicateChoices(t!)?.body ?? t!.body) : null;
     const unitNote = q.kind === 'numeric' && q.unit && q.prompt.includes(`(odgovor v ${q.unit})`) ? `<p>(odgovor v ${esc(q.unit)})</p>` : '';
     const html = bankHtml != null && hasText(bankHtml) ? bankHtml + unitNote : `<p>${plainHtml(q.prompt)}</p>${img}`;
-    const gap = { ...(q.gapAfter != null ? { gapAfter: q.gapAfter } : {}), ...(q.gapHalf != null ? { gapHalf: q.gapHalf } : {}), ...(quiz.sheet?.hidePoints ? { hidePoints: true } : {}), ...(q.imgs?.some(Boolean) ? { imgs: q.imgs } : {}) };
+    const gap = { ...(q.gapAfter != null ? { gapAfter: q.gapAfter } : {}), ...(q.gapHalf != null ? { gapHalf: q.gapHalf } : {}), ...(quiz.sheet?.hidePoints ? { hidePoints: true } : {}), ...(q.imgs?.some(Boolean) ? { imgs: q.imgs } : {}), ...(q.half ? { half: true } : {}) };
     // naloga »več možnosti« iz banke (v kvizu odprto vprašanje): na listu dobi krogce, skener jo točkuje
     if (q.kind === 'open' && t) {
       const ids = t.answer_kind === 'multi' ? (t.correct ?? '').split(',').filter(Boolean) : [];
@@ -98,6 +100,19 @@ export function itemsFromQuiz(quiz: Quiz, tasksById?: Map<string, Task>): PrintI
     if (q.kind === 'open') return { id: q.id, choice: false, html: openQuestionHtml(q) || `<p>${plainHtml(q.prompt)}</p>${img}`, prompt: q.prompt, options: [], correct: [], points: q.points, space: clampSpace(q.space ?? 25), solution, answerText: q.answer?.trim() || undefined, ...gap };
     return { id: q.id, choice: false, html, prompt: q.prompt, options: [], correct: [], points: q.points, space: clampSpace(q.space ?? 15), solution, answerText: `${q.correct}${q.tolerance ? ` ± ${String(q.tolerance).replace('.', ',')}` : ''}${q.unit ? ` ${q.unit}` : ''}`, ...gap };
   });
+}
+
+/**
+ * Vrstice nalog za ročni pregled: dvostolpična naloga (`half`) in naslednja dvostolpična naloga sta v isti vrstici
+ * (leva, desna); osamljena dvostolpična naloga zasede levo polovico. Ostale naloge so čez celo širino.
+ */
+export function freeRows<C extends { item: { half?: boolean } }>(list: C[]): C[][] {
+  const rows: C[][] = [];
+  for (let i = 0; i < list.length; i++) {
+    if (list[i].item.half && list[i + 1]?.item.half) { rows.push([list[i], list[i + 1]]); i++; }
+    else rows.push([list[i]]);
+  }
+  return rows;
 }
 
 /** Prostor za odgovor (mm): od 0 do skoraj cele strani. */

@@ -14,6 +14,7 @@ export function questionFromTask(task: Task, prev?: Question): Question {
   if (!prev) return nq;
   const out = { ...nq, id: prev.id } as Question;
   if (prev.gapAfter != null) out.gapAfter = prev.gapAfter;
+  if (prev.half) out.half = true;
   if (out.kind !== 'mc' && prev.kind === out.kind && prev.space != null) out.space = prev.space;
   return out;
 }

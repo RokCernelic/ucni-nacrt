@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import { SheetHead, FrameView, ItemBody, type Sheet } from './QuizSheetParts';
-import { itemsFromQuiz, layoutSheet, sheetToken, clampSpace, type PrintItem } from '@/lib/quiz/printSheet';
+import { itemsFromQuiz, layoutSheet, sheetToken, clampSpace, freeRows, type PrintItem } from '@/lib/quiz/printSheet';
 import type { Quiz, ImgLayout } from '@/lib/quiz/types';
 import type { Task } from '@/lib/tasks/types';
 
@@ -18,7 +18,7 @@ const fmt = (mm: number) => `${String(Math.round(mm * 10) / 10).replace('.', ','
  * Urejevalnik kviza kot natisnjen list A4 (merilo 1:1): enak razpored kot pri tisku (izbirne naloge na vrhu v dveh stolpcih,
  * nato naloge za ročni pregled), meje strani, vlečenje razmikov med nalogami in med stolpcema. Klik na nalogo jo odpre za urejanje.
  */
-export default function QuizPaper({ quiz, tasksById, activeId, onOpen, onMove, onDuplicate, onDelete, onSpacing, onColGap, onImg }: {
+export default function QuizPaper({ quiz, tasksById, activeId, onOpen, onMove, onDuplicate, onDelete, onSpacing, onColGap, onImg, onHalf }: {
   quiz: Quiz;
   tasksById: Map<string, Task>;
   activeId: string | null;
@@ -31,6 +31,8 @@ export default function QuizPaper({ quiz, tasksById, activeId, onOpen, onMove, o
   onColGap: (mm: number | null) => void;
   /** velikost / položaj slike v nalogi (null = privzeto) */
   onImg: (questionId: string, index: number, layout: ImgLayout | null) => void;
+  /** dvostolpična naloga (pol širine; naslednja dvostolpična se postavi zraven) ali spet čez celo širino */
+  onHalf: (questionId: string, half: boolean) => void;
 }) {
   const items = useMemo(() => itemsFromQuiz(quiz, tasksById), [quiz, tasksById]);
   const layout = useMemo(() => layoutSheet(items, null, { questions: false, options: false }), [items]);
@@ -114,7 +116,8 @@ export default function QuizPaper({ quiz, tasksById, activeId, onOpen, onMove, o
 
   const groupOf = (g: 'choice' | 'free') => layout[g];
   const g0 = layout.choice.length > 0;
-  const renderItem = (c: (typeof layout.choice)[number], g: 'choice' | 'free', i: number, list: typeof layout.choice) => {
+  /** `inRow`: naloga je v vrstici dveh dvostolpičnih nalog (meri in potiska se cela vrstica) */
+  const renderItem = (c: (typeof layout.choice)[number], g: 'choice' | 'free', i: number, list: typeof layout.choice, inRow = false) => {
     const it = c.item as PrintItem;
     const q = quiz.questions.find(x => x.id === it.id);
     const free = g === 'free';
@@ -123,9 +126,10 @@ export default function QuizPaper({ quiz, tasksById, activeId, onOpen, onMove, o
     const isActive = activeId === it.id;
     const handleBottom = free ? `-${gap / 2}mm` : `-${gap}mm`;
     // prazen prostor do naslednje strani (višina, ne rob — robovi bi se zlili)
-    const spacer = free && push[it.id] ? <li key={`${it.id}-pg`} aria-hidden style={{ height: `${push[it.id]}mm` }} /> : null;
+    const spacer = free && !inRow && push[it.id] ? <li key={`${it.id}-pg`} aria-hidden style={{ height: `${push[it.id]}mm` }} /> : null;
+    const Tag = inRow ? 'div' : 'li';
     return [spacer,
-      <li key={it.id} data-block={free ? it.id : undefined}
+      <Tag key={it.id} data-block={free && !inRow ? it.id : undefined}
         className={`pqz-item${g === 'choice' ? ' pqz-c' : ''} pqz-ed-item${isActive ? ' is-active' : ''}`}
         style={{ marginBottom: `${gap}mm` }}
         onClick={() => onOpen(it.id)}>
@@ -134,6 +138,10 @@ export default function QuizPaper({ quiz, tasksById, activeId, onOpen, onMove, o
           <button title="Uredi nalogo" onClick={() => onOpen(it.id)}>✎</button>
           <button title="Premakni naprej" disabled={i === 0} onClick={() => onMove(it.id, -1)}>↑</button>
           <button title="Premakni nazaj" disabled={i === list.length - 1} onClick={() => onMove(it.id, 1)}>↓</button>
+          {free && (
+            <button title={it.half ? 'Čez celo širino lista' : 'Dvostolpično: naloga v pol širine; naslednja dvostolpična naloga se postavi zraven'}
+              onClick={() => onHalf(it.id, !it.half)} style={it.half ? { background: '#e9f1fb' } : undefined}>{it.half ? '▭' : '◫'}</button>
+          )}
           <button title="Podvoji" onClick={() => onDuplicate(it.id)}>⧉</button>
           {it.imgs?.some(Boolean) && <button title="Slike nazaj na privzeto velikost in mesto" onClick={() => it.imgs!.forEach((_, i) => onImg(it.id, i, null))}>↺</button>}
           <button title="Odstrani iz kviza" className="del" onClick={() => onDelete(it.id)}>×</button>
@@ -150,8 +158,19 @@ export default function QuizPaper({ quiz, tasksById, activeId, onOpen, onMove, o
             {drag?.id === it.id && <em>{drag.label}</em>}
           </span>
         )}
-      </li>];
+      </Tag>];
   };
+  /** naloge za ročni pregled po vrsticah: dve zaporedni dvostolpični nalogi v isti vrstici */
+  const renderFree = (list: typeof layout.free) => freeRows(list).flatMap(row => {
+    if (!row[0].item.half) return renderItem(row[0], 'free', list.indexOf(row[0]), list);
+    const id = row[0].item.id;
+    return [
+      push[id] ? <li key={`${id}-pg`} aria-hidden style={{ height: `${push[id]}mm` }} /> : null,
+      <li key={`row-${id}`} data-block={id} className="pqz-row2" style={{ columnGap: `${colGap}mm` }}>
+        {row.map(c => renderItem(c, 'free', list.indexOf(c), list, true)[1])}
+      </li>,
+    ];
+  });
 
   return (
     <div className="pqz-preview pqz-ed" style={{ width: 'fit-content', margin: '0 auto' }}>
@@ -171,7 +190,7 @@ export default function QuizPaper({ quiz, tasksById, activeId, onOpen, onMove, o
           <ol key={g} data-block={g === 'choice' ? '__choice' : undefined}
             className={`pqz-list${g === 'choice' ? ' pqz-cols2' : ''}`}
             style={{ listStyle: 'none', padding: 0, position: 'relative', ...(g === 'choice' ? { columnGap: `${colGap}mm` } : {}) }}>
-            {groupOf(g).map((c, i, list) => renderItem(c, g, i, list))}
+            {g === 'free' ? renderFree(groupOf(g)) : groupOf(g).map((c, i, list) => renderItem(c, g, i, list))}
             {g === 'choice' && groupOf(g).length > 1 && (
               <span className={`pqz-ed-vgap${drag?.id === '__col' ? ' is-drag' : ''}`} style={{ width: `${Math.max(colGap, 3)}mm` }}
                 title="Povleci: razmik med stolpcema · dvoklik: privzeto"

@@ -23,6 +23,8 @@ interface QuestionBase {
   gapAfter?: number;
   /** razmik pod nalogo pri tisku dveh testov na en list (mm; privzeto 3,5) */
   gapHalf?: number;
+  /** dvostolpična naloga na listu A4: pol širine; naslednja dvostolpična naloga se postavi zraven (desno) */
+  half?: boolean;
   /** postavitev slik v besedilu naloge na natisnjenem listu (po vrsti slik): širina in odmik v mm */
   imgs?: (ImgLayout | null)[];
 }

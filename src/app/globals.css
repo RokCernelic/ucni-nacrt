@@ -246,6 +246,7 @@ body {
   .pqz-cols2 { column-count: 2; column-gap: 8mm; }
   .pqz-item { margin-bottom: 7mm; break-inside: avoid; }
   .pqz-item.pqz-c { margin-bottom: 5.5mm; }
+  .pqz-row2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 8mm; align-items: start; break-inside: avoid; }
   .pqz-q { display: flex; gap: 1.5mm; }
   .pqz-pts { flex: none; display: inline-flex; height: 5.2mm; margin-top: -.4mm; border: .25mm solid #555; border-radius: .8mm; overflow: hidden; } .pqz-pts i { font-style: normal; width: 6.5mm; display: flex; align-items: center; justify-content: center; font-size: 8pt; font-weight: 700; color: #555; } .pqz-pts i + i { border-left: .25mm solid #555; background: #f1f1f1; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .pqz-q .rich-content { flex: 1; }
@@ -319,6 +320,7 @@ html.printing-questions .print-questions.ldn, .ldn.ldn-measure { font-size: 9pt;
 .pqz-preview .pqz-cols2 { column-count: 2; column-gap: 8mm; }
 .pqz-preview .pqz-item { margin-bottom: 7mm; break-inside: avoid; }
 .pqz-preview .pqz-item.pqz-c { margin-bottom: 5.5mm; }
+.pqz-preview .pqz-row2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 8mm; align-items: start; break-inside: avoid; }
 .pqz-preview .pqz-q { display: flex; gap: 1.5mm; }
 .pqz-preview .pqz-pts { flex: none; display: inline-flex; height: 5.2mm; margin-top: -.4mm; border: .25mm solid #555; border-radius: .8mm; overflow: hidden; } .pqz-preview .pqz-pts i { font-style: normal; width: 6.5mm; display: flex; align-items: center; justify-content: center; font-size: 8pt; font-weight: 700; color: #555; } .pqz-preview .pqz-pts i + i { border-left: .25mm solid #555; background: #f1f1f1; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .pqz-preview .pqz-q .rich-content { flex: 1; }
@@ -413,3 +415,6 @@ html.drawer-resizing { cursor: col-resize; user-select: none; }
 /* urejanje slik na listu (urejevalnik kviza): premik / sprememba velikosti */
 .pqz-img-ed .rich-content img { cursor: move; outline: 1.5px dashed transparent; outline-offset: 1px; touch-action: none; }
 .pqz-img-ed .rich-content img:hover { outline-color: #6f9bd1; }
+
+/* tisk kviza »Brez glave«: brez vrstice z razredom, naslovom, datumom in imenom (stran z rešitvami ostane z glavo) */
+.pqz-nohead .pqz-sheet > .pqz-head, .pqz-nohead .pqz-half > .pqz-head { display: none !important; }
