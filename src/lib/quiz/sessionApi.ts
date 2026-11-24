@@ -161,6 +161,29 @@ export async function setQuestionExcluded(sessionIds: string[], questionId: stri
   }
 }
 
+/**
+ * Popravi pravilni odgovor naloge v že izvedenih izvedbah (napaka v ključu): izbirna naloga — id(-ji) pravilnih možnosti,
+ * številska — vrednost in dopustno odstopanje. Točke učencev se izračunajo iz shranjenih odgovorov, zato se takoj posodobijo;
+ * popravi se tudi ključ natisnjenih listov (nadaljnje skeniranje).
+ */
+export async function setQuestionCorrect(sessionIds: string[], questionId: string, fix: { correct: string; tolerance?: number }) {
+  const sb = getSupabaseBrowserClient();
+  for (const id of sessionIds) {
+    const { data, error } = await sb.from('quiz_sessions').select('quiz, paper').eq('id', id).single();
+    if (error) throw new Error(error.message);
+    const row = data as { quiz: QuizSession['quiz']; paper: { items: { id: string; correct: string[] }[] } | null };
+    const questions = row.quiz.questions.map(q => {
+      if (q.id !== questionId) return q;
+      if (q.kind === 'mc') return { ...q, correct: fix.correct };
+      if (q.kind === 'numeric') return { ...q, correct: fix.correct, tolerance: fix.tolerance ?? q.tolerance };
+      return q;
+    });
+    const paper = row.paper ? { ...row.paper, items: row.paper.items.map(it => (it.id === questionId && questions.find(q => q.id === questionId)?.kind === 'mc' ? { ...it, correct: fix.correct.split(',').filter(Boolean) } : it)) } : null;
+    const { error: e } = await sb.from('quiz_sessions').update({ quiz: { ...row.quiz, questions }, ...(paper ? { paper } : {}) }).eq('id', id);
+    if (e) throw new Error(e.message);
+  }
+}
+
 /** Ročno vpisane točke ene naloge enega učenca (null = pobriši). Učenec šteje kot oddan (sodeloval). */
 export async function setManualPoints(sessionId: string, studentId: string, questionId: string, points: number | null) {
   const sb = getSupabaseBrowserClient();

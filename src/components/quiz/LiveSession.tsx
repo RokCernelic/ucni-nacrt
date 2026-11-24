@@ -6,7 +6,7 @@ import QRCode from 'qrcode';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuizLibrary } from '@/hooks/useQuizLibrary';
 import {
-  loadSession, updateSession, deleteSession, resetStudentResult, snapshotSession, restoreSessionSnapshot, syncSessionScoring, resolveDevice, joinChannel, isLive, participated, setManualPoints, setQuestionExcluded, TEACHER_NAME,
+  loadSession, updateSession, deleteSession, resetStudentResult, snapshotSession, restoreSessionSnapshot, syncSessionScoring, resolveDevice, joinChannel, isLive, participated, setManualPoints, setQuestionExcluded, setQuestionCorrect, TEACHER_NAME,
   type QuizSession, type SessionStudent, type SessionAnswer,
 } from '@/lib/quiz/sessionApi';
 import { offerPersistentUndo } from '@/lib/undoStore';
@@ -104,7 +104,30 @@ export function QuestionView({ q, index, total, revealed, counts, answeredCount 
 }
 
 /** Statistika enega vprašanja: % pravilno + porazdelitev odgovorov. */
-function QuestionStats({ q, index, answers, totalStudents, excluded, onToggleExcluded }: { q: Question; index: number; answers: SessionAnswer[]; totalStudents: number; excluded?: boolean; onToggleExcluded?: () => void }) {
+function QuestionStats({ q: q0, index, answers, totalStudents, excluded, onToggleExcluded, onFixCorrect }: { q: Question; index: number; answers: SessionAnswer[]; totalStudents: number; excluded?: boolean; onToggleExcluded?: () => void;
+  /** popravek pravilnega odgovora (napaka v ključu); točke učencev se preračunajo */
+  onFixCorrect?: (fix: { correct: string; tolerance?: number }) => Promise<void> }) {
+  // urejanje pravilnega odgovora: osnutek se takoj pozna v statistiki, shrani se s »Shrani«
+  const [fix, setFix] = useState<{ correct: string; tolerance: string } | null>(null);
+  const [savingFix, setSavingFix] = useState(false);
+  const q: Question = !fix ? q0 : q0.kind === 'mc' ? { ...q0, correct: fix.correct || null }
+    : q0.kind === 'numeric' ? { ...q0, correct: fix.correct, tolerance: parseNumber(fix.tolerance) ?? 0 } : q0;
+  const startFix = () => setFix({ correct: q0.kind === 'mc' ? q0.correct ?? '' : q0.kind === 'numeric' ? q0.correct : '', tolerance: q0.kind === 'numeric' ? formatNumber(q0.tolerance) : '0' });
+  const pickOption = (oid: string) => setFix(f => {
+    if (!f || q0.kind !== 'mc') return f;
+    if (!q0.multi) return { ...f, correct: oid };
+    const ids = new Set(choiceIds(f.correct));
+    if (ids.has(oid)) ids.delete(oid); else ids.add(oid);
+    return { ...f, correct: [...ids].sort().join(',') };
+  });
+  const saveFix = async () => {
+    if (!fix || !onFixCorrect) return;
+    if (q0.kind === 'mc' && !fix.correct) { alert('Izberi pravilni odgovor.'); return; }
+    if (q0.kind === 'numeric' && (parseNumber(fix.correct) === null || parseNumber(fix.tolerance) === null || parseNumber(fix.tolerance)! < 0)) { alert('Vpiši pravilno vrednost in odstopanje (število, 0 ali več).'); return; }
+    setSavingFix(true);
+    try { await onFixCorrect(q0.kind === 'numeric' ? { correct: fix.correct.trim(), tolerance: parseNumber(fix.tolerance)! } : { correct: fix.correct }); }
+    catch (e) { alert(`Popravka ni bilo mogoče shraniti: ${e instanceof Error ? e.message : String(e)}`); setSavingFix(false); }
+  };
   const relevant = answers.filter(a => a.question_id === q.id);
   const answeredCount = relevant.length;
   const correctCount = relevant.filter(a => isCorrect(q, a.value)).length;
@@ -136,8 +159,9 @@ function QuestionStats({ q, index, answers, totalStudents, excluded, onToggleExc
             const barPct = answeredCount ? (n / answeredCount) * 100 : 0;
             const right = q.multi ? choiceIds(q.correct).includes(o.id) : o.id === q.correct;
             return (
-              <div key={o.id} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ width: '18px', fontSize: '12px', fontWeight: 700, color: right ? 'var(--green-ok)' : 'var(--muted)' }}>{LETTERS[oi]}</span>
+              <div key={o.id} onClick={fix ? () => pickOption(o.id) : undefined} title={fix ? (q.multi ? 'Klikni za označitev / odznačitev pravilne možnosti' : 'Klikni, da je to pravilni odgovor') : undefined}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: fix ? 'pointer' : undefined, ...(fix ? { outline: right ? '2px solid var(--green-ok)' : '1px dashed var(--hairline)', outlineOffset: '2px', borderRadius: '4px' } : {}) }}>
+                <span style={{ width: '18px', fontSize: '12px', fontWeight: 700, color: right ? 'var(--green-ok)' : 'var(--muted)' }}>{fix ? (right ? (q.multi ? '☑' : '◉') : (q.multi ? '☐' : '○')) : LETTERS[oi]}</span>
                 <div style={{ flex: 1, position: 'relative', height: '22px', background: '#00000010', borderRadius: '4px', overflow: 'hidden' }}>
                   <div style={{ position: 'absolute', inset: 0, width: `${barPct}%`, background: right ? 'rgba(60,140,80,0.35)' : 'rgba(0,0,0,0.14)', transition: 'width .3s' }} />
                   <span style={{ position: 'relative', display: 'block', fontSize: '12px', color: 'var(--ink)', padding: '0 8px', lineHeight: '22px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.text || '(prazna možnost)'}</span>
@@ -160,8 +184,34 @@ function QuestionStats({ q, index, answers, totalStudents, excluded, onToggleExc
           {answeredCount === 0 && <span style={{ fontSize: '13px', color: 'var(--muted)' }}>Nihče ni odgovoril.</span>}
         </div>
       )}
+      {fix && (
+        <div style={{ marginTop: '12px', padding: '10px 12px', borderRadius: 'var(--r-sm)', background: '#fdf6e3', border: '1px solid #ecd9a8', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
+          {q0.kind === 'mc' ? (
+            <span>{q0.multi ? 'Klikni možnosti, ki so pravilne.' : 'Klikni pravilno možnost.'} Odstotek zgoraj že kaže izid z novim ključem.</span>
+          ) : (
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <label>Pravilno: <input value={fix.correct} onChange={e => setFix({ ...fix, correct: e.target.value })} inputMode="decimal" autoFocus
+                style={{ width: '90px', padding: '4px 6px', border: '1px solid var(--hairline)', borderRadius: '6px', fontSize: '14px' }} /></label>
+              {q0.kind === 'numeric' && q0.unit && <span>{q0.unit}</span>}
+              <label>± <input value={fix.tolerance} onChange={e => setFix({ ...fix, tolerance: e.target.value })} inputMode="decimal"
+                style={{ width: '60px', padding: '4px 6px', border: '1px solid var(--hairline)', borderRadius: '6px', fontSize: '14px' }} /></label>
+            </div>
+          )}
+          <span style={{ color: '#8a5a00' }}>Ob shranjevanju se točke in odstotki vseh učencev v tej izvedbi preračunajo. Popravek se zapiše tudi v kviz v knjižnici.</span>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button onClick={() => void saveFix()} disabled={savingFix} style={{ ...btn('primary'), padding: '6px 14px', fontSize: '13px', opacity: savingFix ? 0.6 : 1 }}>{savingFix ? '… shranjujem' : 'Shrani in preračunaj'}</button>
+            <button onClick={() => setFix(null)} disabled={savingFix} style={{ ...btn(), padding: '6px 12px', fontSize: '13px' }}>Prekliči</button>
+          </div>
+        </div>
+      )}
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '10px' }}>
         <span style={{ fontSize: '11px', color: 'var(--muted)', flex: 1 }}>{answeredCount} / {totalStudents} odgovorilo</span>
+        {onFixCorrect && !fix && (q0.kind === 'mc' || q0.kind === 'numeric') && (
+          <button onClick={startFix} title="Popravi pravilni odgovor (npr. napaka v ključu); točke učencev se preračunajo"
+            style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 600, padding: '5px 10px', borderRadius: 'var(--r-sm)', cursor: 'pointer', border: '1px solid var(--hairline)', background: 'transparent', color: 'var(--muted)' }}>
+            ✎ Popravi pravilni odgovor
+          </button>
+        )}
         {onToggleExcluded && (
           <button onClick={onToggleExcluded}
             title={excluded ? 'Naloga spet šteje v točke in odstotke' : 'Naloga ne šteje v točke in odstotke (npr. snov ni bila obravnavana); odgovori ostanejo shranjeni'}
@@ -291,6 +341,18 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
       alert(`Ni bilo mogoče shraniti: ${e instanceof Error ? e.message : String(e)}`);
       setExcludedState(x => (on ? x.filter(id => id !== qid) : [...x, qid]));
     });
+  };
+  /** Popravi pravilni odgovor v izvedbi (pri združenih rezultatih v vseh prikazanih) in v kvizu v knjižnici, nato osveži. */
+  const fixCorrect = async (qid: string, fix: { correct: string; tolerance?: number }) => {
+    const ids = [...new Set([session.id, ...[...(sessionsByStudent?.values() ?? [])].map(x => x.id)])];
+    await setQuestionCorrect(ids, qid, fix);
+    const lq = libQuiz?.questions.find(x => x.id === qid);
+    if (libQuiz && lq && (lq.kind === 'mc' ? choiceIds(fix.correct).every(id => lq.options.some(o => o.id === id)) : lq.kind === 'numeric')) {
+      lib.updateQuiz(libQuiz.id, { questions: libQuiz.questions.map(x => (x.id !== qid ? x : x.kind === 'mc' ? { ...x, correct: fix.correct } : x.kind === 'numeric' ? { ...x, correct: fix.correct, tolerance: fix.tolerance ?? x.tolerance } : x)) });
+    }
+    // knjižnica kvizov se v oblak zapiše z zamikom (1 s) — počakaj, da se ob osvežitvi ne naloži stara kopija
+    if (libQuiz) await new Promise(r => setTimeout(r, 1800));
+    window.location.reload();
   };
   // ročno vpisane točke (natisnjen kviz): takoj vidne, shranijo se v ozadju
   const [manualEdits, setManualEdits] = useState<Record<string, string | null>>({});
@@ -582,7 +644,8 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
           <h2 style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted)', margin: '0 0 10px' }}>Vprašanja{perStudentOrder ? ' (v izvirnem vrstnem redu kviza)' : ''}</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {questions.map((q, i) => <QuestionStats key={q.id} q={q} index={i} answers={answers} totalStudents={students.length}
-              excluded={excluded.includes(q.id)} onToggleExcluded={isScored(q) ? () => toggleExcluded(q.id) : undefined} />)}
+              excluded={excluded.includes(q.id)} onToggleExcluded={isScored(q) ? () => toggleExcluded(q.id) : undefined}
+              onFixCorrect={q.kind === 'mc' || q.kind === 'numeric' ? fix => fixCorrect(q.id, fix) : undefined} />)}
           </div>
         </div>
       )}
