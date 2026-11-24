@@ -289,6 +289,7 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
   const { user, loading } = useAuth();
   const lib = useQuizLibrary();
   const { tasks, save: saveTask, loaded: tasksLoaded } = useTasks();
+  const [wordBusy, setWordBusy] = useState(false);
   const taskById = useMemo(() => new Map(tasks.map(t => [t.id, t])), [tasks]);
   /** pogled: list A4 (privzeto) ali seznam vprašanj */
   const [view, setView] = useState<'a4' | 'list' | 'halves'>(() => { try { const v = localStorage.getItem('kviz-pogled'); return v === 'list' || v === 'halves' ? v : 'a4'; } catch { return 'a4'; } });
@@ -517,6 +518,20 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
     }
     setActive(null);
   };
+  /** Izvoz v Word (.docx): isti vrstni red in številke kot na listu A4. */
+  const exportWord = async () => {
+    const d = draftRef.current ?? draft;
+    setWordBusy(true);
+    try {
+      const { buildQuizDocx } = await import('@/lib/quizDocx');
+      const blob = await buildQuizDocx(d, taskById);
+      const name = (d.title || 'Kviz').replace(/[\\/:*?"<>|]+/g, ' ').trim() || 'Kviz';
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = `${name}.docx`; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch (e) { alert(`Izvoz v Word ni uspel: ${e instanceof Error ? e.message : String(e)}`); }
+    finally { setWordBusy(false); }
+  };
   /** številka naloge na listu (izbirne najprej) */
   const sheetNumber = (id: string) => {
     const items = itemsFromQuiz(draft, taskById);
@@ -609,6 +624,12 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
                   background: view === v ? 'var(--forest)' : 'transparent', color: view === v ? '#fff' : 'var(--forest)' }}>{l}</button>
             ))}
           </div>
+          <button onClick={() => void exportWord()} disabled={wordBusy || draft.questions.length === 0}
+            title="Prenese kviz kot Wordov dokument (.docx), ki ga lahko urejaš: naloge, možnosti, prostor za odgovor in na koncu rešitve"
+            style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500, padding: '6px 12px', borderRadius: 'var(--r-sm)', cursor: 'pointer', whiteSpace: 'nowrap',
+              border: '1px solid var(--hairline)', background: 'transparent', color: 'var(--forest)', opacity: wordBusy ? 0.6 : 1 }}>
+            {wordBusy ? '… pripravljam' : '⬇ Izvozi v Word'}
+          </button>
           {view !== 'list' && (
             <button onClick={() => { const d = draftRef.current; if (d) update({ ...d, sheet: { ...d.sheet, hidePoints: !d.sheet?.hidePoints || undefined } }); }}
               title={draft.sheet?.hidePoints ? 'Pokaži okvirčke za točke ob nalogah' : 'Skrij okvirčke za točke — naloge dobijo več prostora'}
