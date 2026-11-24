@@ -6,10 +6,11 @@ import QRCode from 'qrcode';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuizLibrary } from '@/hooks/useQuizLibrary';
 import {
-  loadSession, updateSession, deleteSession, resetStudentResult, snapshotSession, restoreSessionSnapshot, syncSessionScoring, resolveDevice, joinChannel, isLive, participated, setManualPoints, setQuestionExcluded, setQuestionCorrect, TEACHER_NAME,
+  loadSession, updateSession, deleteSession, resetStudentResult, snapshotSession, restoreSessionSnapshot, syncSessionScoring, resolveDevice, joinChannel, isLive, participated, setManualPoints, setQuestionExcluded, setQuestionCorrect, sameTask, applyCorrectFix, TEACHER_NAME,
   type QuizSession, type SessionStudent, type SessionAnswer,
 } from '@/lib/quiz/sessionApi';
 import { offerPersistentUndo } from '@/lib/undoStore';
+import { setTaskCorrect } from '@/lib/tasks/api';
 import { isCorrect, answerStatus, scoreAnswers, parseNumber, numericValue, choiceIds, isScored, answerFraction, manualPoints } from '@/lib/quiz/scoring';
 import { formatNumber, pointsLabel, studentsLabel } from '@/lib/quiz/format';
 import { sessionResultsCsv, downloadCsv, safeFilename } from '@/lib/quiz/csv';
@@ -197,7 +198,7 @@ function QuestionStats({ q: q0, index, answers, totalStudents, excluded, onToggl
                 style={{ width: '60px', padding: '4px 6px', border: '1px solid var(--hairline)', borderRadius: '6px', fontSize: '14px' }} /></label>
             </div>
           )}
-          <span style={{ color: '#8a5a00' }}>Ob shranjevanju se točke in odstotki vseh učencev v tej izvedbi preračunajo. Popravek se zapiše tudi v kviz v knjižnici.</span>
+          <span style={{ color: '#8a5a00' }}>Popravek velja povsod, kjer je bila ta naloga uporabljena: v nalogi v bazi nalog, v kvizih v knjižnici in v vseh izvedbah (vsi razredi) — točke in odstotki učencev se preračunajo.</span>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button onClick={() => void saveFix()} disabled={savingFix} style={{ ...btn('primary'), padding: '6px 14px', fontSize: '13px', opacity: savingFix ? 0.6 : 1 }}>{savingFix ? '… shranjujem' : 'Shrani in preračunaj'}</button>
             <button onClick={() => setFix(null)} disabled={savingFix} style={{ ...btn(), padding: '6px 12px', fontSize: '13px' }}>Prekliči</button>
@@ -342,16 +343,39 @@ export function SessionResults({ session, students, answers, teacher, teacherAns
       setExcludedState(x => (on ? x.filter(id => id !== qid) : [...x, qid]));
     });
   };
-  /** Popravi pravilni odgovor v izvedbi (pri združenih rezultatih v vseh prikazanih) in v kvizu v knjižnici, nato osveži. */
+  /**
+   * Popravi pravilni odgovor povsod, kjer je bila ta naloga uporabljena: v vseh izvedbah (vsi razredi), v vseh kvizih
+   * v knjižnici in v nalogi v bazi nalog; nato osveži.
+   */
   const fixCorrect = async (qid: string, fix: { correct: string; tolerance?: number }) => {
-    const ids = [...new Set([session.id, ...[...(sessionsByStudent?.values() ?? [])].map(x => x.id)])];
-    await setQuestionCorrect(ids, qid, fix);
-    const lq = libQuiz?.questions.find(x => x.id === qid);
-    if (libQuiz && lq && (lq.kind === 'mc' ? choiceIds(fix.correct).every(id => lq.options.some(o => o.id === id)) : lq.kind === 'numeric')) {
-      lib.updateQuiz(libQuiz.id, { questions: libQuiz.questions.map(x => (x.id !== qid ? x : x.kind === 'mc' ? { ...x, correct: fix.correct } : x.kind === 'numeric' ? { ...x, correct: fix.correct, tolerance: fix.tolerance ?? x.tolerance } : x)) });
+    const sq = session.quiz.questions.find(x => x.id === qid);
+    const taskId = sq?.taskId ?? libQuiz?.questions.find(x => x.id === qid)?.taskId;
+    const texts = sq?.kind === 'mc' ? choiceIds(fix.correct).map(id => sq.options.find(o => o.id === id)?.text ?? '') : undefined;
+    const full = { ...fix, texts };
+    const match = { questionId: qid, taskId };
+    const nSessions = await setQuestionCorrect(match, full);
+    // kvizi v knjižnici
+    let nQuizzes = 0;
+    for (const qz of lib.quizzes) {
+      let changed = false;
+      const questions = qz.questions.map(x => {
+        if (!sameTask(x, match)) return x;
+        const nx = applyCorrectFix(x, full);
+        if (!nx || JSON.stringify(nx) === JSON.stringify(x)) return x;
+        changed = true;
+        return nx;
+      });
+      if (changed) { lib.updateQuiz(qz.id, { questions }); nQuizzes++; }
     }
+    // naloga v bazi nalog
+    let taskOk = false;
+    if (taskId) {
+      try { taskOk = await setTaskCorrect(taskId, full); }
+      catch (e) { alert(`Rezultati so popravljeni, naloge v bazi pa ni bilo mogoče posodobiti: ${e instanceof Error ? e.message : String(e)}`); }
+    }
+    alert(`Pravilni odgovor popravljen: ${nSessions} ${nSessions === 1 ? 'izvedba' : nSessions === 2 ? 'izvedbi' : nSessions < 5 ? 'izvedbe' : 'izvedb'}, ${nQuizzes} ${nQuizzes === 1 ? 'kviz' : nQuizzes === 2 ? 'kviza' : nQuizzes < 5 ? 'kvizi' : 'kvizov'} v knjižnici${taskOk ? ', naloga v bazi nalog' : taskId ? ' (naloge v bazi ni bilo mogoče popraviti)' : ' (vprašanje ni povezano z nalogo v bazi)'}.`);
     // knjižnica kvizov se v oblak zapiše z zamikom (1 s) — počakaj, da se ob osvežitvi ne naloži stara kopija
-    if (libQuiz) await new Promise(r => setTimeout(r, 1800));
+    if (nQuizzes) await new Promise(r => setTimeout(r, 1800));
     window.location.reload();
   };
   // ročno vpisane točke (natisnjen kviz): takoj vidne, shranijo se v ozadju

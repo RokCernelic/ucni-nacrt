@@ -91,3 +91,32 @@ export async function relinkTasks(links: { id: string; parent_id: string }[]): P
     if (error) throw new Error(error.message);
   }
 }
+
+/**
+ * Popravek pravilnega odgovora iz rezultatov kviza (napaka v ključu) → zapiše se tudi v nalogo v bazi.
+ * Izbirna naloga: id(-ji) pravilnih možnosti (le če jih naloga ima); številska: vrednost in odstopanje.
+ * Vrne true, če je bila naloga popravljena.
+ */
+export async function setTaskCorrect(taskId: string, fix: { correct: string; tolerance?: number; texts?: string[] }): Promise<boolean> {
+  const sb = getSupabaseBrowserClient();
+  const { data, error } = await sb.from('tasks').select('answer_kind, options, correct, tolerance').eq('id', taskId).maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) return false;
+  const t = data as Pick<Task, 'answer_kind' | 'options' | 'correct' | 'tolerance'>;
+  let patch: Partial<Task> | null = null;
+  if (t.answer_kind === 'numeric') patch = { correct: fix.correct, tolerance: fix.tolerance ?? t.tolerance };
+  else if (t.options?.length) {
+    let ids = fix.correct.split(',').filter(Boolean);
+    if (!ids.every(id => t.options!.some(o => o.id === id)) && fix.texts?.length) { // vprašanje iz kopije: po besedilu možnosti
+      const norm = (x: string) => x.trim().toLowerCase();
+      ids = fix.texts.map(x => t.options!.find(o => norm(o.text) === norm(x))?.id ?? '');
+    }
+    if (!ids.length || !ids.every(id => t.options!.some(o => o.id === id))) return false;
+    if (t.answer_kind !== 'multi' && ids.length > 1) return false;
+    patch = { correct: t.answer_kind === 'multi' ? [...ids].sort().join(',') : ids[0] };
+  }
+  if (!patch) return false;
+  const { error: e } = await sb.from('tasks').update(patch).eq('id', taskId);
+  if (e) throw new Error(e.message);
+  return true;
+}

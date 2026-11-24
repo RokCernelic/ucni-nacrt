@@ -161,27 +161,58 @@ export async function setQuestionExcluded(sessionIds: string[], questionId: stri
   }
 }
 
+export type CorrectFix = { correct: string; tolerance?: number; /** besedila pravilnih možnosti (za kopije z drugimi id-ji možnosti) */ texts?: string[] };
+
+/** Ali je vprašanje »ista naloga«: isto vprašanje ali nastalo iz iste naloge v bazi. */
+export const sameTask = (q: Question, match: { questionId: string; taskId?: string }) => q.id === match.questionId || (!!match.taskId && q.taskId === match.taskId);
+
 /**
- * Popravi pravilni odgovor naloge v že izvedenih izvedbah (napaka v ključu): izbirna naloga — id(-ji) pravilnih možnosti,
- * številska — vrednost in dopustno odstopanje. Točke učencev se izračunajo iz shranjenih odgovorov, zato se takoj posodobijo;
- * popravi se tudi ključ natisnjenih listov (nadaljnje skeniranje).
+ * Nov pravilni odgovor za vprašanje (ali null, če ga ni mogoče prenesti): izbirno — po id-jih možnosti, sicer po besedilu
+ * (kopije kviza imajo nove id-je); številsko — vrednost in odstopanje.
  */
-export async function setQuestionCorrect(sessionIds: string[], questionId: string, fix: { correct: string; tolerance?: number }) {
+export function applyCorrectFix(q: Question, fix: CorrectFix): Question | null {
+  if (q.kind === 'numeric') return { ...q, correct: fix.correct, tolerance: fix.tolerance ?? q.tolerance };
+  if (q.kind !== 'mc') return null;
+  const wanted = fix.correct.split(',').filter(Boolean);
+  let ids = wanted.filter(id => q.options.some(o => o.id === id));
+  if (ids.length !== wanted.length && fix.texts?.length) {
+    const norm = (t: string) => t.trim().toLowerCase();
+    ids = fix.texts.map(t => q.options.find(o => norm(o.text) === norm(t))?.id).filter((x): x is string => !!x);
+    if (ids.length !== fix.texts.length) return null;
+  } else if (ids.length !== wanted.length) return null;
+  if (!ids.length || (!q.multi && ids.length > 1)) return null;
+  return { ...q, correct: q.multi ? [...ids].sort().join(',') : ids[0] };
+}
+
+/**
+ * Popravi pravilni odgovor naloge (napaka v ključu) v vseh izvedbah, kjer je bila uporabljena (isto vprašanje ali
+ * vprašanje iz iste naloge v bazi, v vseh razredih). Točke učencev se izračunajo iz shranjenih odgovorov, zato se takoj
+ * posodobijo; popravi se tudi ključ natisnjenih listov (nadaljnje skeniranje). Vrne število popravljenih izvedb.
+ */
+export async function setQuestionCorrect(match: { questionId: string; taskId?: string }, fix: CorrectFix): Promise<number> {
   const sb = getSupabaseBrowserClient();
-  for (const id of sessionIds) {
-    const { data, error } = await sb.from('quiz_sessions').select('quiz, paper').eq('id', id).single();
-    if (error) throw new Error(error.message);
-    const row = data as { quiz: QuizSession['quiz']; paper: { items: { id: string; correct: string[] }[] } | null };
+  const { data, error } = await sb.from('quiz_sessions').select('id, quiz, paper');
+  if (error) throw new Error(error.message);
+  let n = 0;
+  for (const row of (data ?? []) as { id: string; quiz: QuizSession['quiz']; paper: { items: { id: string; correct: string[] }[] } | null }[]) {
+    const fixed = new Map<string, Question>();
     const questions = row.quiz.questions.map(q => {
-      if (q.id !== questionId) return q;
-      if (q.kind === 'mc') return { ...q, correct: fix.correct };
-      if (q.kind === 'numeric') return { ...q, correct: fix.correct, tolerance: fix.tolerance ?? q.tolerance };
-      return q;
+      if (!sameTask(q, match)) return q;
+      const nq = applyCorrectFix(q, fix);
+      if (!nq || JSON.stringify(nq) === JSON.stringify(q)) return q;
+      fixed.set(q.id, nq);
+      return nq;
     });
-    const paper = row.paper ? { ...row.paper, items: row.paper.items.map(it => (it.id === questionId && questions.find(q => q.id === questionId)?.kind === 'mc' ? { ...it, correct: fix.correct.split(',').filter(Boolean) } : it)) } : null;
-    const { error: e } = await sb.from('quiz_sessions').update({ quiz: { ...row.quiz, questions }, ...(paper ? { paper } : {}) }).eq('id', id);
+    if (!fixed.size) continue;
+    const paper = row.paper ? { ...row.paper, items: row.paper.items.map(it => {
+      const nq = fixed.get(it.id);
+      return nq?.kind === 'mc' && nq.correct ? { ...it, correct: nq.correct.split(',').filter(Boolean) } : it;
+    }) } : null;
+    const { error: e } = await sb.from('quiz_sessions').update({ quiz: { ...row.quiz, questions }, ...(paper ? { paper } : {}) }).eq('id', row.id);
     if (e) throw new Error(e.message);
+    n++;
   }
+  return n;
 }
 
 /** Ročno vpisane točke ene naloge enega učenca (null = pobriši). Učenec šteje kot oddan (sodeloval). */
