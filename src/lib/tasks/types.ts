@@ -1,12 +1,14 @@
 /** Baza nalog (supabase/migrations/20261006120000_naloge.sql). */
 
-export type AnswerKind = 'mc' | 'multi' | 'tf' | 'numeric' | 'short' | 'open';
+/** gap = vstavljanje besed, match = povezovanje (src/lib/tasks/display.ts) */
+export type AnswerKind = 'mc' | 'multi' | 'tf' | 'numeric' | 'short' | 'open' | 'gap' | 'match';
 export type Difficulty = 1 | 2 | 3;
 export type BloomLevel = 1 | 2 | 3 | 4 | 5 | 6;
 export type TaskKind = 'racunska' | 'besedilna' | 'graficna' | 'skica' | 'eksperimentalna' | 'povezovanje';
 export type TaskStatus = 'draft' | 'verified';
 
-export interface TaskOption { id: string; text: string }
+/** možnost; pri povezovanju `text` = levi stolpec, `match` = pripadajoči pojem v desnem stolpcu */
+export interface TaskOption { id: string; text: string; match?: string }
 
 export interface Task {
   id: string;
@@ -83,6 +85,8 @@ export const ANSWER_KINDS: { id: AnswerKind; name: string; quiz: boolean }[] = [
   { id: 'numeric', name: 'odprt odgovor (število)', quiz: true },
   { id: 'short', name: 'odprt odgovor', quiz: false },
   { id: 'open', name: 'odprt odgovor', quiz: false },
+  { id: 'gap', name: 'vstavljanje besed', quiz: false },
+  { id: 'match', name: 'povezovanje', quiz: false },
 ];
 
 /**
@@ -95,6 +99,8 @@ export const ANSWER_GROUPS: { id: AnswerKind; name: string; kinds: AnswerKind[];
   { id: 'multi', name: 'več možnosti', kinds: ['multi'], quiz: false, hint: 'Pravilnih možnosti je lahko več' },
   { id: 'tf', name: 'da / ne', kinds: ['tf'], quiz: true, hint: 'Trditev, ki drži ali ne drži (samodejno točkovanje v kvizu)' },
   { id: 'open', name: 'odprt odgovor', kinds: ['open', 'short', 'numeric'], quiz: false, hint: 'Učenec odgovor zapiše sam (beseda, razlaga, izračun); če je odgovor število, se v kvizu točkuje samodejno' },
+  { id: 'gap', name: 'vstavljanje besed', kinds: ['gap'], quiz: false, hint: 'V besedilu manjka ključna beseda ali besedna zveza, ki jo učenec vpiše' },
+  { id: 'match', name: 'povezovanje', kinds: ['match'], quiz: false, hint: 'Dva stolpca: učenec poveže pojme iz levega s pojmi iz desnega stolpca' },
 ];
 /** Skupina (oblika, kot jo vidi učitelj) za obliko odgovora v podatkih. */
 export const answerGroupOf = (k: AnswerKind): AnswerKind => (k === 'numeric' || k === 'short' ? 'open' : k);

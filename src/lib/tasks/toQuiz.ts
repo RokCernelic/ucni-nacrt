@@ -1,5 +1,6 @@
 import type { Task } from './types';
 import type { Question } from '@/lib/quiz/types';
+import { taskHtml, autoAnswerText } from './display';
 
 const SUP: Record<string, string> = { '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹', '+': '⁺', '-': '⁻', '−': '⁻', n: 'ⁿ' };
 const SUB: Record<string, string> = { '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄', '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉', '+': '₊', '-': '₋', '−': '₋' };
@@ -64,6 +65,11 @@ export function tasksToQuestions(tasks: Task[]): { questions: Question[]; skippe
     } else if (quizReady(t)) {
       if (t.unit && !prompt.includes(`(odgovor v ${t.unit})`)) prompt += `\n(odgovor v ${t.unit})`;
       rest.push({ ...base, kind: 'numeric', prompt, correct: t.correct!.trim(), tolerance: t.tolerance ?? 0, ...(t.unit ? { unit: t.unit } : {}) });
+    } else if (t.answer_kind === 'gap' || t.answer_kind === 'match') {
+      // vstavljanje besed, povezovanje: odprto vprašanje (ročni pregled) s črtami oz. tabelo stolpcev
+      const html = taskHtml(t);
+      const key = autoAnswerText(t);
+      rest.push({ ...base, kind: 'open', prompt: htmlToPlain(html), html, ...(key ? { answer: key } : {}), space: 0 });
     } else {
       // odprte, kratek odgovor, več možnosti, naloge brez pravilnega odgovora
       if (t.options?.length) prompt += '\n' + t.options.map((o, i) => `${'ABCDEFGHIJKL'[i]}) ${o.text}`).join('\n');

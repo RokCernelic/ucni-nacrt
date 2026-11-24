@@ -5,6 +5,7 @@
 import { BLOOM, KINDS, isChoice, correctIds, type Task } from './types';
 import { chapterInfo, topicInfo } from './topics';
 import { orderTasks, groupTasks, placeOf, type TaskGroup } from './order';
+import { taskHtml, autoAnswerText } from './display';
 
 export const OPTION_LETTERS = ['a', 'b', 'c', 'č', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k'];
 
@@ -76,6 +77,8 @@ export function correctText(t: Task): string {
     const ids = correctIds(t);
     return t.options.map((o, i) => (ids.includes(o.id) ? `${OPTION_LETTERS[i]}) ${o.text}` : '')).filter(Boolean).join(', ');
   }
+  const auto = autoAnswerText(t);
+  if (auto) return auto;
   if (t.answer_kind === 'numeric' && t.correct) {
     return `${t.correct}${t.tolerance ? ` ± ${String(t.tolerance).replace('.', ',')}` : ''}${t.unit ? ` ${t.unit}` : ''}`;
   }
@@ -363,7 +366,7 @@ export function buildTex(tasks: Task[], opts: TexOptions, fileBase = 'naloge'): 
           keyVal('slika', m.slika ? 'da' : 'ne'),
           ...(m.teme.length ? [keyVal('teme', m.teme.join(', '))] : []),
         ].join(', ');
-        const parts = [htmlToTex(t.body, ctx)];
+        const parts = [htmlToTex(taskHtml(t), ctx)];
         if (isChoice(t.answer_kind) && t.options?.length) {
           parts.push(`\\moznosti{${t.options.map((o, i) => `${OPTION_LETTERS[i]}) ${escapeTex(o.text)}`).join(', ')}}`);
         }

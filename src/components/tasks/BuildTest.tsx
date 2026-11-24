@@ -9,6 +9,7 @@ import { orderTasks } from '@/lib/tasks/order';
 import { ANSWER_GROUPS, answerGroupOf, LETTERS, isChoice, correctIds, type AnswerKind, type Task, type TaskDraft } from '@/lib/tasks/types';
 import { BLOOM_3, BLOOM_6, apportion, classOfBloom, planTest, genRequestFor, type Slot } from '@/lib/tasks/buildTest';
 import { btn, tinyLabel, input, Chip, Rich, TaskAnswer } from './ui';
+import { taskHtml } from '@/lib/tasks/display';
 
 const MAX_TOTAL = 40;
 const PARALLEL = 3;
@@ -320,7 +321,7 @@ export default function BuildTest({ pool, defaultTitle, onClose }: { pool: Task[
                     </label>
                     {r.draft ? (
                       <div style={{ fontSize: '13px', color: 'var(--ink)' }}>
-                        <Rich html={t.body} />
+                        <Rich html={taskHtml(t, true)} />
                         {isChoice(t.answer_kind) && t.options && (
                           <ol style={{ margin: '4px 0', paddingLeft: '4px', listStyle: 'none', fontSize: '12px' }}>
                             {t.options.map((o, j) => <li key={o.id} style={{ fontWeight: correctIds(t).includes(o.id) ? 700 : 400, color: correctIds(t).includes(o.id) ? 'var(--green-ok)' : 'inherit' }}>{LETTERS[j]}) {o.text}</li>)}

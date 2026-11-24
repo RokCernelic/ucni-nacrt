@@ -103,7 +103,7 @@ export function downloadTasksJson(tasks: Task[]) {
 export interface JsonItem { draft: TaskDraft; srcId: string; srcParent: string | null; remove?: boolean }
 export interface JsonParse { items: JsonItem[]; errors: string[]; warnings: string[] }
 
-const KINDS = new Set<string>(['mc', 'multi', 'tf', 'numeric', 'short', 'open']);
+const KINDS = new Set<string>(['mc', 'multi', 'tf', 'numeric', 'short', 'open', 'gap', 'match']);
 const TASK_KINDS = new Set<string>(['racunska', 'besedilna', 'graficna', 'skica', 'eksperimentalna', 'povezovanje']);
 const str = (v: unknown): string | null => (typeof v === 'string' ? v : null);
 const strs = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
@@ -130,8 +130,8 @@ export function parseTasksJson(text: string): JsonParse {
     if (!KINDS.has(String(t.answer_kind))) res.warnings.push(`${at}: neznana oblika odgovora — uvožena kot odprta`);
     const optionsRaw = Array.isArray(t.options) ? t.options : null;
     const options = optionsRaw
-      ? optionsRaw.filter((o: unknown): o is { id: unknown; text: unknown } => !!o && typeof o === 'object')
-          .map(o => ({ id: str(o.id) ?? crypto.randomUUID(), text: str(o.text) ?? '' }))
+      ? optionsRaw.filter((o: unknown): o is { id: unknown; text: unknown; match?: unknown } => !!o && typeof o === 'object')
+          .map(o => ({ id: str(o.id) ?? crypto.randomUUID(), text: str(o.text) ?? '', ...(str(o.match) ? { match: str(o.match)! } : {}) }))
       : null;
     const diff = numOrNull(t.difficulty), bloom = numOrNull(t.bloom);
     // neznani ključi podpoglavij / poglavij / standardov (npr. iz datoteke, ki jo je pripravil AI) se ne uvozijo

@@ -7,6 +7,7 @@ import { plainKey } from '@/lib/tasks/import';
 import { relinkTasks } from '@/lib/tasks/api';
 import { Rich, TaskBadges, btn } from './ui';
 import type { Task } from '@/lib/tasks/types';
+import { taskHtml } from '@/lib/tasks/display';
 
 /** Gumb + okno za uvoz nalog iz .json (izvoz iz baze nalog): obnovi vse metapodatke in povezave med nalogami. */
 export default function ImportJsonTasks() {
@@ -138,7 +139,7 @@ export default function ImportJsonTasks() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '320px', overflowY: 'auto' }}>
                     {toImport.slice(0, 5).map((it, i) => (
                       <div key={i} style={{ border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        <Rich html={it.draft.body} />
+                        <Rich html={taskHtml(it.draft, true)} />
                         <TaskBadges task={{ ...it.draft, id: String(i), created_at: '', updated_at: '' } as Task} />
                       </div>
                     ))}

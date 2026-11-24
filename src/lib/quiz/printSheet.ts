@@ -2,6 +2,7 @@ import type { Task } from '@/lib/tasks/types';
 import type { Quiz, ImgLayout } from './types';
 import { questionMatchesTask } from '@/lib/tasks/fromQuestion';
 import { stripDuplicateChoices } from '@/lib/tasks/choices';
+import { taskHtml, autoAnswerText } from '@/lib/tasks/display';
 
 /** Vprašanje na tiskanem kvizu: izbirno (krogci A–F na vrhu) ali prosto (račun / zapis odgovora). */
 export interface PrintItem {
@@ -50,13 +51,13 @@ export function itemsFromTasks(tasks: Task[], toPlain: (html: string) => string)
     const choice = (t.answer_kind === 'mc' || t.answer_kind === 'multi' || t.answer_kind === 'tf') && !!t.options && t.options.length >= 2;
     const correct = !choice ? [] : t.answer_kind === 'multi' ? (t.correct ?? '').split(',').filter(Boolean) : t.correct ? [t.correct] : [];
     return {
-      id: t.id, choice, multi: t.answer_kind === 'multi', html: t.body, prompt: toPlain(t.body),
+      id: t.id, choice, multi: t.answer_kind === 'multi', html: taskHtml(t), prompt: toPlain(taskHtml(t)),
       options: choice ? t.options!.map(o => ({ id: o.id, text: o.text })) : [],
       noShuffle: t.answer_kind === 'tf',
       correct, points: t.points > 0 ? t.points : 1,
       space: t.answer_kind === 'numeric' ? 15 : t.answer_kind === 'short' ? 15 : 25,
       solution: hasText(t.solution ?? undefined) ? t.solution! : undefined,
-      answerText: !choice ? (t.answer_kind === 'numeric' && t.correct ? `${t.correct}${t.tolerance ? ` ± ${String(t.tolerance).replace('.', ',')}` : ''}${t.unit ? ` ${t.unit}` : ''}` : hasText(t.answer ?? undefined) ? toPlain(t.answer!) : undefined) : undefined,
+      answerText: !choice ? autoAnswerText(t) ?? (t.answer_kind === 'numeric' && t.correct ? `${t.correct}${t.tolerance ? ` ± ${String(t.tolerance).replace('.', ',')}` : ''}${t.unit ? ` ${t.unit}` : ''}` : hasText(t.answer ?? undefined) ? toPlain(t.answer!) : undefined) : undefined,
     };
   });
 }

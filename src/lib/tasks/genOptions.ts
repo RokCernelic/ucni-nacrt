@@ -25,6 +25,8 @@ export const GEN_GROUPS: GenGroup[] = [
     { id: 'tf', label: 'da / ne', instruction: 'Spremeni v nalogo tipa DRŽI / NE DRŽI (answer_kind tf): ena jasna trditev, ki je strokovno nedvoumno pravilna ali napačna.' },
     { id: 'stevilo', label: 'številski odgovor', instruction: 'Spremeni v nalogo s ENIM številskim odgovorom (answer_kind numeric) z enoto; nastavi smiselno toleranco.' },
     { id: 'odprta', label: 'odprta / opisna', instruction: 'Spremeni v ODPRTO nalogo (answer_kind open), kjer učenec odgovor utemelji z lastnimi besedami.' },
+    { id: 'vstavljanje', label: 'vstavljanje besed', instruction: 'Spremeni v nalogo VSTAVLJANJE BESED (answer_kind gap): kratko besedilo (ena do tri povedi) o isti snovi, v katerem manjka ena ključna beseda ali besedna zveza (največ tri); vsako manjkajočo besedo v body zapiši v dvojnih oglatih oklepajih, npr. [[newton]]. Manjkajo naj strokovni pojmi, ne mašila.' },
+    { id: 'povezovanje', label: 'povezovanje', instruction: 'Spremeni v nalogo POVEZOVANJE (answer_kind match): v body kratko navodilo (npr. »Poveži količino z enoto.«), v match_pairs 4–6 parov {left, right} iz iste snovi; po želji 1 odvečen pojem desno (left prazen). Pari naj bodo enoznačni.' },
   ] },
   { id: 'drugo', label: 'Še', options: [
     { id: 'kontekst', label: 'drug kontekst', instruction: 'Postavi nalogo v POPOLNOMA drug življenjski kontekst (drug predmet, situacija, osebe), a z istim naravoslovnim jedrom.' },

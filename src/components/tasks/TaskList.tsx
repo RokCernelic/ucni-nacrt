@@ -10,6 +10,7 @@ import TaskEditor from './TaskEditor';
 import GeneratePanel from './GeneratePanel';
 import SideDrawer from '@/components/SideDrawer';
 import { Rich, TaskBadges, TaskAnswer, btn } from './ui';
+import { taskHtml } from '@/lib/tasks/display';
 
 /** Seznam nalog (vsaka v svojem okvirju): kljukica za izbor, Uredi, Izbriši, + Nova naloga. */
 export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyText, showAdd = true, startIndex = 0, hideTopic, hideChapter, extraAction, leading, flat, showDate }: {
@@ -82,7 +83,7 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
                 <input type="checkbox" checked={on} onChange={() => toggle(t.id)} title="Izberi (za tisk / kviz)" style={{ marginTop: '3px', cursor: 'pointer' }} />
                 <span style={{ color: 'var(--muted)', minWidth: '18px', fontVariantNumeric: 'tabular-nums' }}>{nested ? '↳' : `${num}.`}</span>
                 <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <Rich html={t.body} />
+                  <Rich html={taskHtml(t, true)} />
                   {isChoice(t.answer_kind) && t.options && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                       {t.options.map((o, oi) => {

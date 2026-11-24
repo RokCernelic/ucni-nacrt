@@ -12,6 +12,7 @@ import {
 import { splitChoices, stripDuplicateChoices } from '@/lib/tasks/choices';
 import { topicsOf, topicInfo, topicLabel, chapterInfo, allCurricula } from '@/lib/tasks/topics';
 import { Chip, btn, tinyLabel, input } from './ui';
+import { gapWords, matchColumns } from '@/lib/tasks/display';
 
 const uid = () => crypto.randomUUID();
 
@@ -24,6 +25,8 @@ function problemsOf(t: TaskDraft): string[] {
     if (!correctIds(t).some(id => filled.some(o => o.id === id))) p.push(t.answer_kind === 'multi' ? 'označi vsaj eno pravilno možnost' : 'označi pravilno možnost');
   }
   if (t.answer_kind === 'numeric' && parseNumber(t.correct ?? '') === null) p.push('vpiši pravilno številsko vrednost');
+  if (t.answer_kind === 'gap' && !gapWords(t.body).length) p.push('manjkajočo besedo zapiši v dvojnih oglatih oklepajih, npr. [[newton]]');
+  if (t.answer_kind === 'match' && matchColumns(t.options).left.length < 2) p.push('vpiši vsaj 2 para za povezovanje');
   return p;
 }
 
@@ -60,7 +63,9 @@ export default function TaskEditor({ initial, fixedTopic, onSave, onCancel, save
   const problems = problemsOf(t);
 
   const setKind = (k: AnswerKind) => {
-    if (k === 'tf') up({ answer_kind: k, options: [{ id: uid(), text: 'Drži' }, { id: uid(), text: 'Ne drži' }], correct: null });
+    if (k === 'match') up({ answer_kind: k, options: t.answer_kind === 'match' && t.options?.length ? t.options : [0, 1, 2].map(() => ({ id: uid(), text: '', match: '' })), correct: null });
+    else if (k === 'gap') up({ answer_kind: k, options: null, correct: null });
+    else if (k === 'tf') up({ answer_kind: k, options: [{ id: uid(), text: 'Drži' }, { id: uid(), text: 'Ne drži' }], correct: null });
     else if (k === 'mc' || k === 'multi') {
       const keep = (t.answer_kind === 'mc' || t.answer_kind === 'multi') && t.options;
       const hasText = (t.options ?? []).some(o => o.text.trim());
@@ -127,7 +132,7 @@ export default function TaskEditor({ initial, fixedTopic, onSave, onCancel, save
         )}
       </Field>
 
-      <Field label={isChoice(t.answer_kind) ? 'Vprašanje (možnosti A–D so spodaj)' : 'Besedilo naloge'}>
+      <Field label={isChoice(t.answer_kind) ? 'Vprašanje (možnosti A–D so spodaj)' : t.answer_kind === 'gap' ? 'Besedilo — manjkajočo besedo ali besedno zvezo zapiši v [[dvojnih oglatih oklepajih]]' : t.answer_kind === 'match' ? 'Navodilo (npr. »Poveži pojem z ustrezno enoto.«) — pari so spodaj' : 'Besedilo naloge'}>
         <RichField value={t.body} onChange={v => up({ body: v })} minHeight={isChoice(t.answer_kind) ? 40 : 70} allowImage onSubmit={() => void save()}
           placeholder="Besedilo naloge … (prilepi lahko iz Worda — enačbe, ulomki, x², √ ostanejo; sliko ali posnetek zaslona prilepiš kar sem)" />
       </Field>
@@ -157,6 +162,40 @@ export default function TaskEditor({ initial, fixedTopic, onSave, onCancel, save
             {(t.answer_kind === 'mc' ? (t.options?.length ?? 0) < 6 : t.answer_kind === 'multi' && (t.options?.length ?? 0) < LETTERS.length) && (
               <button type="button" onClick={() => up({ options: [...(t.options ?? []), { id: uid(), text: '' }] })} style={{ ...btn(), alignSelf: 'flex-start' }}>+ Možnost</button>
             )}
+          </div>
+        </Field>
+      )}
+
+      {t.answer_kind === 'gap' && (
+        <div style={{ fontSize: '12px', color: gapWords(t.body).length ? 'var(--green-ok)' : 'var(--muted)', marginTop: '-6px' }}>
+          {gapWords(t.body).length
+            ? <>Manjkajoče: <b>{gapWords(t.body).join(' · ')}</b> — učenec namesto njih vidi črto ________</>
+            : <>Npr. »Enota za silo je [[newton]].« — učenec vidi »Enota za silo je ________.«</>}
+        </div>
+      )}
+
+      {t.answer_kind === 'match' && (
+        <Field label="Pari — levo pojem, desno pripadajoči pojem (desni stolpec se pri učencu premeša)">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+            {(t.options ?? []).map((o, i) => (
+              <div key={o.id} style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                <span style={{ width: '22px', fontSize: '12px', fontWeight: 700, color: 'var(--muted)', textAlign: 'right' }}>{o.text.trim() ? `${(t.options ?? []).slice(0, i + 1).filter(x => x.text.trim() && x.match?.trim()).length || ''}.` : ''}</span>
+                <input value={o.text} placeholder={`Levo ${i + 1} (prazno = odvečen pojem desno)`}
+                  onChange={e => up({ options: t.options!.map(x => (x.id === o.id ? { ...x, text: e.target.value } : x)) })}
+                  style={{ ...input, flex: 1 }} />
+                <span style={{ color: 'var(--muted)' }}>↔</span>
+                <input value={o.match ?? ''} placeholder="Desno"
+                  onChange={e => up({ options: t.options!.map(x => (x.id === o.id ? { ...x, match: e.target.value } : x)) })}
+                  style={{ ...input, flex: 1 }} />
+                {t.options!.length > 2 && (
+                  <button type="button" onClick={() => up({ options: t.options!.filter(x => x.id !== o.id) })} style={{ ...btn(), padding: '4px 8px', color: '#c0392b' }}>×</button>
+                )}
+              </div>
+            ))}
+            {(t.options?.length ?? 0) < 26 && (
+              <button type="button" onClick={() => up({ options: [...(t.options ?? []), { id: uid(), text: '', match: '' }] })} style={{ ...btn(), alignSelf: 'flex-start' }}>+ Par</button>
+            )}
+            <span style={{ fontSize: '12px', color: 'var(--muted)' }}>Odvečen pojem (le v desnem stolpcu, da naloga ni prelahka): levo pusti prazno.</span>
           </div>
         </Field>
       )}

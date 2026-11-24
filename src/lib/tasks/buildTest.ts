@@ -176,7 +176,7 @@ export function genRequestFor(slot: Slot, classes: BloomClass[]): { mods: string
   const mods: string[] = [];
   const extra: string[] = [];
   if (answerGroupOf(seed.answer_kind) !== slot.kind) {
-    const m: Partial<Record<AnswerKind, string>> = { mc: 'abcd', multi: 'multi', tf: 'tf', numeric: 'stevilo', open: 'odprta' };
+    const m: Partial<Record<AnswerKind, string>> = { mc: 'abcd', multi: 'multi', tf: 'tf', numeric: 'stevilo', open: 'odprta', gap: 'vstavljanje', match: 'povezovanje' };
     if (m[slot.kind]) mods.push(m[slot.kind]!);
   }
   const cls = classes.find(c => c.id === slot.classId);

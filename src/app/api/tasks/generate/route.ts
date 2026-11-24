@@ -22,7 +22,7 @@ const cleanHtml = (h: string) => h
   .replace(/javascript:/gi, '');
 
 const MODEL = 'claude-sonnet-5-5';
-const ANSWER_KINDS: AnswerKind[] = ['mc', 'multi', 'tf', 'numeric', 'open']; // »short« (kratek odgovor) je zdaj odprt odgovor
+const ANSWER_KINDS: AnswerKind[] = ['mc', 'multi', 'tf', 'numeric', 'open', 'gap', 'match']; // »short« (kratek odgovor) je zdaj odprt odgovor
 const KIND_IDS: TaskKind[] = ['racunska', 'besedilna', 'graficna', 'skica', 'eksperimentalna', 'povezovanje'];
 
 /** Slog izbirnih nalog (ABCD, več možnosti, da / ne): kratko in jedrnato (tudi zaradi tiska več testov na list). */
@@ -67,11 +67,12 @@ const tool: Anthropic.Tool = {
     properties: {
       topic_key: { type: ['string', 'null'], description: 'Ključ podpoglavja iz seznama, v katerega spada ORIGINALNA naloga (natančno kot v seznamu). Če je naloga že povezana, uporabi ta ključ.' },
       standard_ids: { type: 'array', items: { type: 'string' }, description: 'ID-ji standardov izbranega podpoglavja, ki jih nova naloga preverja (natančno kot v seznamu).' },
-      body: { type: 'string', description: 'Besedilo nove naloge kot preprost HTML (<p>, <b>, <i>, <sub>, <sup>, <ul>/<ol>/<li>, <br>). Formule in enačbe v MathML (<math>), brez LaTeXa, brez slik. Podnaloge a), b), c) v svojih <p> z <b>a)</b>.' },
+      body: { type: 'string', description: 'Besedilo nove naloge kot preprost HTML (<p>, <b>, <i>, <sub>, <sup>, <ul>/<ol>/<li>, <br>). Formule in enačbe v MathML (<math>), brez LaTeXa, brez slik. Podnaloge a), b), c) v svojih <p> z <b>a)</b>. Pri gap (vstavljanje besed) je vsaka manjkajoča beseda ali besedna zveza v dvojnih oglatih oklepajih, npr. »Enota za silo je [[newton]].«; pri match (povezovanje) le navodilo, pari so v match_pairs.' },
       answer_kind: { type: 'string', enum: ANSWER_KINDS },
       options: { type: 'array', items: { type: 'string' }, description: 'Besedila možnosti (za mc in multi; za tf pusti prazno).' },
       correct_index: { type: ['integer', 'null'], description: 'Indeks pravilne možnosti (mc: 0 = A …; tf: 0 = Drži, 1 = Ne drži).' },
       correct_indices: { type: 'array', items: { type: 'integer' }, description: 'Indeksi vseh pravilnih možnosti (samo za multi; 0 = A).' },
+      match_pairs: { type: 'array', items: { type: 'object', properties: { left: { type: 'string' }, right: { type: 'string' } }, required: ['left', 'right'] }, description: 'Samo za match (povezovanje): pari pojmov levo ↔ desno; left = "" pomeni odvečen pojem le v desnem stolpcu.' },
       correct_numeric: { type: ['string', 'null'], description: 'Pravilna številska vrednost (samo za numeric), npr. "42,5".' },
       unit: { type: ['string', 'null'] },
       tolerance: { type: ['number', 'null'], description: 'Dovoljen odmik za numeric (absolutni), sicer null.' },
@@ -120,7 +121,7 @@ export async function POST(request: Request) {
     t.standards.map(s => `  - ${s.id}${s.minimalni ? ' (minimalni)' : ''}: ${s.text}`).join('\n')).join('\n');
 
   const original = {
-    besedilo_html: src.body, vrsta_odgovora: src.answer_kind, moznosti: (src.options ?? []).map(o => o.text),
+    besedilo_html: src.body, vrsta_odgovora: src.answer_kind, moznosti: src.answer_kind === 'match' ? (src.options ?? []).map(o => ({ levo: o.text, desno: o.match ?? '' })) : (src.options ?? []).map(o => o.text),
     pravilno: src.correct, enota: src.unit, odgovor: src.answer, resitev_html: src.solution,
     tezavnost: src.difficulty, bloom: src.bloom, vrste: src.kinds, tocke: src.points, minute: src.minutes,
   };
@@ -163,6 +164,9 @@ export async function POST(request: Request) {
       correct = ci === 0 || ci === 1 ? options[ci].id : null;
     } else if (kind === 'numeric') {
       correct = typeof o.correct_numeric === 'string' ? o.correct_numeric : '';
+    } else if (kind === 'match') {
+      const pairs = Array.isArray(o.match_pairs) ? (o.match_pairs as { left?: unknown; right?: unknown }[]) : [];
+      options = pairs.filter(p => p && typeof p.right === 'string' && p.right.trim()).map(p => ({ id: crypto.randomUUID(), text: typeof p.left === 'string' ? p.left : '', match: String(p.right) }));
     }
     const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
     const draft = emptyTask({

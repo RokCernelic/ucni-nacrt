@@ -3,6 +3,7 @@
 import { sanitizeRichHtml } from '@/lib/richText';
 import { BLOOM, DIFFICULTY, ANSWER_KINDS, isChoice, correctIds, type Task } from '@/lib/tasks/types';
 import { topicLabel, chapterInfo } from '@/lib/tasks/topics';
+import { autoAnswerText } from '@/lib/tasks/display';
 
 export const btn = (primary = false): React.CSSProperties => ({
   fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: primary ? 600 : 500,
@@ -63,6 +64,7 @@ export function TaskAnswer({ task, noChoice }: { task: Task; /** brez besedila p
   return (
     <>
       {!noChoice && isChoice(task.answer_kind) && right.length > 0 && <span>{right.map(o => o.text).join('; ')}</span>}
+      {autoAnswerText(task) && <span>{autoAnswerText(task)}</span>}
       {task.answer_kind === 'numeric' && task.correct && (
         <span>{task.correct}{task.tolerance ? ` ± ${String(task.tolerance).replace('.', ',')}` : ''}{task.unit ? ` ${task.unit}` : ''}</span>
       )}

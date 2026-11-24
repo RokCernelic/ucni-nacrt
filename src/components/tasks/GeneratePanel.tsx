@@ -5,6 +5,7 @@ import type { TaskDraft } from '@/lib/tasks/types';
 import { GEN_GROUPS } from '@/lib/tasks/genOptions';
 import TaskEditor from './TaskEditor';
 import { Rich, Chip, btn, tinyLabel, input } from './ui';
+import { taskHtml } from '@/lib/tasks/display';
 
 export type GenMode = 'similar' | 'variant' | 'complete';
 
@@ -46,7 +47,7 @@ export default function GeneratePanel({ source, onSave, onCancel, onBusy }: {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontFamily: 'var(--font-sans)' }}>
       <div style={{ fontSize: '12px', color: 'var(--muted)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', padding: '8px 10px', background: 'var(--canvas)', maxHeight: '160px', overflow: 'auto' }}>
         <div style={{ ...tinyLabel, marginBottom: '4px' }}>Izhodiščna naloga</div>
-        <Rich html={source.body} />
+        <Rich html={taskHtml(source, true)} />
       </div>
       {error && <p style={{ fontSize: '12px', color: '#c0392b', margin: 0 }}>{error}</p>}
       {gen ? (
