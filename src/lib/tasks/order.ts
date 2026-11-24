@@ -1,5 +1,5 @@
 import { allCurricula, topicsOf, chaptersOf, topicInfo, chapterInfo } from './topics';
-import type { Task } from './types';
+import { ANSWER_GROUPS, answerGroupOf, type Task } from './types';
 
 /** Vrstni red nalog kot v učnem načrtu: poglavje → naloge samo s poglavjem → podpoglavja. */
 
@@ -38,12 +38,18 @@ export function nestUnderParents<T extends Task>(tasks: T[]): T[] {
   return tasks.filter(t => !isNested(t, ids)).flatMap(r => [r, ...(kids.get(r.id) ?? [])]);
 }
 
-/** Vrstni red kot v učnem načrtu; generirane naloge sledijo svoji izvorni nalogi. */
+/** Mesto oblike odgovora (ABCD, več možnosti, da / ne, odprt odgovor, vstavljanje besed, povezovanje). */
+export const answerRank = (t: Pick<Task, 'answer_kind'>) => { const i = ANSWER_GROUPS.findIndex(g => g.id === answerGroupOf(t.answer_kind)); return i < 0 ? 99 : i; };
+/** Znotraj podpoglavja: po obliki odgovora, nato po težavnosti in Bloomovi stopnji (neopredeljene na konec). */
+export const kindLevelCmp = (a: Task, b: Task) =>
+  answerRank(a) - answerRank(b) || (a.difficulty ?? 9) - (b.difficulty ?? 9) || (a.bloom ?? 9) - (b.bloom ?? 9);
+
+/** Vrstni red kot v učnem načrtu (znotraj podpoglavja po obliki odgovora, težavnosti, Bloomu); generirane naloge sledijo svoji izvorni nalogi. */
 export function orderTasks<T extends Task>(tasks: T[]): T[] {
   const { chapter, topic } = getOrders();
   const ids = new Set(tasks.map(t => t.id));
   const rank = (t: Task) => { const p = placeOf(t); return [chapter.get(p.chapterKey) ?? 1e9, p.topicKey ? (topic.get(p.topicKey) ?? 1e9) : -1] as const; };
-  const cmp = (a: Task, b: Task) => { const ra = rank(a), rb = rank(b); return ra[0] - rb[0] || ra[1] - rb[1] || a.created_at.localeCompare(b.created_at); };
+  const cmp = (a: Task, b: Task) => { const ra = rank(a), rb = rank(b); return ra[0] - rb[0] || ra[1] - rb[1] || kindLevelCmp(a, b) || a.created_at.localeCompare(b.created_at); };
   const roots = tasks.filter(t => !isNested(t, ids)).sort(cmp);
   const kids = new Map<string, T[]>();
   for (const t of tasks) if (isNested(t, ids)) kids.set(t.parent_id!, [...(kids.get(t.parent_id!) ?? []), t]);

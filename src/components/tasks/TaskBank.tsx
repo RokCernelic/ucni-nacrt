@@ -304,7 +304,32 @@ export default function TaskBank({ picker }: { picker?: BankPicker } = {}) {
                                 {sub.title} <span style={{ fontWeight: 400, color: 'var(--muted)' }}>· {sub.tasks.length}</span>
                               </h3>
                             )}
-                            <TaskList tasks={sub.tasks} hideTopic={sub.key} hideChapter={g.chapterKey} showAdd={false} startIndex={start} />
+                            {(() => {
+                              // naloge iste oblike odgovora skupaj (z oznako), znotraj po težavnosti in Bloomu (orderTasks)
+                              const ids = new Set(sub.tasks.map(x => x.id));
+                              const byId = new Map(sub.tasks.map(x => [x.id, x]));
+                              const runs: { kind: string; tasks: Task[] }[] = [];
+                              for (const x of sub.tasks) {
+                                const root = isNested(x, ids) ? byId.get(x.parent_id!)! : x;
+                                const kind = answerGroupOf(root.answer_kind);
+                                const last = runs[runs.length - 1];
+                                if (last && last.kind === kind) last.tasks.push(x); else runs.push({ kind, tasks: [x] });
+                              }
+                              let k = start;
+                              return runs.map((r, ri) => {
+                                const s0 = k; k += r.tasks.filter(x => !isNested(x, ids)).length;
+                                return (
+                                  <div key={`${r.kind}-${ri}`} style={{ marginBottom: '8px' }}>
+                                    {runs.length > 1 && (
+                                      <div style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--muted)', margin: '6px 0 5px' }}>
+                                        {ANSWER_GROUPS.find(a => a.id === r.kind)?.name ?? r.kind} <span style={{ fontWeight: 400 }}>· {r.tasks.length}</span>
+                                      </div>
+                                    )}
+                                    <TaskList tasks={r.tasks} hideTopic={sub.key} hideChapter={g.chapterKey} showAdd={false} startIndex={s0} />
+                                  </div>
+                                );
+                              });
+                            })()}
                           </div>
                         );
                       })}
