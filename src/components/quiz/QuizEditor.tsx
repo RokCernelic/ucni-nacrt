@@ -228,7 +228,7 @@ function QuestionView({ q, index, total, task, active, onEdit, onGenerate, onMov
         <span style={{ color: 'var(--muted)', minWidth: '22px', fontVariantNumeric: 'tabular-nums' }}>{index + 1}.</span>
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
           {q.kind === 'open' && q.html ? <Rich html={openQuestionHtml(q) ?? q.html} /> : <div style={{ whiteSpace: 'pre-wrap' }}>{q.prompt || <i style={{ color: 'var(--muted)' }}>(brez besedila)</i>}</div>}
-          {q.image && (/* eslint-disable-next-line @next/next/no-img-element */
+          {q.image && !(q.kind === 'open' && q.html?.includes('<img')) && (/* slika je že v besedilu naloge */ /* eslint-disable-next-line @next/next/no-img-element */
             <img src={q.image} alt="" style={{ maxWidth: '280px', maxHeight: '180px', borderRadius: 'var(--r-sm)', border: '1px solid var(--hairline)' }} />)}
           {q.kind === 'mc' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
