@@ -62,3 +62,24 @@ export function autoAnswerText(t: T): string | null {
   if (t.answer_kind === 'match') { const { left } = matchColumns(t.options); return left.length ? left.map(l => `${l.n} – ${l.letter}`).join(', ') : null; }
   return null;
 }
+
+/**
+ * Besedilo naloge za vstavljanje besed brez oznak [[…]] (npr. ko AI pozabi oklepaje): manjkajoče besede `words` vstavi
+ * namesto črt (___ ali …) po vrsti, sicer obda prvo pojavitev besede v besedilu (izven HTML oznak). Če oznake že so, vrne nespremenjeno.
+ */
+export function ensureGapMarkers(body: string, words: string[]): string {
+  if (GAP_RE.test(body)) { GAP_RE.lastIndex = 0; return body; }
+  GAP_RE.lastIndex = 0;
+  const ws = words.map(w => w.trim()).filter(Boolean);
+  if (!ws.length) return body;
+  let out = body, i = 0;
+  // 1) črte / tri pike namesto manjkajočih besed
+  out = out.replace(/_{3,}|\.{3,}|…/g, m => (i < ws.length ? `[[${ws[i++]}]]` : m));
+  if (i === ws.length) return out;
+  // 2) preostale besede: prva pojavitev v besedilu (ne znotraj oznak)
+  for (const w of ws.slice(i)) {
+    const re = new RegExp(`(^|>)([^<]*?)(${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'i');
+    if (re.test(out)) out = out.replace(re, (_, a: string, b: string, c: string) => `${a}${b}[[${c}]]`);
+  }
+  return out;
+}

@@ -3,6 +3,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server';
 import { topicsOf, topicInfo, allCurricula } from '@/lib/tasks/topics';
 import { genInstruction } from '@/lib/tasks/genOptions';
 import { emptyTask, type TaskDraft, type AnswerKind, type TaskKind } from '@/lib/tasks/types';
+import { ensureGapMarkers, gapWords } from '@/lib/tasks/display';
 
 export const maxDuration = 60;
 
@@ -33,6 +34,11 @@ const MC_STYLE = 'Pri IZBIRNIH nalogah (mc, multi, tf) naj bosta besedilo vpraš
  * Zapis enačb in formul: v besedilu, rešitvi in kratkem odgovoru (HTML) uporabi MathML, ki ga aplikacija prikaže in izvozi v LaTeX;
  * v možnostih izbirnih nalog (navadno besedilo) Unicode znake. Velja za generiranje in popravljanje.
  */
+/** Vstavljanje besed in povezovanje: zapis, ki ga aplikacija potrebuje za shranjevanje. */
+const GAP_STYLE = 'VSTAVLJANJE BESED (answer_kind gap): vsako manjkajočo besedo ali besedno zvezo OBVEZNO zapiši v body v DVOJNIH OGLATIH OKLEPAJIH, npr. »Enota za silo je [[newton]].« — brez tega naloge ni mogoče shraniti. Ne piši črt (____) in ne izpusti besede; besede naštej še v gap_words. ' +
+  'Pri dopolnjevanju obstoječe naloge, ki ima namesto besede črto ali piko, črto zamenjaj s [[pravilno besedo]]. ' +
+  'POVEZOVANJE (answer_kind match): pari v match_pairs (left = levi stolpec, right = desni); v body le navodilo, brez seznama pojmov. ';
+
 const MATH_STYLE = 'ZAPIS ENAČB IN FORMUL (pomembno za berljivost): v besedilu naloge, rešitvi in kratkem odgovoru (to je HTML) zapiši vsako enačbo, formulo in račun z MathML (<math>…</math>), ne kot niz z / ali ^. ' +
   'Deljenje praviloma zapiši kot ULOMEK: <math><mfrac><mrow>števec</mrow><mrow>imenovalec</mrow></mfrac></math>; potence z <msup>, indekse z <msub>, korene z <msqrt>. ' +
   'Spremenljivke so v <mi>, številke v <mn>, znaki v <mo>; enote pokončno (<mi mathvariant="normal">N</mi>), med številom in enoto ozek presledek (&#8239;); množenje z · ali ×, minus z − (U+2212), decimalna VEJICA (ne pika), grške črke (Δ, ρ, η …) kot Unicode. ' +
@@ -72,6 +78,7 @@ const tool: Anthropic.Tool = {
       options: { type: 'array', items: { type: 'string' }, description: 'Besedila možnosti (za mc in multi; za tf pusti prazno).' },
       correct_index: { type: ['integer', 'null'], description: 'Indeks pravilne možnosti (mc: 0 = A …; tf: 0 = Drži, 1 = Ne drži).' },
       correct_indices: { type: 'array', items: { type: 'integer' }, description: 'Indeksi vseh pravilnih možnosti (samo za multi; 0 = A).' },
+      gap_words: { type: 'array', items: { type: 'string' }, description: 'Samo za gap (vstavljanje besed): manjkajoče besede v vrstnem redu, enake kot v [[…]] v body.' },
       match_pairs: { type: 'array', items: { type: 'object', properties: { left: { type: 'string' }, right: { type: 'string' } }, required: ['left', 'right'] }, description: 'Samo za match (povezovanje): pari pojmov levo ↔ desno; left = "" pomeni odvečen pojem le v desnem stolpcu.' },
       correct_numeric: { type: ['string', 'null'], description: 'Pravilna številska vrednost (samo za numeric), npr. "42,5".' },
       unit: { type: ['string', 'null'] },
@@ -131,7 +138,7 @@ export async function POST(request: Request) {
     const res = await client.messages.create({
       model: MODEL,
       max_tokens: 4000,
-      system: (mode === 'variant' ? VARIANT_SYSTEM : mode === 'complete' ? COMPLETE_SYSTEM : SIMILAR_SYSTEM + ' ' + MC_STYLE) + ' ' + MATH_STYLE,
+      system: (mode === 'variant' ? VARIANT_SYSTEM : mode === 'complete' ? COMPLETE_SYSTEM : SIMILAR_SYSTEM + ' ' + MC_STYLE) + ' ' + GAP_STYLE + MATH_STYLE,
       tools: [tool],
       tool_choice: { type: 'auto' }, // model ne podpira prisilne izbire orodja; sistemsko navodilo zahteva klic
       messages: [{
@@ -214,6 +221,13 @@ export async function POST(request: Request) {
         source: src.source ?? draft.source,
         status: src.status ?? draft.status,
       });
+    }
+    // vstavljanje besed: če je model pozabil oklepaje [[…]], jih dodaj (iz gap_words ali odgovora)
+    if (draft.answer_kind === 'gap' && !gapWords(draft.body).length) {
+      const fromList = Array.isArray(o.gap_words) ? (o.gap_words as unknown[]).map(String) : [];
+      const fromAnswer = (draft.answer ?? '').replace(/<[^>]*>/g, ' ').split(/[;,\n]/).map(x => x.trim()).filter(Boolean);
+      draft.body = ensureGapMarkers(draft.body, fromList.length ? fromList : fromAnswer);
+      if (gapWords(draft.body).length) draft.answer = null;
     }
     return Response.json({ draft, note: typeof o.note === 'string' ? o.note : '' });
   } catch (e) {
