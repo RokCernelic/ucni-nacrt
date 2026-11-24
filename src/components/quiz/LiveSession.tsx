@@ -22,6 +22,7 @@ import { layoutSheet, sheetSeed, shuffleOpts } from '@/lib/quiz/printSheet';
 import type { PaperInfo } from '@/lib/quiz/paperSession';
 import { ceilPct } from '@/lib/quiz/format';
 import { gradeColor } from '@/lib/quiz/format';
+import OptText from '@/components/OptText';
 
 const LETTERS = 'ABCDEF';
 
@@ -74,7 +75,7 @@ export function QuestionView({ q, index, total, revealed, counts, answeredCount 
               <div key={o.id} style={{ position: 'relative', overflow: 'hidden', borderRadius: 'var(--r-md)', border: `2px solid ${right ? 'var(--green-ok)' : 'var(--hairline)'}`, background: 'var(--canvas)', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '14px' }}>
                 {revealed && <div style={{ position: 'absolute', inset: 0, width: `${pct}%`, background: right ? 'rgba(60,140,80,0.18)' : 'rgba(0,0,0,0.05)', transition: 'width .5s' }} />}
                 <span style={{ position: 'relative', width: '38px', height: '38px', flexShrink: 0, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: '17px', background: right ? 'var(--green-ok)' : 'var(--forest)', color: '#fff' }}>{right ? '✓' : LETTERS[i]}</span>
-                <span style={{ position: 'relative', flex: 1, fontFamily: 'var(--font-sans)', fontSize: 'clamp(17px, 1.8vw, 24px)', color: 'var(--ink)' }}>{o.text}</span>
+                <span style={{ position: 'relative', flex: 1, fontFamily: 'var(--font-sans)', fontSize: 'clamp(17px, 1.8vw, 24px)', color: 'var(--ink)' }}><OptText text={o.text} /></span>
                 {revealed && <span style={{ position: 'relative', fontFamily: 'var(--font-sans)', fontSize: '18px', fontWeight: 700, color: right ? 'var(--green-ok)' : 'var(--muted)', fontVariantNumeric: 'tabular-nums' }}>{n} · {pct} %</span>}
               </div>
             );
@@ -165,7 +166,7 @@ function QuestionStats({ q: q0, index, answers, totalStudents, excluded, onToggl
                 <span style={{ width: '18px', fontSize: '12px', fontWeight: 700, color: right ? 'var(--green-ok)' : 'var(--muted)' }}>{fix ? (right ? (q.multi ? '☑' : '◉') : (q.multi ? '☐' : '○')) : LETTERS[oi]}</span>
                 <div style={{ flex: 1, position: 'relative', height: '22px', background: '#00000010', borderRadius: '4px', overflow: 'hidden' }}>
                   <div style={{ position: 'absolute', inset: 0, width: `${barPct}%`, background: right ? 'rgba(60,140,80,0.35)' : 'rgba(0,0,0,0.14)', transition: 'width .3s' }} />
-                  <span style={{ position: 'relative', display: 'block', fontSize: '12px', color: 'var(--ink)', padding: '0 8px', lineHeight: '22px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.text || '(prazna možnost)'}</span>
+                  <span style={{ position: 'relative', display: 'block', fontSize: '12px', color: 'var(--ink)', padding: '0 8px', lineHeight: '22px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.text ? <OptText text={o.text} /> : '(prazna možnost)'}</span>
                 </div>
                 <span style={{ fontSize: '12px', color: 'var(--muted)', minWidth: '52px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{n} · {Math.round(barPct)} %</span>
               </div>

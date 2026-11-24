@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef } from 'react';
 import { Rich } from '@/components/tasks/ui';
 import type { ImgLayout } from '@/lib/quiz/types';
 import { frameGeometry, FRAME, type SheetLayout, type SheetItem } from '@/lib/quiz/printSheet';
+import OptText, { optPlain } from '@/components/OptText';
 
 /** En list za tisk: ime (ali prazna črta), QR (po učencih) in razpored vprašanj. */
 export interface Sheet { key: string; name: string | null; qr: string | null; layout: SheetLayout }
@@ -130,7 +131,7 @@ function useImgEditing(box: React.RefObject<HTMLDivElement | null>, imgs: (ImgLa
 
 /** Besedilo vprašanja + možnosti (ali prostor za odgovor). `onImg`: urejanje slik na listu. */
 export function ItemBody({ c, onImg }: { c: SheetItem; onImg?: (index: number, layout: ImgLayout | null) => void }) {
-  const inline = c.item.choice && c.options.length > 0 && c.options.every(o => o.text.length <= 18) && c.options.reduce((n, o) => n + o.text.length, 0) <= 56;
+  const inline = c.item.choice && c.options.length > 0 && c.options.every(o => optPlain(o.text).length <= 18) && c.options.reduce((n, o) => n + optPlain(o.text).length, 0) <= 56;
   const box = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => { if (box.current) applyImgLayout(box.current, c.item.imgs); });
   useImgEditing(box, c.item.imgs, onImg);
@@ -142,7 +143,7 @@ export function ItemBody({ c, onImg }: { c: SheetItem; onImg?: (index: number, l
         <b>{c.n}.</b><Rich html={c.item.html} />
       </div>
       {c.item.choice
-        ? <div className={inline ? 'pqz-opts pqz-inline' : 'pqz-opts'}>{c.options.map(o => <div key={o.letter}><b>{o.letter})</b> {o.text}</div>)}</div>
+        ? <div className={inline ? 'pqz-opts pqz-inline' : 'pqz-opts'}>{c.options.map(o => <div key={o.letter}><b>{o.letter})</b> <OptText text={o.text} /></div>)}</div>
         : <div className="pqz-free" style={{ height: `${c.item.space}mm` }} />}
     </>
   );

@@ -27,6 +27,7 @@ import TaskBank from '@/components/tasks/TaskBank';
 import { useTaskSelection } from '@/hooks/useTaskSelection';
 import { tasksToQuestions } from '@/lib/tasks/toQuiz';
 import { questionToDraft, questionMatchesTask, quizTag } from '@/lib/tasks/fromQuestion';
+import OptText from '@/components/OptText';
 
 const LETTERS = 'ABCDEF';
 const MAX_OPTIONS = 6;
@@ -236,7 +237,7 @@ function QuestionView({ q, index, total, task, active, onEdit, onGenerate, onMov
                 const right = q.correct === o.id;
                 return (
                   <div key={o.id} style={{ color: right ? 'var(--green-ok)' : undefined, fontWeight: right ? 600 : 400 }}>
-                    <b style={{ fontWeight: 700 }}>{LETTERS[oi]})</b> {o.text}{right && ' ✓'}
+                    <b style={{ fontWeight: 700 }}>{LETTERS[oi]})</b> <OptText text={o.text} />{right && ' ✓'}
                   </div>
                 );
               })}

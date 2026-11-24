@@ -6,6 +6,7 @@ import { BLOOM, KINDS, isChoice, correctIds, type Task } from './types';
 import { chapterInfo, topicInfo } from './topics';
 import { orderTasks, groupTasks, placeOf, type TaskGroup } from './order';
 import { taskHtml, autoAnswerText } from './display';
+import { optHtml, optPlain } from '@/lib/optText';
 
 export const OPTION_LETTERS = ['a', 'b', 'c', 'č', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k'];
 
@@ -75,7 +76,7 @@ export function metaLine(t: Task): string {
 export function correctText(t: Task): string {
   if (isChoice(t.answer_kind) && t.options) {
     const ids = correctIds(t);
-    return t.options.map((o, i) => (ids.includes(o.id) ? `${OPTION_LETTERS[i]}) ${o.text}` : '')).filter(Boolean).join(', ');
+    return t.options.map((o, i) => (ids.includes(o.id) ? `${OPTION_LETTERS[i]}) ${optPlain(o.text)}` : '')).filter(Boolean).join(', ');
   }
   const auto = autoAnswerText(t);
   if (auto) return auto;
@@ -368,7 +369,7 @@ export function buildTex(tasks: Task[], opts: TexOptions, fileBase = 'naloge'): 
         ].join(', ');
         const parts = [htmlToTex(taskHtml(t), ctx)];
         if (isChoice(t.answer_kind) && t.options?.length) {
-          parts.push(`\\moznosti{${t.options.map((o, i) => `${OPTION_LETTERS[i]}) ${escapeTex(o.text)}`).join(', ')}}`);
+          parts.push(`\\moznosti{${t.options.map((o, i) => `${OPTION_LETTERS[i]}) ${htmlToTex(optHtml(o.text), ctx)}`).join(', ')}}`);
         }
         const sol: string[] = [];
         const ct = correctText(t);

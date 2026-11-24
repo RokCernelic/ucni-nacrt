@@ -3,6 +3,7 @@
 import { Rich } from '@/components/tasks/ui';
 import { layoutSheet, hasSolutionText, type PrintItem } from '@/lib/quiz/printSheet';
 import { todayLabel } from './QuizSheetParts';
+import OptText from '@/components/OptText';
 
 /**
  * Zadnja stran natisa: rešitve za učitelja. Številke in črke so v izvirnem vrstnem redu (nemešano); pri učencih s
@@ -31,7 +32,7 @@ export default function SolutionsPage({ items, title, halves }: { items: PrintIt
                 <div className="pqz-solopts">
                   {c.options.map(o => {
                     const right = c.item.correct.includes(o.id);
-                    return <div key={o.id} className={right ? 'pqz-solright' : undefined}>{right ? '✓ ' : ''}<b>{o.letter})</b> {o.text}</div>;
+                    return <div key={o.id} className={right ? 'pqz-solright' : undefined}>{right ? '✓ ' : ''}<b>{o.letter})</b> <OptText text={o.text} /></div>;
                   })}
                 </div>
               </li>

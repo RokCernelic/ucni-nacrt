@@ -11,6 +11,7 @@ import GeneratePanel from './GeneratePanel';
 import SideDrawer from '@/components/SideDrawer';
 import { Rich, TaskBadges, TaskAnswer, btn } from './ui';
 import { taskHtml } from '@/lib/tasks/display';
+import OptText from '@/components/OptText';
 
 /** Seznam nalog (vsaka v svojem okvirju): kljukica za izbor, Uredi, Izbriši, + Nova naloga. */
 export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyText, showAdd = true, startIndex = 0, hideTopic, hideChapter, extraAction, leading, flat, showDate }: {
@@ -90,7 +91,7 @@ export default function TaskList({ tasks, fixedTopic, showTopics = true, emptyTe
                         const right = correctIds(t).includes(o.id);
                         return (
                           <div key={o.id} style={{ color: right ? 'var(--green-ok)' : undefined, fontWeight: right ? 600 : 400 }}>
-                            <b style={{ fontWeight: 700 }}>{LETTERS[oi]})</b> {o.text}{right && ' ✓'}
+                            <b style={{ fontWeight: 700 }}>{LETTERS[oi]})</b> <OptText text={o.text} />{right && ' ✓'}
                           </div>
                         );
                       })}

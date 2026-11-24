@@ -9,6 +9,7 @@ import {
 import { seededOrder } from '@/lib/quiz/shuffle';
 import { formatNumber } from '@/lib/quiz/format';
 import { ceilPct, gradeColor } from '@/lib/quiz/format';
+import OptText from '@/components/OptText';
 
 const LETTERS = 'ABCDEF';
 const page: React.CSSProperties = { minHeight: '100vh', background: '#f4f2ee', fontFamily: 'var(--font-sans)', color: 'var(--ink)', display: 'flex', flexDirection: 'column' };
@@ -206,7 +207,7 @@ function QuestionBody({ code, q, selected, locked, shuffleSeed, onPick, onNumeri
                 style={{ display: 'flex', alignItems: 'center', gap: '14px', textAlign: 'left', width: '100%', padding: '18px 20px', borderRadius: '14px', fontSize: 'clamp(19px, 2.6vw, 24px)', cursor: locked ? 'default' : 'pointer', touchAction: 'manipulation',
                   border: `3px solid ${isSel ? 'var(--forest)' : 'var(--hairline)'}`, background: isSel ? 'var(--forest)' : '#fff', color: isSel ? '#fff' : 'var(--ink)', opacity: locked && !isSel ? 0.55 : 1 }}>
                 {!shuffled && <span style={{ fontWeight: 800, minWidth: '26px' }}>{LETTERS[origIndex]}</span>}
-                <span style={{ flex: 1 }}>{o.text}</span>
+                <span style={{ flex: 1 }}><OptText text={o.text} /></span>
                 {isSel && <span style={{ fontSize: '22px' }}>✓</span>}
               </button>
             );

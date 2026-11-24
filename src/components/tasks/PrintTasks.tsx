@@ -10,6 +10,7 @@ import { Rich, TaskAnswer, btn } from './ui';
 import { setPrintTitle } from '@/lib/printTitle';
 import { PAGE_NUMBER_BOX } from '@/lib/printPage';
 import { taskHtml } from '@/lib/tasks/display';
+import OptText from '@/components/OptText';
 
 /**
  * Notranja površina ene polovice (pokončni A4 razrezan po vodoravni sredini = trak 210 × 148,5 mm), v mm:
@@ -46,7 +47,7 @@ function CompactList({ tasks }: { tasks: Task[] }) {
             <span className="cp-num">{r.start + k}.</span>
             <Rich html={taskHtml(t)} />
             {isChoice(t.answer_kind) && t.options && (
-              <p className="cp-options">{t.options.map((o, j) => `${OPTION_LETTERS[j]}) ${o.text}`).join(', ')}</p>
+              <p className="cp-options">{t.options.map((o, j) => <span key={o.id}>{j > 0 && ', '}{OPTION_LETTERS[j]}) <OptText text={o.text} /></span>)}</p>
             )}
           </div>
         ));
@@ -183,7 +184,7 @@ export default function PrintTasks({ tasks, title }: { tasks: Task[]; title: str
               <li key={t.id} className="pq-item">
                 <Rich html={taskHtml(t)} />
                 {isChoice(t.answer_kind) && t.options && (
-                  <ol className="pq-options">{t.options.map(o => <li key={o.id}>{o.text}</li>)}</ol>
+                  <ol className="pq-options">{t.options.map(o => <li key={o.id}><OptText text={o.text} /></li>)}</ol>
                 )}
                 {withAnswers ? (
                   <div className="pq-answer">
