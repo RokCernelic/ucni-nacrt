@@ -121,6 +121,21 @@ export default function PrintTasks({ tasks, title }: { tasks: Task[]; title: str
     } finally { setBusy(false); }
   };
 
+  const exportWord = async () => {
+    setBusy(true); setNote(null);
+    try {
+      const { buildTasksDocx } = await import('@/lib/quizDocx');
+      const blob = await buildTasksDocx(tasks, title, withAnswers);
+      const name = (title || 'Naloge').replace(/[\\/:*?"<>|]+/g, ' ').trim() || 'Naloge';
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = `${name}.docx`; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      setNote({ ok: true, text: `Preneseno: ${tasks.length} nalog (.docx).` });
+    } catch (e) {
+      setNote({ ok: false, text: e instanceof Error ? e.message : String(e) });
+    } finally { setBusy(false); }
+  };
+
   const total = tasks.reduce((s, t) => s + (t.points || 0), 0);
   const minutes = tasks.reduce((s, t) => s + (t.minutes || 0), 0);
   const small: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: '5px', fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--muted)', cursor: 'pointer' };
@@ -137,6 +152,11 @@ export default function PrintTasks({ tasks, title }: { tasks: Task[]; title: str
         title="Prenesi izbrane naloge kot LaTeX (.tex; s slikami .zip) v obliki zbirke nalog — prevedeš z xelatexom"
         style={{ ...btn(), padding: '5px 10px', opacity: tasks.length && !busy ? 1 : 0.45, cursor: tasks.length && !busy ? 'pointer' : 'not-allowed' }}>
         {busy ? 'Pripravljam …' : '⬇ .tex'}
+      </button>
+      <button onClick={() => void exportWord()} disabled={!tasks.length || busy}
+        title="Prenesi izbrane naloge kot Wordov dokument (.docx), ki ga lahko urejaš; z »z rešitvami« doda na koncu stran z rešitvami"
+        style={{ ...btn(), padding: '5px 10px', opacity: tasks.length && !busy ? 1 : 0.45, cursor: tasks.length && !busy ? 'pointer' : 'not-allowed' }}>
+        ⬇ Izvozi v Word
       </button>
       <label style={{ ...small, opacity: compact ? 0.45 : 1 }}>
         <input type="checkbox" checked={withAnswers && !compact} disabled={compact} onChange={e => setWithAnswers(e.target.checked)} /> z rešitvami

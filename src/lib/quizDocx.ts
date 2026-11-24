@@ -5,9 +5,10 @@ import {
 } from 'docx';
 import type { Quiz } from '@/lib/quiz/types';
 import type { Task } from '@/lib/tasks/types';
-import { itemsFromQuiz, layoutSheet, type PrintItem, type SheetItem } from '@/lib/quiz/printSheet';
+import { itemsFromQuiz, itemsFromTasks, layoutSheet, type PrintItem, type SheetItem } from '@/lib/quiz/printSheet';
 import { sanitizeRichHtml } from '@/lib/richText';
 import { optHtml } from '@/lib/optText';
+import { htmlToPlain } from '@/lib/tasks/toQuiz';
 
 /**
  * Kviz kot Wordov dokument (.docx), ki ga lahko urejaš: glava (razred, datum, ime), naloge v enakem vrstnem redu in
@@ -230,11 +231,27 @@ function inlineRuns(html: string): ParagraphChild[] {
   return out;
 }
 
-export async function buildQuizDocx(quiz: Quiz, tasksById?: Map<string, Task>): Promise<Blob> {
-  const items = itemsFromQuiz(quiz, tasksById);
+/** Kviz → .docx (vrstni red in številke kot na listu A4: izbirne najprej; vedno s stranjo rešitev). */
+export function buildQuizDocx(quiz: Quiz, tasksById?: Map<string, Task>): Promise<Blob> {
+  return buildSheetDocx({ title: quiz.title || 'Kviz', items: itemsFromQuiz(quiz, tasksById), choiceFirst: true, hidePoints: !!quiz.sheet?.hidePoints, solutions: true });
+}
+
+/** Izbrane naloge iz baze → .docx (vrstni red kot pri tisku; `solutions`: stran z rešitvami na koncu). */
+export function buildTasksDocx(tasks: Task[], title: string, solutions: boolean): Promise<Blob> {
+  return buildSheetDocx({ title: title || 'Naloge', items: itemsFromTasks(tasks, htmlToPlain), choiceFirst: false, hidePoints: false, solutions });
+}
+
+/** Naloge v podanem vrstnem redu (brez »izbirne najprej«), oštevilčene po vrsti. */
+function renumber(list: SheetItem<PrintItem>[], items: PrintItem[]): SheetItem<PrintItem>[] {
+  const pos = new Map(items.map((it, i) => [it.id, i]));
+  return [...list].sort((a, b) => (pos.get(a.item.id) ?? 0) - (pos.get(b.item.id) ?? 0)).map((c, i) => ({ ...c, n: i + 1 }));
+}
+
+async function buildSheetDocx(o: { title: string; items: PrintItem[]; choiceFirst: boolean; hidePoints: boolean; solutions: boolean }): Promise<Blob> {
+  const { items, hidePoints } = o;
+  const quiz = { title: o.title };
   const layout = layoutSheet(items, null, { questions: false, options: false });
-  const all = [...layout.choice, ...layout.free];
-  const hidePoints = !!quiz.sheet?.hidePoints;
+  const all = o.choiceFirst ? [...layout.choice, ...layout.free] : renumber([...layout.choice, ...layout.free], items);
   const total = items.reduce((n, i) => n + (i.points || 0), 0);
   const pts = (p: number) => String(p).replace('.', ',');
 
@@ -268,13 +285,15 @@ export async function buildQuizDocx(quiz: Quiz, tasksById?: Map<string, Task>): 
   }
 
   // rešitve
-  body.push(new Paragraph({ children: [new PageBreak()] }));
-  body.push(new Paragraph({ spacing: { after: 200 }, children: [run(`Rešitve — ${quiz.title || 'Kviz'}`, { bold: true }, 28)] }));
-  for (const c of all) {
-    const letters = c.options.filter(x => c.item.correct.includes(x.id)).map(x => x.letter).join(', ');
-    const ans = c.item.choice ? letters || '—' : c.item.answerText ?? '';
-    body.push(new Paragraph({ spacing: { after: 40 }, children: [run(`${c.n}. `, { bold: true }), ...(ans ? [run(ans, { bold: c.item.choice })] : [])] }));
-    if (c.item.solution) body.push(...htmlBlocks(c.item.solution, { imgs, indent: 6 }));
+  if (o.solutions) {
+    body.push(new Paragraph({ children: [new PageBreak()] }));
+    body.push(new Paragraph({ spacing: { after: 200 }, children: [run(`Rešitve — ${quiz.title || 'Kviz'}`, { bold: true }, 28)] }));
+    for (const c of all) {
+      const letters = c.options.filter(x => c.item.correct.includes(x.id)).map(x => x.letter).join(', ');
+      const ans = c.item.choice ? letters || '—' : c.item.answerText ?? '';
+      body.push(new Paragraph({ spacing: { after: 40 }, children: [run(`${c.n}. `, { bold: true }), ...(ans ? [run(ans, { bold: c.item.choice })] : [])] }));
+      if (c.item.solution) body.push(...htmlBlocks(c.item.solution, { imgs, indent: 6 }));
+    }
   }
 
   const doc = new Document({
