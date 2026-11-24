@@ -22,10 +22,10 @@ const cleanHtml = (h: string) => h
   .replace(/javascript:/gi, '');
 
 const MODEL = 'claude-sonnet-5-5';
-const ANSWER_KINDS: AnswerKind[] = ['mc', 'multi', 'tf', 'numeric', 'short', 'open'];
+const ANSWER_KINDS: AnswerKind[] = ['mc', 'multi', 'tf', 'numeric', 'open']; // »short« (kratek odgovor) je zdaj odprt odgovor
 const KIND_IDS: TaskKind[] = ['racunska', 'besedilna', 'graficna', 'skica', 'eksperimentalna', 'povezovanje'];
 
-/** Slog izbirnih nalog (ABCD, več možnosti, drži / ne drži): kratko in jedrnato (tudi zaradi tiska več testov na list). */
+/** Slog izbirnih nalog (ABCD, več možnosti, da / ne): kratko in jedrnato (tudi zaradi tiska več testov na list). */
 const MC_STYLE = 'Pri IZBIRNIH nalogah (mc, multi, tf) naj bosta besedilo vprašanja in možnosti praviloma JEDRNATA: kratko vprašanje (običajno ena ali dve povedi, brez nepotrebnega opisa situacije) ' +
   'in kratke možnosti (beseda, številka z enoto ali krajša poved). Daljše besedilo ali daljše možnosti le, kadar naloge drugače ni mogoče smiselno zastaviti (npr. potrebni podatki, utemeljitev). ';
 
@@ -146,7 +146,7 @@ export async function POST(request: Request) {
 
     const info = typeof o.topic_key === 'string' ? topicInfo(o.topic_key) : null;
     const validStd = new Set(info?.standards.map(s => s.id) ?? []);
-    const kind = ANSWER_KINDS.includes(o.answer_kind as AnswerKind) ? o.answer_kind as AnswerKind : (src.answer_kind ?? 'open');
+    const kind = ANSWER_KINDS.includes(o.answer_kind as AnswerKind) ? o.answer_kind as AnswerKind : (src.answer_kind && src.answer_kind !== 'short' ? src.answer_kind : 'open');
     const optTexts = Array.isArray(o.options) ? (o.options as unknown[]).map(String) : [];
     const ci = typeof o.correct_index === 'number' ? o.correct_index : null;
     let options: TaskDraft['options'] = null;

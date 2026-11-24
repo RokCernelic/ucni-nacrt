@@ -77,27 +77,27 @@ export const correctIds = (t: { answer_kind: AnswerKind; correct: string | null 
 export const LETTERS = 'ABCDEFGHIJKL';
 
 export const ANSWER_KINDS: { id: AnswerKind; name: string; quiz: boolean }[] = [
-  { id: 'mc', name: 'ABCD …', quiz: true },
+  { id: 'mc', name: 'ABCD', quiz: true },
   { id: 'multi', name: 'več možnosti', quiz: false },
-  { id: 'tf', name: 'drži / ne drži', quiz: true },
-  { id: 'numeric', name: 'kratek odgovor (število)', quiz: true },
-  { id: 'short', name: 'kratek odgovor', quiz: false },
-  { id: 'open', name: 'odprto / esejsko', quiz: false },
+  { id: 'tf', name: 'da / ne', quiz: true },
+  { id: 'numeric', name: 'odprt odgovor (število)', quiz: true },
+  { id: 'short', name: 'odprt odgovor', quiz: false },
+  { id: 'open', name: 'odprt odgovor', quiz: false },
 ];
 
 /**
- * Oblike odgovora, kot jih vidi učitelj (filtri, urejevalnik, generiranje kviza): »kratek odgovor« združuje kratko besedilo
- * in številski odgovor (ta se v kvizu samodejno točkuje, zato ostane v podatkih ločen kot 'numeric').
+ * Oblike odgovora, kot jih vidi učitelj (filtri, urejevalnik, generiranje kviza): ABCD, več možnosti, da / ne, odprt odgovor.
+ * »Odprt odgovor« združuje odprte naloge in številski odgovor (ta se v kvizu samodejno točkuje, zato ostane v podatkih
+ * ločen kot 'numeric'); stara oblika 'short' (kratek odgovor) šteje kot odprt odgovor.
  */
 export const ANSWER_GROUPS: { id: AnswerKind; name: string; kinds: AnswerKind[]; quiz: boolean; hint: string }[] = [
-  { id: 'mc', name: 'ABCD …', kinds: ['mc'], quiz: true, hint: 'Ena pravilna možnost med ponujenimi (samodejno točkovanje v kvizu)' },
+  { id: 'mc', name: 'ABCD', kinds: ['mc'], quiz: true, hint: 'Ena pravilna možnost med ponujenimi (samodejno točkovanje v kvizu)' },
   { id: 'multi', name: 'več možnosti', kinds: ['multi'], quiz: false, hint: 'Pravilnih možnosti je lahko več' },
-  { id: 'tf', name: 'drži / ne drži', kinds: ['tf'], quiz: true, hint: 'Trditev, ki drži ali ne drži (samodejno točkovanje v kvizu)' },
-  { id: 'short', name: 'kratek odgovor', kinds: ['short', 'numeric'], quiz: false, hint: 'Beseda, kratka poved ali število; če je odgovor število, se v kvizu točkuje samodejno' },
-  { id: 'open', name: 'odprto / esejsko', kinds: ['open'], quiz: false, hint: 'Daljši odgovor z razlago ali izračunom' },
+  { id: 'tf', name: 'da / ne', kinds: ['tf'], quiz: true, hint: 'Trditev, ki drži ali ne drži (samodejno točkovanje v kvizu)' },
+  { id: 'open', name: 'odprt odgovor', kinds: ['open', 'short', 'numeric'], quiz: false, hint: 'Učenec odgovor zapiše sam (beseda, razlaga, izračun); če je odgovor število, se v kvizu točkuje samodejno' },
 ];
 /** Skupina (oblika, kot jo vidi učitelj) za obliko odgovora v podatkih. */
-export const answerGroupOf = (k: AnswerKind): AnswerKind => (k === 'numeric' ? 'short' : k);
+export const answerGroupOf = (k: AnswerKind): AnswerKind => (k === 'numeric' || k === 'short' ? 'open' : k);
 
 export const SOURCES: { id: string; name: string }[] = [
   { id: 'lastna', name: 'lastna' },

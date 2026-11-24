@@ -310,7 +310,7 @@ export function parseTxt(text: string, defaultCurriculum: string): ImportResult 
     const chapter = meta.topic && !topic ? resolveChapter(curriculum, meta.topic) : null;
     if (meta.topic && !topic && !chapter) res.warnings.push(`vrstica ${at}: podpoglavja »${meta.topic}« ni v učnem načrtu — uvožena brez povezave`);
 
-    let answerKind: TaskDraft['answer_kind'] = meta.answer ? 'short' : 'open';
+    let answerKind: TaskDraft['answer_kind'] = 'open';
     if (numeric) answerKind = 'numeric';
     else if (options.length >= 2 && correct) {
       const tf = options.length === 2 && options.every(o => /^(drži|ne drži|drzi|ne drzi)$/i.test(o.text));

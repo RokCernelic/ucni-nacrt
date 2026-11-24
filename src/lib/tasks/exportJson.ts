@@ -125,7 +125,8 @@ export function parseTasksJson(text: string): JsonParse {
     const at = `naloga ${i + 1}`;
     const body = str(t?.body);
     if (!body || !body.replace(/<[^>]*>/g, '').trim()) { res.errors.push(`${at}: manjka besedilo`); return; }
-    const kind = KINDS.has(String(t.answer_kind)) ? (t.answer_kind as AnswerKind) : 'open';
+    // stara oblika »kratek odgovor« (short) se uvozi kot odprt odgovor
+    const kind = KINDS.has(String(t.answer_kind)) && t.answer_kind !== 'short' ? (t.answer_kind as AnswerKind) : 'open';
     if (!KINDS.has(String(t.answer_kind))) res.warnings.push(`${at}: neznana oblika odgovora — uvožena kot odprta`);
     const optionsRaw = Array.isArray(t.options) ? t.options : null;
     const options = optionsRaw

@@ -24,7 +24,7 @@ async function migrateLegacy(): Promise<Task[]> {
   try { legacy = JSON.parse(localStorage.getItem(LEGACY_KEY) || '{}'); } catch { return []; }
   const drafts: TaskDraft[] = Object.entries(legacy).flatMap(([topic, list]) => (list ?? []).map(q => emptyTask({
     body: q.text, answer: q.answer ?? null, bloom: q.bloom ?? null,
-    answer_kind: q.answer ? 'short' : 'open', curriculum: topic.split(':')[0] || null, topics: [topic],
+    answer_kind: 'open', curriculum: topic.split(':')[0] || null, topics: [topic],
   })));
   if (!drafts.length) { localStorage.removeItem(LEGACY_KEY); return []; }
   const inserted = await insertTasks(drafts);

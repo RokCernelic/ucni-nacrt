@@ -119,9 +119,9 @@ export default function TaskEditor({ initial, fixedTopic, onSave, onCancel, save
             </Chip>
           ))}
         </div>
-        {answerGroupOf(t.answer_kind) === 'short' && (
+        {answerGroupOf(t.answer_kind) === 'open' && (
           <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--body)', marginTop: '6px', cursor: 'pointer' }}>
-            <input type="checkbox" checked={t.answer_kind === 'numeric'} onChange={e => setKind(e.target.checked ? 'numeric' : 'short')} />
+            <input type="checkbox" checked={t.answer_kind === 'numeric'} onChange={e => setKind(e.target.checked ? 'numeric' : 'open')} />
             odgovor je število (vrednost, toleranca, enota — v kvizu se točkuje samodejno)
           </label>
         )}

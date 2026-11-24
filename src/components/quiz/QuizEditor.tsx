@@ -250,7 +250,7 @@ function QuestionView({ q, index, total, task, active, onEdit, onGenerate, onMov
           )}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
             {task ? <TaskBadges task={task} /> : (
-              <span style={badgeStyle('transparent', 'var(--muted)')}>{q.kind === 'numeric' ? 'kratek odgovor (število) · kviz' : q.kind === 'open' ? 'odprto (ročni pregled)' : 'ABCD · kviz'}</span>
+              <span style={badgeStyle('transparent', 'var(--muted)')}>{q.kind === 'numeric' ? 'odprt odgovor (število) · kviz' : q.kind === 'open' ? 'odprt odgovor (ročni pregled)' : 'ABCD · kviz'}</span>
             )}
             <span style={badgeStyle('var(--surface)', 'var(--body)')}>{pointsLabel(q.points)}</span>
             {problems.length > 0 && <span style={{ fontSize: '11px', color: '#b7791f' }}>⚠ {problems.join(' · ')}</span>}
@@ -639,7 +639,7 @@ export default function QuizEditor({ quizId }: { quizId: string }) {
           ) : (
             <>
               <button style={btn(true)} onClick={() => addQuestion(newMcQuestion())}>+ ABCD</button>
-              <button style={btn()} onClick={() => addQuestion(newTrueFalseQuestion())}>+ Drži / ne drži</button>
+              <button style={btn()} onClick={() => addQuestion(newTrueFalseQuestion())}>+ Da / ne</button>
               <button style={btn()} onClick={() => addQuestion(newNumericQuestion())}>+ Kratek odgovor (število)</button>
               <button style={btn()} onClick={() => addQuestion(newOpenQuestion())}>+ Odprto</button>
             </>

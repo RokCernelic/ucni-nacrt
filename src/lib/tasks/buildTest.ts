@@ -178,7 +178,6 @@ export function genRequestFor(slot: Slot, classes: BloomClass[]): { mods: string
   if (answerGroupOf(seed.answer_kind) !== slot.kind) {
     const m: Partial<Record<AnswerKind, string>> = { mc: 'abcd', multi: 'multi', tf: 'tf', numeric: 'stevilo', open: 'odprta' };
     if (m[slot.kind]) mods.push(m[slot.kind]!);
-    else if (slot.kind === 'short') extra.push('Spremeni v nalogo s KRATKIM odgovorom: če je odgovor eno število, uporabi answer_kind numeric (z enoto in toleranco), sicer short (beseda ali kratka poved).');
   }
   const cls = classes.find(c => c.id === slot.classId);
   if (cls && !(seed.bloom != null && cls.levels.includes(seed.bloom))) {
