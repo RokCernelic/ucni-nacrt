@@ -56,6 +56,14 @@ export default function PaperResult({ sessionId, studentId }: { sessionId: strin
   const took = Object.keys(answers).length > 0;
   const freeCount = lay.free.filter(c => !manualQs.some(q => q.id === c.item.id)).length;
   const cls = res.classAnswers ?? [];
+  /** rešitve prostih nalog (številske: pravilna vrednost; odprte: vzorčni odgovor, če ga je učitelj zapisal) */
+  const freeSols = lay.free.flatMap(c => {
+    const q = byId.get(c.item.id);
+    if (!q) return [];
+    const sol = q.kind === 'numeric' ? `${q.correct.replace('.', ',')}${q.tolerance ? ` ± ${formatNumber(q.tolerance)}` : ''}${q.unit ? ` ${q.unit}` : ''}`
+      : q.kind === 'open' ? (q.answer ?? '').trim() : '';
+    return sol ? [{ n: c.n, q, sol }] : [];
+  });
   const classAvg = cls.length ? ceilPct(cls.reduce((t, a) => t + scoreAnswers(quiz, a).percent, 0) / cls.length) : null;
   const label: React.CSSProperties = { fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted)', margin: '0 0 12px' };
 
@@ -78,7 +86,7 @@ export default function PaperResult({ sessionId, studentId }: { sessionId: strin
                 <b>{formatNumber(sc.points)}</b><span style={{ color: 'var(--muted)' }}> / {formatNumber(sc.maxPoints)}</span>
                 <b style={{ marginLeft: '10px', color: gradeColor(sc.percent) }}>{formatNumber(sc.percent)} %</b>
               </>) : (
-                <span style={{ color: 'var(--muted)' }}>– / {formatNumber(sc.maxPoints)} <span style={{ fontSize: '13px' }}>(ni sodeloval)</span></span>
+                <span style={{ color: 'var(--muted)' }}>– / {formatNumber(sc.maxPoints)} <span style={{ fontSize: '13px' }}>(list ni bil pregledan)</span></span>
               )}
             </div>
           </div>
@@ -89,6 +97,11 @@ export default function PaperResult({ sessionId, studentId }: { sessionId: strin
             </div>
           )}
         </div>
+        {!took && (
+          <p style={{ fontSize: '14px', color: '#1f4f8a', background: '#e9f1fb', border: '1px solid #c8d6e8', borderRadius: 'var(--r-sm)', padding: '8px 12px', margin: '0 0 12px', lineHeight: 1.5 }}>
+            Tvoj list ni bil skeniran, zato rezultata ni. Spodaj so <b>pravilni odgovori za tvoj list</b> (številke in črke so take kot na tvojem listu) — preveri se sam.
+          </p>
+        )}
         {/* ✓ pri pravilnih, rdeča črka pravilnega odgovora pri napačnih — v vrstnem redu tvojega lista */}
         <div style={{ overflowX: 'auto' }}>
           <table style={{ borderCollapse: 'collapse' }}>
@@ -99,6 +112,8 @@ export default function PaperResult({ sessionId, studentId }: { sessionId: strin
                   const v = answers[q.id];
                   const ok = !!v && isCorrect(q, v);
                   const right = c.options.filter(o => choiceIds(q.correct).includes(o.id)).map(o => o.letter).join('');
+                  // list ni bil skeniran: pravilna črka (za samopreverjanje)
+                  if (!took) return <td key={c.n} style={{ textAlign: 'center', padding: '4px 8px', fontWeight: 800, fontSize: '24px', color: 'var(--forest)' }}>{right || '–'}</td>;
                   return <td key={c.n} style={{ textAlign: 'center', padding: '4px 8px', fontWeight: 800, fontSize: '24px', color: !v ? 'var(--hairline)' : ok ? 'var(--green-ok)' : '#c0392b' }}>{!v ? '–' : ok ? '✓' : right}</td>;
                 })}
                 {manualCells.map(({ c, q }) => {
@@ -110,11 +125,15 @@ export default function PaperResult({ sessionId, studentId }: { sessionId: strin
             </tbody>
           </table>
         </div>
-        <p style={{ fontSize: '12px', color: 'var(--muted)', margin: '8px 0 0', lineHeight: 1.5 }}>
+        {!took ? (
+          <p style={{ fontSize: '12px', color: 'var(--muted)', margin: '8px 0 0', lineHeight: 1.5 }}>
+            Pod vsako številko naloge je črka pravilnega odgovora. Rešitve ostalih nalog so na dnu strani.
+          </p>
+        ) : <p style={{ fontSize: '12px', color: 'var(--muted)', margin: '8px 0 0', lineHeight: 1.5 }}>
           <b>Legenda:</b> <span style={{ color: 'var(--green-ok)', fontWeight: 700 }}>✓</span> pravilen odgovor ·{' '}
           <span style={{ color: '#c0392b', fontWeight: 700 }}>rdeča črka</span> = pravilni odgovor pri nalogi, ki si jo imel napačno ·{' '}
           – brez odgovora · pri ostalih nalogah dobljene točke. Številke so številke nalog na tvojem listu.
-        </p>
+        </p>}
       </div>
 
       <div style={{ ...box, marginTop: '14px' }}>
@@ -159,6 +178,24 @@ export default function PaperResult({ sessionId, studentId }: { sessionId: strin
         </ol>
         {freeCount > 0 && <p style={{ fontSize: '13px', color: 'var(--muted)', margin: '16px 0 0' }}>Odprta vprašanja ({freeCount}) pregleda učitelj ročno; v točkah zgoraj niso všteta.</p>}
       </div>
+
+      {freeSols.length > 0 && (
+        <div style={{ ...box, marginTop: '14px' }}>
+          <h2 style={label}>Rešitve ostalih nalog</h2>
+          <ol style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {freeSols.map(({ n, q, sol }) => (
+              <li key={n}>
+                <div style={{ fontSize: '15px', color: 'var(--ink)', whiteSpace: 'pre-wrap' }}><b>{n}.</b> {q.prompt}</div>
+                {q.image && (/* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={q.image} alt="" style={{ maxWidth: '100%', maxHeight: '220px', marginTop: '6px', borderRadius: 'var(--r-sm)' }} />)}
+                <div style={{ marginTop: '6px', padding: '6px 10px', borderRadius: 'var(--r-sm)', border: '1.5px solid var(--green-ok)', fontSize: '14px', whiteSpace: 'pre-wrap' }}>
+                  <b style={{ color: 'var(--green-ok)' }}>Rešitev:</b> {sol}
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
       </div>
     </div>
   );
